@@ -384,13 +384,41 @@
           <!-- กราฟแผนภูมิหลัก -->
           <div class="dashboard-layout">
             
-            <!-- ส่วนที่ 1: เปรียบเทียบตามมาตราของคดีและประเภท -->
-            <div class="glass-card">
-              <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 25px;">
-                <i class="fa-solid fa-chart-column"></i> เปรียบเทียบปริมาณคดีเข้าใหม่และยุติแยกตามมาตรา
-              </h3>
-              <div class="chart-container">
-                <div id="section-comparison-chart"></div>
+            <div class="dashboard-left-col">
+              <!-- ส่วนที่ 1: เปรียบเทียบตามมาตราของคดีและประเภท -->
+              <div class="glass-card">
+                <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 25px;">
+                  <i class="fa-solid fa-chart-column"></i> เปรียบเทียบปริมาณคดีเข้าใหม่และยุติแยกตามมาตรา
+                </h3>
+                <div class="chart-container">
+                  <div id="section-comparison-chart"></div>
+                </div>
+              </div>
+              
+              <!-- ส่วนที่ 1.5: กราฟเส้นแสดงแนวโน้มรายเดือน (Trend Line Chart) -->
+              <div class="glass-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;">
+                  <h3 style="font-family: var(--font-display); font-weight: 700; margin: 0;">
+                    <i class="fa-solid fa-chart-line"></i> แนวโน้มคดีรายเดือน
+                  </h3>
+                  <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                      <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">ปีเริ่มต้น:</span>
+                      <select class="form-control" style="width: auto; font-weight: 600; padding: 4px 30px 4px 12px; height: 36px; border-radius: 8px; font-size: 0.85rem;" v-model="selectedStartTrendYear" @change="onTrendStartYearChange">
+                        <option v-for="yr in availableYears" :key="yr" :value="yr">ปี {{ yr + 543 }}</option>
+                      </select>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                      <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">ปีสิ้นสุด:</span>
+                      <select class="form-control" style="width: auto; font-weight: 600; padding: 4px 30px 4px 12px; height: 36px; border-radius: 8px; font-size: 0.85rem;" v-model="selectedEndTrendYear" @change="onTrendEndYearChange">
+                        <option v-for="yr in availableYears" :key="yr" :value="yr">ปี {{ yr + 543 }}</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                <div class="chart-container">
+                  <div id="monthly-trend-line-chart"></div>
+                </div>
               </div>
             </div>
             

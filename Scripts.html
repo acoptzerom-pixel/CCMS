@@ -264,6 +264,13 @@
               body.classList.remove('dark-mode');
             }
           }
+          if (dashboardRawData.value) {
+            nextTick(() => {
+              renderSectionComparisonChart(dashboardRawData.value.newCaseSections, dashboardRawData.value.closedCaseSections, dashboardRawData.value.pendingCaseSections);
+              renderTopChargesChart(stats.topCharges);
+              if (trendData.value) renderTrendLineChart();
+            });
+          }
         });
 
         function onPageInputChange(e) {
@@ -308,6 +315,11 @@
           start: currentYearForFilter + '-01-01',
           end: formatLocalDateString(new Date())
         });
+
+        const selectedStartTrendYear = ref(currentYearForFilter);
+        const selectedEndTrendYear = ref(currentYearForFilter);
+        const availableYears = ref([]);
+        const trendData = ref(null);
 
         // Drop-down lists loaded dynamically
         const selectLists = reactive({
@@ -367,6 +379,7 @@
         // Charts handles
         let comparisonChart = null;
         let pieChart = null;
+        let trendLineChart = null;
 
         // Wake up handler to refresh app state on mobile tab active
         let lastFocusTime = Date.now();
@@ -782,12 +795,26 @@
           unfilteredStats.ageCounts = data.ageCountsBySection ? (data.ageCountsBySection["ทั้งหมด"] || {}) : (data.ageCounts || {});
           unfilteredStats.districtCounts = data.districtCountsBySection ? (data.districtCountsBySection["ทั้งหมด"] || {}) : (data.districtCounts || {});
           
+          if (data.trendData) trendData.value = data.trendData;
+          if (data.availableYears) {
+            availableYears.value = data.availableYears;
+            if (availableYears.value.length > 0) {
+              if (!selectedStartTrendYear.value || !availableYears.value.includes(selectedStartTrendYear.value)) {
+                selectedStartTrendYear.value = availableYears.value[0];
+              }
+              if (!selectedEndTrendYear.value || !availableYears.value.includes(selectedEndTrendYear.value)) {
+                selectedEndTrendYear.value = availableYears.value[availableYears.value.length - 1];
+              }
+            }
+          }
+          
           applyDashboardFilters();
           
           // อัปเดตกราฟแสดงสถิติ (nextTick เพื่อให้แน่ใจว่าแท็กของกราฟเรนเดอร์เรียบร้อย)
           nextTick(() => {
             renderSectionComparisonChart(data.newCaseSections, data.closedCaseSections, data.pendingCaseSections);
             renderTopChargesChart(stats.topCharges);
+            if (trendData.value) renderTrendLineChart();
           });
         }
 
@@ -848,6 +875,7 @@
         // เพิ่มตัวคอยเฝ้าดูเพื่อให้ทำงานทันทีที่เปลี่ยนมาตรา
         watch(selectedSectionFilter, () => {
           onSectionFilterChange();
+          if (trendData.value) renderTrendLineChart();
         });
 
         function renderSectionComparisonChart(newCases, closedCases, pendingCases) {
@@ -1006,6 +1034,142 @@
           pieChart = new ApexCharts(chartEl, options);
           pieChart.render();
         }
+
+        function renderTrendLineChart() {
+          const chartEl = document.querySelector("#monthly-trend-line-chart");
+          if (!chartEl) return;
+          
+          if (!trendData.value) {
+            chartEl.innerHTML = "<div style='display:flex;align-items:center;justify-content:center;height:320px;color:var(--text-muted);font-size:0.85rem;width:100%;'>ไม่มีข้อมูลแนวโน้มคดี</div>";
+            return;
+          }
+          
+          const startYear = selectedStartTrendYear.value;
+          const endYear = selectedEndTrendYear.value;
+          
+          const yearsToPlot = [];
+          for (let yr = startYear; yr <= endYear; yr++) {
+            yearsToPlot.push(yr);
+          }
+          
+          if (yearsToPlot.length === 0) {
+            chartEl.innerHTML = "<div style='display:flex;align-items:center;justify-content:center;height:320px;color:var(--text-muted);font-size:0.85rem;width:100%;'>กรุณาเลือกช่วงปีที่ถูกต้อง</div>";
+            return;
+          }
+          
+          const categories = thaiMonths;
+          const series = [];
+          const colors = [];
+          
+          const lightPalette = [
+            '#4f46e5', // Indigo
+            '#06b6d4', // Cyan
+            '#10b981', // Emerald
+            '#f59e0b', // Amber
+            '#ec4899', // Pink
+            '#8b5cf6', // Violet
+            '#ef4444', // Red
+            '#3b82f6', // Blue
+            '#14b8a6', // Teal
+            '#f43f5e'  // Rose
+          ];
+          const darkPalette = [
+            '#818cf8', // Indigo
+            '#22d3ee', // Cyan
+            '#34d399', // Emerald
+            '#fbbf24', // Amber
+            '#f472b6', // Pink
+            '#a78bfa', // Violet
+            '#f87171', // Red
+            '#60a5fa', // Blue
+            '#2dd4bf', // Teal
+            '#fb7185'  // Rose
+          ];
+          
+          const isDark = document.getElementById('app-body').classList.contains('dark-mode');
+          const colorPalette = isDark ? darkPalette : lightPalette;
+          
+          const section = selectedSectionFilter.value || "ทั้งหมด";
+          
+          yearsToPlot.forEach((yr, idx) => {
+            const yearData = trendData.value[yr];
+            let seriesNew = [0,0,0,0,0,0,0,0,0,0,0,0];
+            if (yearData && yearData[section]) {
+              seriesNew = yearData[section].newCases || [0,0,0,0,0,0,0,0,0,0,0,0];
+            }
+            
+            series.push({
+              name: `ปี ${yr + 543}`,
+              data: seriesNew
+            });
+            
+            colors.push(colorPalette[idx % colorPalette.length]);
+          });
+          
+          const options = {
+            series: series,
+            chart: {
+              type: 'line',
+              height: 350,
+              toolbar: { show: false },
+              background: 'transparent',
+              zoom: { enabled: false }
+            },
+            colors: colors,
+            stroke: {
+              curve: 'smooth',
+              width: 3
+            },
+            markers: {
+              size: 4,
+              strokeWidth: 0,
+              hover: { size: 6 }
+            },
+            dataLabels: { enabled: false },
+            xaxis: {
+              categories: categories,
+              labels: {
+                style: { colors: '#94a3b8', fontSize: '11px', fontFamily: 'Sarabun' }
+              }
+            },
+            yaxis: {
+              title: { text: 'จำนวนคดีเข้าใหม่ (ราย)', style: { color: '#94a3b8', fontFamily: 'Sarabun' } },
+              labels: { style: { colors: '#94a3b8' } }
+            },
+            legend: {
+              position: 'top',
+              labels: { colors: '#94a3b8', fontFamily: 'Sarabun' }
+            },
+            theme: { mode: isDark ? 'dark' : 'light' },
+            grid: {
+              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
+            },
+            tooltip: {
+              shared: true,
+              intersect: false,
+              theme: isDark ? 'dark' : 'light'
+            }
+          };
+          
+          if (trendLineChart) trendLineChart.destroy();
+          trendLineChart = new ApexCharts(chartEl, options);
+          trendLineChart.render();
+        }
+
+        function onTrendStartYearChange() {
+          if (selectedStartTrendYear.value > selectedEndTrendYear.value) {
+            selectedEndTrendYear.value = selectedStartTrendYear.value;
+          }
+          renderTrendLineChart();
+        }
+
+        function onTrendEndYearChange() {
+          if (selectedEndTrendYear.value < selectedStartTrendYear.value) {
+            selectedStartTrendYear.value = selectedEndTrendYear.value;
+          }
+          renderTrendLineChart();
+        }
+
 
         // ------------------ SEARCH & CRUD LOGIC ------------------
 
@@ -2432,9 +2596,87 @@
               "มาตรา 132 วรรคสอง": 3,
               "คดีจากศาลอื่น": 2,
               "คดีอื่นๆ": 0
-            }
+            },
+            trendData: {
+              2025: {
+                "ทั้งหมด": {
+                  newCases: [5, 10, 15, 8, 12, 20, 25, 18, 14, 22, 30, 25],
+                  closedCases: [4, 8, 12, 10, 10, 15, 20, 22, 15, 18, 25, 28],
+                  pendingCases: [10, 12, 15, 13, 15, 20, 25, 21, 20, 24, 29, 26]
+                },
+                "มาตรา 73": {
+                  newCases: [2, 3, 5, 2, 4, 6, 8, 5, 4, 6, 10, 8],
+                  closedCases: [1, 2, 4, 3, 3, 5, 6, 7, 4, 5, 8, 9],
+                  pendingCases: [3, 4, 5, 4, 5, 6, 8, 6, 6, 7, 9, 8]
+                },
+                "มาตรา 90": {
+                  newCases: [1, 2, 3, 2, 2, 4, 5, 4, 3, 4, 6, 5],
+                  closedCases: [1, 1, 3, 2, 2, 3, 4, 5, 3, 3, 5, 6],
+                  pendingCases: [2, 3, 3, 3, 3, 4, 5, 4, 4, 5, 6, 5]
+                },
+                "มาตรา 132 วรรคหนึ่ง": {
+                  newCases: [1, 3, 4, 2, 3, 6, 7, 5, 4, 7, 8, 7],
+                  closedCases: [1, 2, 3, 3, 3, 4, 6, 6, 5, 6, 7, 8],
+                  pendingCases: [3, 4, 5, 4, 4, 6, 7, 6, 5, 6, 7, 6]
+                },
+                "มาตรา 132 วรรคสอง": {
+                  newCases: [1, 1, 2, 1, 2, 2, 3, 2, 2, 3, 4, 3],
+                  closedCases: [1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3],
+                  pendingCases: [1, 1, 2, 2, 3, 3, 4, 4, 4, 5, 6, 6]
+                },
+                "คดีจากศาลอื่น": {
+                  newCases: [0, 1, 1, 1, 1, 2, 2, 2, 1, 2, 2, 2],
+                  closedCases: [0, 1, 1, 1, 1, 1, 2, 2, 1, 2, 2, 2],
+                  pendingCases: [1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2]
+                },
+                "คดีอื่นๆ": {
+                  newCases: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                  closedCases: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                  pendingCases: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+                }
+              },
+              2026: {
+                "ทั้งหมด": {
+                  newCases: [10, 15, 20, 12, 18, 25, 30, 22, 18, 26, 35, 30],
+                  closedCases: [8, 12, 16, 14, 15, 20, 25, 26, 20, 22, 30, 32],
+                  pendingCases: [15, 18, 22, 20, 23, 28, 33, 29, 27, 31, 36, 34]
+                },
+                "มาตรา 73": {
+                  newCases: [3, 4, 6, 3, 5, 7, 9, 6, 5, 7, 12, 10],
+                  closedCases: [2, 3, 5, 4, 4, 6, 7, 8, 5, 6, 10, 11],
+                  pendingCases: [4, 5, 6, 5, 6, 7, 9, 7, 7, 8, 10, 9]
+                },
+                "มาตรา 90": {
+                  newCases: [2, 3, 4, 3, 3, 5, 6, 5, 4, 5, 8, 7],
+                  closedCases: [2, 2, 4, 3, 3, 4, 5, 6, 4, 4, 7, 8],
+                  pendingCases: [3, 4, 4, 4, 4, 5, 6, 5, 5, 6, 7, 6]
+                },
+                "มาตรา 132 วรรคหนึ่ง": {
+                  newCases: [3, 5, 6, 4, 5, 8, 9, 7, 6, 9, 10, 9],
+                  closedCases: [2, 4, 5, 5, 5, 6, 8, 8, 7, 8, 9, 10],
+                  pendingCases: [5, 6, 7, 6, 6, 8, 9, 8, 7, 8, 9, 8]
+                },
+                "มาตรา 132 วรรคสอง": {
+                  newCases: [2, 2, 3, 2, 3, 3, 4, 3, 3, 4, 5, 4],
+                  closedCases: [2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4],
+                  pendingCases: [2, 2, 3, 3, 4, 4, 5, 5, 5, 6, 7, 7]
+                },
+                "คดีจากศาลอื่น": {
+                  newCases: [0, 1, 1, 0, 2, 2, 2, 1, 0, 1, 0, 0],
+                  closedCases: [0, 1, 1, 0, 1, 2, 2, 1, 0, 1, 0, 0],
+                  pendingCases: [1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2]
+                },
+                "คดีอื่นๆ": {
+                  newCases: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                  closedCases: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                  pendingCases: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+                }
+              }
+            },
+            availableYears: [2025, 2026]
           };
           updateDashboardUI(data);
+
         }
 
         function simulateOfflineSelectLists() {
@@ -2647,6 +2889,9 @@
            // Section filter states
            selectedSectionFilter, onSectionFilterChange,
            dashboardZoom, adjustDashboardZoom,
+           
+           // Trend chart states & functions
+           selectedStartTrendYear, selectedEndTrendYear, availableYears, trendData, onTrendStartYearChange, onTrendEndYearChange,
           
           // Unfiltered stats for print preview
           unfilteredStats

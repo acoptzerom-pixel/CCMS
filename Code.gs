@@ -876,6 +876,103 @@ function getDashboardData(startDateStr, endDateStr, token) {
       sortedDistrictsBySection[sec] = sortedDist;
     }
     
+    // === Monthly Trend Chart Computation ===
+    var availableYearsSet = {};
+    var trendDataObj = {};
+    
+    var allSectionsList = ["ทั้งหมด", "มาตรา 73", "มาตรา 90", "มาตรา 132 วรรคหนึ่ง", "มาตรา 132 วรรคสอง", "คดีจากศาลอื่น", "คดีอื่นๆ"];
+    function initYearInTrendData(yr) {
+      if (!trendDataObj[yr]) {
+        trendDataObj[yr] = {};
+        for (var s = 0; s < allSectionsList.length; s++) {
+          var sec = allSectionsList[s];
+          trendDataObj[yr][sec] = {
+            newCases: [0,0,0,0,0,0,0,0,0,0,0,0],
+            closedCases: [0,0,0,0,0,0,0,0,0,0,0,0],
+            pendingCases: [0,0,0,0,0,0,0,0,0,0,0,0]
+          };
+        }
+      }
+    }
+
+    var currentYear = new Date().getFullYear();
+    
+    for (var i = 0; i < cases.length; i++) {
+      var c = cases[i];
+      var sectionLabel = "คดีอื่นๆ";
+      var ctId = parseFloat(c.case_type_id);
+      var subCtId = parseFloat(c.sub_case_type_id);
+      
+      if (ctId === 1) sectionLabel = "มาตรา 73";
+      else if (ctId === 2) sectionLabel = "มาตรา 90";
+      else if (ctId === 3) {
+        if (subCtId === 2) sectionLabel = "มาตรา 132 วรรคสอง";
+        else sectionLabel = "มาตรา 132 วรรคหนึ่ง";
+      } else if (ctId === 5 || ctId === 6 || ctId === 7) sectionLabel = "คดีจากศาลอื่น";
+      else sectionLabel = "คดีอื่นๆ";
+      
+      var bDate = c.black_date ? normalizeSheetDate(c.black_date) : null;
+      var rDate = c.red_date ? normalizeSheetDate(c.red_date) : null;
+      
+      if (bDate) {
+        var bYear = bDate.getFullYear();
+        var bMonth = bDate.getMonth();
+        availableYearsSet[bYear] = true;
+        initYearInTrendData(bYear);
+        trendDataObj[bYear]["ทั้งหมด"].newCases[bMonth]++;
+        trendDataObj[bYear][sectionLabel].newCases[bMonth]++;
+      }
+      
+      if (rDate) {
+        var rYear = rDate.getFullYear();
+        var rMonth = rDate.getMonth();
+        availableYearsSet[rYear] = true;
+        initYearInTrendData(rYear);
+        trendDataObj[rYear]["ทั้งหมด"].closedCases[rMonth]++;
+        trendDataObj[rYear][sectionLabel].closedCases[rMonth]++;
+      }
+    }
+    
+    availableYearsSet[currentYear] = true;
+    var availableYearsList = Object.keys(availableYearsSet).map(Number).sort(function(a, b) { return a - b; });
+    var minYear = availableYearsList.length > 0 ? availableYearsList[0] : currentYear;
+    var maxYear = currentYear;
+    
+    var availableYears = [];
+    for (var y = minYear; y <= maxYear; y++) {
+      availableYears.push(y);
+      initYearInTrendData(y);
+    }
+    
+    for (var yIdx = 0; yIdx < availableYears.length; yIdx++) {
+      var yr = availableYears[yIdx];
+      for (var mo = 0; mo < 12; mo++) {
+        var endOfMonth = new Date(yr, mo + 1, 0, 23, 59, 59, 999);
+        for (var i = 0; i < cases.length; i++) {
+          var c = cases[i];
+          var bDate = c.black_date ? normalizeSheetDate(c.black_date) : null;
+          var rDate = c.red_date ? normalizeSheetDate(c.red_date) : null;
+          if (!bDate) continue;
+          
+          if (bDate <= endOfMonth && (!rDate || rDate > endOfMonth)) {
+             var sectionLabel = "คดีอื่นๆ";
+             var ctId = parseFloat(c.case_type_id);
+             var subCtId = parseFloat(c.sub_case_type_id);
+             if (ctId === 1) sectionLabel = "มาตรา 73";
+             else if (ctId === 2) sectionLabel = "มาตรา 90";
+             else if (ctId === 3) {
+               if (subCtId === 2) sectionLabel = "มาตรา 132 วรรคสอง";
+               else sectionLabel = "มาตรา 132 วรรคหนึ่ง";
+             } else if (ctId === 5 || ctId === 6 || ctId === 7) sectionLabel = "คดีจากศาลอื่น";
+             else sectionLabel = "คดีอื่นๆ";
+             
+             trendDataObj[yr]["ทั้งหมด"].pendingCases[mo]++;
+             trendDataObj[yr][sectionLabel].pendingCases[mo]++;
+          }
+        }
+      }
+    }
+
     return {
       success: true,
       data: {
@@ -892,6 +989,8 @@ function getDashboardData(startDateStr, endDateStr, token) {
         ageCountsBySection: ageCountsBySection,
         districtCounts: sortedDistrictsBySection["ทั้งหมด"],
         districtCountsBySection: sortedDistrictsBySection,
+        trendData: trendDataObj,
+        availableYears: availableYears,
         period: {
           start: start.toISOString(),
           end: end.toISOString()
