@@ -1,0 +1,2656 @@
+  <script>
+    /* ==========================================================================
+       VUE 3 APPLICATION CORE & API WRAPPERS
+       ========================================================================== */
+    const { createApp, ref, reactive, onMounted, nextTick, computed, watch } = Vue;
+
+    createApp({
+      setup() {
+        // Helper function for local date formatting (ISO style YYYY-MM-DD based on local timezone)
+        function formatLocalDateString(date) {
+          if (!date) return "";
+          var d = new Date(date);
+          if (isNaN(d.getTime())) return "";
+          var year = d.getFullYear();
+          if (year > 2400) year -= 543;
+          var month = ("0" + (d.getMonth() + 1)).slice(-2);
+          var day = ("0" + d.getDate()).slice(-2);
+          return year + "-" + month + "-" + day;
+        }
+
+        // Helper function to sanitize a YYYY-MM-DD string to use Gregorian calendar year (subtracts 543 if > 2400)
+        function sanitizeGregorianDateString(dateStr) {
+          if (!dateStr || typeof dateStr !== "string") return dateStr;
+          var parts = dateStr.split("-");
+          if (parts.length === 3) {
+            var year = parseInt(parts[0], 10);
+            if (!isNaN(year) && year > 2400) {
+              year -= 543;
+              return year + "-" + parts[1] + "-" + parts[2];
+            }
+          }
+          return dateStr;
+        }
+
+        // App State
+        const session = ref(null);
+        const currentView = ref('dashboard');
+        const authView = ref('login');
+        
+        const loading = ref(false);
+        const errorMsg = ref('');
+        const cacheTime = ref('');
+        const isOffline = ref(false);
+        const authAlert = ref('');
+        const adminProfileImage = ref('');
+        const isEditingProfile = ref(false);
+        
+        const isDarkTheme = ref(true);
+        const currentTime = ref('');
+        const currentThaiDate = ref('');
+        
+        // Form & Queries state
+        const searchId = ref('');
+        const searchDone = ref(false);
+        const currentDef = ref(null);
+        const linkedCases = ref([]);
+        const newDefFormActive = ref(false);
+        const usersList = ref([]);
+        const counselorsList = ref([]);
+        
+        // Counselor controls
+        const confirmDeleteCounselorModalActive = ref(false);
+        const deleteCounselorPassword = ref('');
+        const counselorToDelete = ref(null);
+        const addCounselorModalActive = ref(false);
+        const counselorForm = reactive({
+          userId: '',
+          counselorName: '',
+          counselorPosition: '',
+          counselorPositionSecond: ''
+        });
+
+        // Calendar state
+        const initialYear = new Date().getFullYear() > 2400 ? new Date().getFullYear() - 543 : new Date().getFullYear();
+        const calendarYear = ref(initialYear);
+        const calendarMonth = ref(new Date().getMonth());
+        const appointments = ref([]);
+        const selectedDate = ref(formatLocalDateString(new Date()));
+        
+        // Calendar Detail Modal State
+        const calendarDetailModalActive = ref(false);
+        const calendarDetailDef = ref(null);
+        const calendarDetailCases = ref([]);
+        const calendarDetailReason = ref('');
+        
+        const thaiMonths = [
+          "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+          "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+        ];
+
+        // Paginated Card list states
+        const defendantsList = ref([]);
+        const cardSearchQuery = ref('');
+        const cardCurrentPage = ref(1);
+        const cardPageSize = 9;
+
+        // Computed properties for filtering cards list
+        const filteredDefendants = computed(() => {
+          try {
+            const query = cardSearchQuery.value.trim().toLowerCase();
+            if (!query) return defendantsList.value;
+            
+            return defendantsList.value.filter(def => {
+              if (!def) return false;
+              const firstName = String(def.first_name || '').toLowerCase();
+              const lastName = String(def.last_name || '').toLowerCase();
+              const nickName = String(def.nick_name || '').toLowerCase();
+              const citizenId = String(def.citizen_id || '').toLowerCase();
+              
+              if (firstName.includes(query) || 
+                  lastName.includes(query) || 
+                  nickName.includes(query) || 
+                  citizenId.includes(query)) {
+                return true;
+              }
+              
+              if (def.cases && Array.isArray(def.cases) && def.cases.length > 0) {
+                return def.cases.some(c => {
+                  if (!c) return false;
+                  const blackCase = String(c.black_case || '').toLowerCase();
+                  const courtBlackCase = String(c.court_black_case || '').toLowerCase();
+                  const redCaseNo = c.red_case_no ? String(c.red_case_no).toLowerCase() : '';
+                  const redCaseYear = c.red_case_year ? String(c.red_case_year).toLowerCase() : '';
+                  const redCaseFull = redCaseNo && redCaseYear ? redCaseNo + "/" + redCaseYear : "";
+                  
+                  if (blackCase.includes(query) || 
+                      courtBlackCase.includes(query) || 
+                      redCaseNo.includes(query) ||
+                      redCaseFull.includes(query)) {
+                    return true;
+                  }
+                  
+                  // Numbers check
+                  const queryNumbersOnly = query.replace(/\D/g, '');
+                  if (queryNumbersOnly) {
+                    const blackMatch = blackCase.match(/\d+/g);
+                    if (blackMatch && blackMatch.some(num => num.includes(queryNumbersOnly))) {
+                      return true;
+                    }
+                    const courtMatch = courtBlackCase.match(/\d+/g);
+                    if (courtMatch && courtMatch.some(num => num.includes(queryNumbersOnly))) {
+                      return true;
+                    }
+                  }
+                  return false;
+                });
+              }
+              return false;
+            });
+          } catch (err) {
+            console.error("Filter error:", err);
+            errorMsg.value = "ระบบค้นหาขัดข้อง: " + err.message;
+            return defendantsList.value;
+          }
+        });
+
+        const totalPages = computed(() => {
+          return Math.ceil(filteredDefendants.value.length / cardPageSize) || 1;
+        });
+
+        const paginatedDefendants = computed(() => {
+          const start = (cardCurrentPage.value - 1) * cardPageSize;
+          const end = start + cardPageSize;
+          return filteredDefendants.value.slice(start, end);
+        });
+
+        // Computed properties for the Calendar
+        const calendarDays = computed(() => {
+          const year = calendarYear.value;
+          const month = calendarMonth.value;
+          
+          // First day of current month (0-6, where 0 is Sunday)
+          const firstDayIndex = new Date(year, month, 1).getDay();
+          
+          // Total days in current month
+          const totalDays = new Date(year, month + 1, 0).getDate();
+          
+          // Total days in previous month
+          const prevTotalDays = new Date(year, month, 0).getDate();
+          
+          const days = [];
+          
+          // 1. Fill in padding days from previous month
+          for (let i = firstDayIndex - 1; i >= 0; i--) {
+            const dayNum = prevTotalDays - i;
+            const prevMonthDate = new Date(year, month - 1, dayNum);
+            const dateStr = formatLocalDateString(prevMonthDate);
+            
+            days.push({
+              dayNumber: dayNum,
+              dateString: dateStr,
+              isCurrentMonth: false,
+              isToday: isSameDate(prevMonthDate, new Date()),
+              appointments: getAppointmentsForDate(dateStr)
+            });
+          }
+          
+          // 2. Fill in days of current month
+          for (let i = 1; i <= totalDays; i++) {
+            const currDate = new Date(year, month, i);
+            const dateStr = formatLocalDateString(currDate);
+            
+            days.push({
+              dayNumber: i,
+              dateString: dateStr,
+              isCurrentMonth: true,
+              isToday: isSameDate(currDate, new Date()),
+              appointments: getAppointmentsForDate(dateStr)
+            });
+          }
+          
+          // 3. Fill in padding days from next month to complete the grid (total 42 days for 6 rows)
+          const totalGridCells = 42;
+          const remainingCells = totalGridCells - days.length;
+          for (let i = 1; i <= remainingCells; i++) {
+            const nextMonthDate = new Date(year, month + 1, i);
+            const dateStr = formatLocalDateString(nextMonthDate);
+            
+            days.push({
+              dayNumber: i,
+              dateString: dateStr,
+              isCurrentMonth: false,
+              isToday: isSameDate(nextMonthDate, new Date()),
+              appointments: getAppointmentsForDate(dateStr)
+            });
+          }
+          
+          return days;
+        });
+
+        const selectedDayAppointments = computed(() => {
+          if (!selectedDate.value) return [];
+          return appointments.value.filter(app => app.appointment_date === selectedDate.value);
+        });
+
+        // Helper functions for date checks
+
+        function isSameDate(d1, d2) {
+          const y1 = d1.getFullYear() > 2400 ? d1.getFullYear() - 543 : d1.getFullYear();
+          const y2 = d2.getFullYear() > 2400 ? d2.getFullYear() - 543 : d2.getFullYear();
+          return y1 === y2 &&
+                 d1.getMonth() === d2.getMonth() &&
+                 d1.getDate() === d2.getDate();
+        }
+
+        function getAppointmentsForDate(dateStr) {
+          return appointments.value.filter(app => app.appointment_date === dateStr);
+        }
+
+        // Watch filter list changes to reset active page if bounds overflow
+        watch(filteredDefendants, () => {
+          if (cardCurrentPage.value > totalPages.value) {
+            cardCurrentPage.value = 1;
+          }
+        });
+
+        watch(isDarkTheme, (newVal) => {
+          localStorage.setItem('theme', newVal ? 'dark' : 'light');
+          const body = document.getElementById('app-body');
+          if (body) {
+            if (newVal) {
+              body.classList.add('dark-mode');
+            } else {
+              body.classList.remove('dark-mode');
+            }
+          }
+        });
+
+        function onPageInputChange(e) {
+          let val = parseInt(e.target.value, 10);
+          if (isNaN(val) || val < 1) {
+            cardCurrentPage.value = 1;
+          } else if (val > totalPages.value) {
+            cardCurrentPage.value = totalPages.value;
+          } else {
+            cardCurrentPage.value = val;
+          }
+          e.target.value = cardCurrentPage.value;
+        }
+
+        function countCourtCases(cases) {
+          if (!cases || !Array.isArray(cases)) return 0;
+          return cases.filter(c => c.court_black_case && c.court_black_case.toString().trim() !== '').length;
+        }
+        
+        // Modals toggle
+        const caseModalActive = ref(false);
+        const caseFormMode = ref('add');
+        const editDefModalActive = ref(false);
+        const confirmDeleteDefModalActive = ref(false);
+        const deleteConfirmPassword = ref('');
+        
+        const settingsModalActive = ref(false);
+        const settingsTab = ref('profile');
+        const settingsForm = reactive({ username: '', fullName: '', position: '', phone: '', email: '', createdAt: '', profileImage: '' });
+        const pwdForm = reactive({ oldPassword: '', newPassword: '', confirmPassword: '' });
+
+        // Date Filter State
+        const selectedSectionFilter = ref("ทั้งหมด");
+        const dashboardRawData = ref(null);
+        const printModalActive = ref(false);
+        const dashboardZoom = ref(1.0);
+        let initialDashDistance = 0;
+        let initialDashZoom = 1.0;
+
+        const currentYearForFilter = new Date().getFullYear() > 2400 ? new Date().getFullYear() - 543 : new Date().getFullYear();
+        const dashboardFilter = reactive({
+          start: currentYearForFilter + '-01-01',
+          end: formatLocalDateString(new Date())
+        });
+
+        // Drop-down lists loaded dynamically
+        const selectLists = reactive({
+          charges: [],
+          caseTypes: [],
+          subCaseTypes: [],
+          counselors: [],
+          approverName: '',
+          acknowledgerName: ''
+        });
+
+        // Statistics aggregates for dashboard UI
+        const stats = reactive({
+          totalNewCases: 0,
+          totalClosedCases: 0,
+          totalCarriedForward: 0,
+          recidivismCount: 0,
+          topCharges: [],
+          genderCounts: {},
+          ageCounts: {},
+          districtCounts: {}
+        });
+
+        const unfilteredStats = reactive({
+          totalNewCases: 0,
+          totalClosedCases: 0,
+          totalCarriedForward: 0,
+          recidivismCount: 0,
+          topCharges: [],
+          genderCounts: {},
+          ageCounts: {},
+          districtCounts: {}
+        });
+
+        // Local Form States
+        const loginForm = reactive({ usernameOrEmail: '', password: '' });
+        const registerForm = reactive({ full_name: '', email: '', username: '', position: '', password: '' });
+        
+        const defForm = reactive({
+          citizen_id: '', title_name: 'นาย', first_name: '', last_name: '', nick_name: '',
+          gender: 'ชาย', birth_date: '', phone_number: '', address: '',
+          medical_history: '', drug_history: '', interested: '',
+          guardian_name: '', relationship: '', phone_number_guardian: '', occupation_guardian: '',
+          psy_diagnosis: ''
+        });
+
+        const caseForm = reactive({
+          rowNum: null, citizen_id: '', black_date: '', black_case: '',
+          case_type_id: '', sub_case_type_id: '', case_type_abb: '',
+          black_case_no: '', black_case_year: '', prosecutor: '',
+          charge: '', charge_no: '', age_at_offense: 0,
+          red_date: '', red_case_no: '', red_case_year: '', red_because: '',
+          recidivism: 'ไม่ซ้ำ', user_id: '', counselor: '', judge: '',
+          officer: '', mediator: '', note: ''
+        });
+
+        // Charts handles
+        let comparisonChart = null;
+        let pieChart = null;
+
+        // Wake up handler to refresh app state on mobile tab active
+        let lastFocusTime = Date.now();
+        function handleWakeUpRefresh() {
+          const now = Date.now();
+          if (now - lastFocusTime > 5000) {
+            lastFocusTime = now;
+            if (session.value && session.value.token) {
+              loadInitialAppState(false);
+            }
+          }
+        }
+
+        // Startup Hooks
+        onMounted(() => {
+          checkSavedSession();
+          fetchAdminProfileImage();
+          
+          // ตั้งค่าธีมอัตโนมัติตามเวลา หรือดึงค่าจากที่บันทึกไว้ล่าสุด
+          const savedTheme = localStorage.getItem('theme');
+          if (savedTheme) {
+            isDarkTheme.value = (savedTheme === 'dark');
+          } else {
+            const hour = new Date().getHours();
+            isDarkTheme.value = (hour >= 18 || hour < 6);
+          }
+          // บังคับเปลี่ยนสีกรอบทันทีที่เปิดหน้าระบบ
+          const body = document.getElementById('app-body');
+          if (body) {
+            if (isDarkTheme.value) {
+              body.classList.add('dark-mode');
+            } else {
+              body.classList.remove('dark-mode');
+            }
+          }
+          
+          // เริ่มตัวอัปเดตเวลานาฬิกา
+          updateTime();
+          setInterval(updateTime, 1000);
+          
+          // ตัวช่วยปรับขนาดหน้าตัวอย่างรายงานบนหน้าจอโทรศัพท์
+          window.addEventListener('resize', updateReportZoom);
+          updateReportZoom();
+
+          // wake up listeners (iOS Safari suspended tab resumption handler)
+          window.addEventListener('focus', handleWakeUpRefresh);
+          document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+              handleWakeUpRefresh();
+            }
+          });
+
+          // ลงทะเบียน Touch Events สำหรับการจีบนิ้วย่อขยายหน้าจอแดชบอร์ดหลักที่ระดับ window
+          window.addEventListener('touchstart', handleDashTouchStart, { passive: true });
+          window.addEventListener('touchmove', handleDashTouchMove, { passive: false });
+          window.addEventListener('touchend', handleDashTouchEnd, { passive: true });
+        });
+
+        function fetchAdminProfileImage() {
+          const executeFetch = () => {
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+              google.script.run
+                .withSuccessHandler((img) => {
+                  adminProfileImage.value = img || '';
+                })
+                .getAdminProfileImage();
+              return true;
+            }
+            return false;
+          };
+
+          if (executeFetch()) return;
+
+          const isLocalFile = window.location.protocol === 'file:';
+          const maxRetries = isLocalFile ? 10 : 150; // รอ 1 วินาทีโลคอล หรือ 15 วินาทีหากออนไลน์
+          
+          let retries = 0;
+          const interval = setInterval(() => {
+            retries++;
+            if (executeFetch() || retries >= maxRetries) {
+              clearInterval(interval);
+            }
+          }, 100);
+        }
+
+        // ------------------ BATCH APP STATE & CACHING ------------------
+
+        function loadInitialAppState(showLoader) {
+          if (showLoader) loading.value = true;
+          errorMsg.value = '';
+          
+          const cleanStart = sanitizeGregorianDateString(dashboardFilter.start);
+          const cleanEnd = sanitizeGregorianDateString(dashboardFilter.end);
+          
+          const executeLoad = () => {
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+              google.script.run
+                .withSuccessHandler((res) => {
+                  loading.value = false;
+                  if (res.success) {
+                    // เซ็ตข้อมูลและบันทึกแคช
+                    localStorage.setItem('ccms_app_state', JSON.stringify(res));
+                    localStorage.setItem('ccms_cache_time', new Date().toLocaleString('th-TH'));
+                    cacheTime.value = '';
+                    isOffline.value = false;
+                    
+                    applyAppState(res);
+                  } else {
+                    if (handleAuthError(res.message)) return;
+                    errorMsg.value = res.message;
+                    isOffline.value = true;
+                  }
+                })
+                .withFailureHandler((err) => {
+                  loading.value = false;
+                  errorMsg.value = "เกิดข้อผิดพลาดในการโหลดข้อมูลเริ่มต้นจากระบบคลาวด์";
+                  isOffline.value = true;
+                })
+                .getInitialAppState(cleanStart, cleanEnd, session.value.token);
+              return true;
+            }
+            return false;
+          };
+
+          // ลองโหลดทันทีก่อน
+          if (executeLoad()) return;
+
+          const isLocalFile = window.location.protocol === 'file:';
+          const maxRetries = isLocalFile ? 10 : 150; // รอ 1 วินาทีโลคอล หรือ 15 วินาทีหากออนไลน์
+          
+          let retries = 0;
+          const interval = setInterval(() => {
+            retries++;
+            if (executeLoad()) {
+              clearInterval(interval);
+            } else if (retries >= maxRetries) {
+              clearInterval(interval);
+              loading.value = false;
+              isOffline.value = true;
+              if (isLocalFile) {
+                // โหมดทดสอบออฟไลน์ (กรณีเปิดไฟล์โลคอลจริงผ่าน file://)
+                simulateOfflineDashboard();
+                simulateOfflineSelectLists();
+                simulateOfflineAppointments();
+                if (session.value.role !== 'user') {
+                  defendantsList.value = [
+                    {
+                      citizen_id: "1111111111111", title_name: "นาย", first_name: "สมเกียรติ", last_name: "ดีเลิศ", nick_name: "โต้ง",
+                      birth_date: "2010-05-15", age_year: 16, age_month: 0, phone_number: "0812345678",
+                      cases: [{ black_case: "อ.28/69", court_black_case: "พม12/2569", black_date: "2026-05-01", black_case_no: 28 }]
+                    }
+                  ];
+                }
+              } else {
+                errorMsg.value = "ไม่สามารถเชื่อมต่อกับบริการของ Google ได้ โปรดรีโหลดหน้าเว็บเพื่อลองใหม่อีกครั้ง";
+              }
+            }
+          }, 100);
+        }
+
+        function loadCachedState() {
+          const cached = localStorage.getItem('ccms_app_state');
+          const time = localStorage.getItem('ccms_cache_time');
+          if (cached) {
+            try {
+              const res = JSON.parse(cached);
+              // ล้างแคชเวอร์ชันเก่าหากไม่มีตัวแปรกรองข้อมูลสถิติประชากรศาสตร์ใหม่
+              if (res.dashboard && res.dashboard.genderCountsBySection) {
+                applyAppState(res);
+              } else {
+                localStorage.removeItem('ccms_app_state');
+                localStorage.removeItem('ccms_cache_dashboard');
+              }
+            } catch (e) {
+              console.error("Failed to parse cached state", e);
+            }
+          }
+          
+          // Also load ccms_cache_dashboard specifically to override dashboard if it's newer
+          const cachedDashboard = localStorage.getItem('ccms_cache_dashboard');
+          if (cachedDashboard) {
+            try {
+              const dashboardData = JSON.parse(cachedDashboard);
+              if (dashboardData.genderCountsBySection) {
+                updateDashboardUI(dashboardData);
+              } else {
+                localStorage.removeItem('ccms_cache_dashboard');
+              }
+            } catch (e) {
+              console.error("Failed to parse cached dashboard", e);
+            }
+          }
+          
+          if (time) {
+            cacheTime.value = time;
+          }
+        }
+
+        function applyAppState(res) {
+          if (res.dashboard) {
+            updateDashboardUI(res.dashboard);
+          }
+          if (res.selectLists) {
+            selectLists.charges = res.selectLists.charges || [];
+            selectLists.caseTypes = res.selectLists.caseTypes || [];
+            selectLists.subCaseTypes = res.selectLists.subCaseTypes || [];
+            selectLists.counselors = res.selectLists.counselors || [];
+            selectLists.approverName = res.selectLists.approverName || "";
+            selectLists.acknowledgerName = res.selectLists.acknowledgerName || "";
+          }
+          if (res.defendants) {
+            defendantsList.value = res.defendants;
+          }
+          if (res.appointments) {
+            appointments.value = res.appointments;
+          }
+          if (res.users) {
+            usersList.value = res.users;
+          }
+          if (res.counselors) {
+            counselorsList.value = res.counselors.map(c => ({ ...c, isEditing: false }));
+          }
+        }
+
+        function updateCacheField(fieldName, data) {
+          try {
+            const cached = localStorage.getItem('ccms_app_state');
+            if (cached) {
+              const res = JSON.parse(cached);
+              res[fieldName] = data;
+              localStorage.setItem('ccms_app_state', JSON.stringify(res));
+            }
+          } catch (e) {
+            console.error("Failed to update cache field", e);
+          }
+        }
+
+        // ------------------ AUTHENTICATION LOGIC ------------------
+        
+        function handleAuthError(msg) {
+          if (msg && (msg.indexOf("สิทธิ์") !== -1 || msg.indexOf("เซสชัน") !== -1 || msg.indexOf("หมดอายุ") !== -1)) {
+            handleLogout();
+            return true;
+          }
+          return false;
+        }
+
+        function checkSavedSession() {
+          const savedTokenStr = localStorage.getItem('ccms_session_token');
+          const savedUser = localStorage.getItem('ccms_user_profile');
+          if (savedTokenStr && savedUser) {
+            try {
+              // ตรวจเช็คเพื่อป้องกันคีย์จำลองตกค้างที่เป็นสตริงเฉยๆ (โทเค็นของจริงจะเป็นวัตถุ JSON)
+              const savedToken = JSON.parse(savedTokenStr);
+              if (!savedToken || !savedToken.signature) {
+                handleLogout();
+                return;
+              }
+              session.value = JSON.parse(savedUser);
+              session.value.token = savedToken;
+              
+              // 1. โหลดข้อมูลแคชจาก LocalStorage ขึ้นมาแสดงทันที (ถ้ามี)
+              loadCachedState();
+              
+              // 2. เรียกโหลดข้อมูลล่าสุดจากเซิร์ฟเวอร์แบบเบื้องหลัง (ไม่ล็อกหน้าจอด้วย Loader ถ้ามีแคชแล้ว)
+              const hasCache = localStorage.getItem('ccms_app_state');
+              loadInitialAppState(!hasCache);
+            } catch (e) {
+              handleLogout();
+            }
+          }
+        }
+
+        function handleLogin() {
+          loading.value = true;
+          authAlert.value = '';
+          
+          // ฟังก์ชันเรียกกลับ Apps Script จริง
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res.success) {
+                  session.value = res.user;
+                  session.value.token = res.token;
+                  
+                  localStorage.setItem('ccms_session_token', JSON.stringify(res.token));
+                  localStorage.setItem('ccms_user_profile', JSON.stringify(res.user));
+                  
+                  // โหลดข้อมูลเริ่มต้นแบบรวมศูนย์หลังล็อกอินสำเร็จ
+                  loadInitialAppState(true);
+                  
+                  loginForm.usernameOrEmail = '';
+                  loginForm.password = '';
+                } else {
+                  authAlert.value = res.message;
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                authAlert.value = "ขณะนี้แหล่งข้อมูลขัดข้อง โปรดตรวจสอบใหม่อีกครั้งในภายหลัง";
+              })
+              .loginUser(loginForm.usernameOrEmail, loginForm.password);
+          } else {
+            // Mock โหมดทดสอบสำหรับออฟไลน์ (Offline Fallback Simulator)
+            simulateOfflineLogin();
+          }
+        }
+
+        function handleRegister() {
+          loading.value = true;
+          authAlert.value = '';
+          
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res.success) {
+                  authView.value = 'login';
+                  alert(res.message);
+                  registerForm.full_name = '';
+                  registerForm.email = '';
+                  registerForm.username = '';
+                  registerForm.position = '';
+                  registerForm.password = '';
+                } else {
+                  authAlert.value = res.message;
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                authAlert.value = "ขณะนี้แหล่งข้อมูลขัดข้อง โปรดตรวจสอบใหม่อีกครั้งในภายหลัง";
+              })
+              .registerUser(registerForm);
+          } else {
+            loading.value = false;
+            authAlert.value = "ไม่สามารถเชื่อมต่อไปยังฐานข้อมูล Apps Script บนเซิร์ฟเวอร์ของกูเกิลคลาวด์ได้ในขณะนี้";
+          }
+        }
+
+        function handleLogout() {
+          session.value = null;
+          localStorage.removeItem('ccms_session_token');
+          localStorage.removeItem('ccms_user_profile');
+          currentView.value = 'dashboard';
+          searchDone.value = false;
+          searchId.value = '';
+          cacheTime.value = '';
+        }
+
+        // ------------------ DASHBOARD & CHART RENDER ------------------
+
+        function loadDashboardData() {
+          loading.value = true;
+          errorMsg.value = '';
+          
+          const cleanStart = sanitizeGregorianDateString(dashboardFilter.start);
+          const cleanEnd = sanitizeGregorianDateString(dashboardFilter.end);
+          
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res.success) {
+                  // บันทึกแคชข้อมูลล่าสุดเก็บไว้ใน LocalStorage ป้องกันระบบล่ม
+                  localStorage.setItem('ccms_cache_dashboard', JSON.stringify(res.data));
+                  localStorage.setItem('ccms_cache_time', new Date().toLocaleString('th-TH'));
+                  cacheTime.value = '';
+                  isOffline.value = false;
+                  
+                  updateDashboardUI(res.data);
+                  updateCacheField('dashboard', res.data);
+                } else {
+                  if (handleAuthError(res.message)) return;
+                  errorMsg.value = res.message;
+                  isOffline.value = true;
+                  loadCacheDashboard();
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                errorMsg.value = "ขณะนี้แหล่งข้อมูลขัดข้อง โปรดตรวจสอบใหม่อีกครั้งในภายหลัง";
+                isOffline.value = true;
+                loadCacheDashboard();
+              })
+              .getDashboardData(cleanStart, cleanEnd, session.value.token);
+          } else {
+            isOffline.value = true;
+            // โหลดจำลองค่าออฟไลน์ขึ้นมาทดสอบ UI
+            simulateOfflineDashboard();
+          }
+        }
+
+        function loadCacheDashboard() {
+          const cached = localStorage.getItem('ccms_cache_dashboard');
+          const time = localStorage.getItem('ccms_cache_time');
+          if (cached && time) {
+            cacheTime.value = time;
+            updateDashboardUI(JSON.parse(cached));
+          }
+        }
+
+        function updateDashboardUI(data) {
+          dashboardRawData.value = data;
+          
+          // Populate unfiltered stats for print preview
+          unfilteredStats.totalNewCases = Object.values(data.newCaseSections).reduce((a, b) => a + b, 0);
+          unfilteredStats.totalClosedCases = Object.values(data.closedCaseSections).reduce((a, b) => a + b, 0);
+          unfilteredStats.totalCarriedForward = data.carriedForwardCaseSections ? Object.values(data.carriedForwardCaseSections).reduce((a, b) => a + b, 0) : 0;
+          unfilteredStats.recidivismCount = data.recidivismCountBySection ? (data.recidivismCountBySection["ทั้งหมด"] || 0) : (data.recidivismCount || 0);
+          unfilteredStats.topCharges = data.topChargesBySection ? (data.topChargesBySection["ทั้งหมด"] || []) : (data.topCharges || []);
+          unfilteredStats.genderCounts = data.genderCountsBySection ? (data.genderCountsBySection["ทั้งหมด"] || { "ชาย": 0, "หญิง": 0 }) : (data.genderCounts || { "ชาย": 0, "หญิง": 0 });
+          unfilteredStats.ageCounts = data.ageCountsBySection ? (data.ageCountsBySection["ทั้งหมด"] || {}) : (data.ageCounts || {});
+          unfilteredStats.districtCounts = data.districtCountsBySection ? (data.districtCountsBySection["ทั้งหมด"] || {}) : (data.districtCounts || {});
+          
+          applyDashboardFilters();
+          
+          // อัปเดตกราฟแสดงสถิติ (nextTick เพื่อให้แน่ใจว่าแท็กของกราฟเรนเดอร์เรียบร้อย)
+          nextTick(() => {
+            renderSectionComparisonChart(data.newCaseSections, data.closedCaseSections, data.pendingCaseSections);
+            renderTopChargesChart(stats.topCharges);
+          });
+        }
+
+        function applyDashboardFilters() {
+          const data = dashboardRawData.value;
+          if (!data) return;
+          
+          const filter = selectedSectionFilter.value;
+          
+          if (filter === "ทั้งหมด") {
+            stats.totalNewCases = unfilteredStats.totalNewCases;
+            stats.totalClosedCases = unfilteredStats.totalClosedCases;
+            stats.totalCarriedForward = unfilteredStats.totalCarriedForward;
+            stats.recidivismCount = unfilteredStats.recidivismCount;
+            
+            // รักษาการอ้างอิง reactive (Vue Reactivity Object reference safety)
+            stats.topCharges.length = 0;
+            stats.topCharges.push(...unfilteredStats.topCharges);
+            
+            for (const key in stats.genderCounts) delete stats.genderCounts[key];
+            Object.assign(stats.genderCounts, unfilteredStats.genderCounts);
+            
+            for (const key in stats.ageCounts) delete stats.ageCounts[key];
+            Object.assign(stats.ageCounts, unfilteredStats.ageCounts);
+            
+            for (const key in stats.districtCounts) delete stats.districtCounts[key];
+            Object.assign(stats.districtCounts, unfilteredStats.districtCounts);
+          } else {
+            // กรองตามมาตราที่เลือก
+            stats.totalNewCases = data.newCaseSections[filter] || 0;
+            stats.totalClosedCases = data.closedCaseSections[filter] || 0;
+            stats.totalCarriedForward = data.carriedForwardCaseSections ? (data.carriedForwardCaseSections[filter] || 0) : 0;
+            stats.recidivismCount = data.recidivismCountBySection ? (data.recidivismCountBySection[filter] || 0) : 0;
+            
+            stats.topCharges.length = 0;
+            stats.topCharges.push(...(data.topChargesBySection ? (data.topChargesBySection[filter] || []) : []));
+            
+            // ป้องกันสถิติว่างเมื่อดึงข้อมูลจากเซิร์ฟเวอร์ด้วยเวอร์ชันดั้งเดิม (Demographics Fallbacks)
+            for (const key in stats.genderCounts) delete stats.genderCounts[key];
+            Object.assign(stats.genderCounts, (data.genderCountsBySection && data.genderCountsBySection[filter]) ? data.genderCountsBySection[filter] : (data.genderCounts || { "ชาย": 0, "หญิง": 0 }));
+            
+            for (const key in stats.ageCounts) delete stats.ageCounts[key];
+            Object.assign(stats.ageCounts, (data.ageCountsBySection && data.ageCountsBySection[filter]) ? data.ageCountsBySection[filter] : (data.ageCounts || {}));
+            
+            for (const key in stats.districtCounts) delete stats.districtCounts[key];
+            Object.assign(stats.districtCounts, (data.districtCountsBySection && data.districtCountsBySection[filter]) ? data.districtCountsBySection[filter] : (data.districtCounts || {}));
+          }
+        }
+
+        function onSectionFilterChange() {
+          if (!dashboardRawData.value) return;
+          applyDashboardFilters();
+          nextTick(() => {
+            renderTopChargesChart(stats.topCharges);
+          });
+        }
+
+        // เพิ่มตัวคอยเฝ้าดูเพื่อให้ทำงานทันทีที่เปลี่ยนมาตรา
+        watch(selectedSectionFilter, () => {
+          onSectionFilterChange();
+        });
+
+        function renderSectionComparisonChart(newCases, closedCases, pendingCases) {
+          const orderedKeys = ["มาตรา 73", "มาตรา 90", "มาตรา 132 วรรคหนึ่ง", "มาตรา 132 วรรคสอง", "คดีจากศาลอื่น", "คดีอื่นๆ"];
+          const isMobile = window.innerWidth <= 768;
+          
+          const pCases = pendingCases || { "มาตรา 73": 0, "มาตรา 90": 0, "มาตรา 132 วรรคหนึ่ง": 0, "มาตรา 132 วรรคสอง": 0, "คดีจากศาลอื่น": 0, "คดีอื่นๆ": 0 };
+          
+          const categories = orderedKeys.map(key => {
+            const nVal = newCases[key] || 0;
+            const cVal = closedCases[key] || 0;
+            const pVal = pCases[key] || 0;
+            
+            let label = key;
+            if (isMobile) {
+              if (key === "มาตรา 73") label = "ม.73";
+              else if (key === "มาตรา 90") label = "ม.90";
+              else if (key === "มาตรา 132 วรรคหนึ่ง") label = "ม.132 ว.1";
+              else if (key === "มาตรา 132 วรรคสอง") label = "ม.132 ว.2";
+              else if (key === "คดีจากศาลอื่น") label = "ศาลอื่น";
+              else if (key === "คดีอื่นๆ") label = "อื่นๆ";
+              return [label, `ใหม่:${nVal} ยุติ:${cVal}`, `คงค้าง:(${pVal})`];
+            }
+            return [label, `ใหม่: ${nVal} | ยุติ: ${cVal}`, `คงค้าง: (${pVal})`];
+          });
+          
+          const seriesNew = orderedKeys.map(key => newCases[key] || 0);
+          const seriesClosed = orderedKeys.map(key => closedCases[key] || 0);
+          
+          const isDark = document.getElementById('app-body').classList.contains('dark-mode');
+          const colorNew = isDark ? '#60a5fa' : '#2c3e50';
+          const colorClosed = isDark ? '#fda4af' : '#9e1b32';
+          
+          const options = {
+            series: [{
+              name: 'คดีเปิดรับเข้าใหม่',
+              data: seriesNew
+            }, {
+              name: 'คดีที่ดำเนินการยุติเสร็จสิ้น',
+              data: seriesClosed
+            }],
+            chart: {
+              type: 'bar',
+              height: isMobile ? 320 : 380,
+              toolbar: { show: false },
+              background: 'transparent'
+            },
+            colors: [colorNew, colorClosed],
+            plotOptions: {
+              bar: {
+                horizontal: false,
+                columnWidth: isMobile ? '70%' : '55%',
+                borderRadius: 4
+              },
+            },
+            dataLabels: { enabled: false },
+            stroke: {
+              show: true,
+              width: 2,
+              colors: ['transparent']
+            },
+            xaxis: {
+              categories: categories,
+              labels: { 
+                style: { colors: '#94a3b8', fontSize: isMobile ? '9px' : '11px', fontFamily: 'Sarabun' },
+                rotate: 0,
+                rotateAlways: false,
+                hideOverlappingLabels: false,
+                maxHeight: isMobile ? 120 : 80
+              }
+            },
+            yaxis: {
+              title: { text: 'จำนวนคดี (ราย)', style: { color: '#94a3b8', fontFamily: 'Sarabun' } },
+              labels: { style: { colors: '#94a3b8' } }
+            },
+            fill: { opacity: 1 },
+            legend: {
+              position: 'top',
+              labels: { colors: '#94a3b8', fontFamily: 'Sarabun' }
+            },
+            theme: { mode: isDark ? 'dark' : 'light' },
+            grid: { 
+              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+              padding: { bottom: isMobile ? 15 : 0 }
+            }
+          };
+
+          if (comparisonChart) comparisonChart.destroy();
+          comparisonChart = new ApexCharts(document.querySelector("#section-comparison-chart"), options);
+          comparisonChart.render();
+        }
+
+        function renderTopChargesChart(topCharges) {
+          const chartEl = document.querySelector("#top-charges-pie-chart");
+          if (!chartEl) return;
+          
+          if (!topCharges || topCharges.length === 0) {
+            if (pieChart) {
+              pieChart.destroy();
+              pieChart = null;
+            }
+            chartEl.innerHTML = "<div style='display:flex;align-items:center;justify-content:center;height:240px;color:var(--text-muted);font-size:0.85rem;width:100%;'>ไม่มีข้อมูลประเภทคดีสำหรับตัวเลือกนี้</div>";
+            return;
+          }
+          
+          chartEl.innerHTML = "";
+          
+          const labels = topCharges.map((x, idx) => `${idx + 1}. ${x.name}`);
+          const series = topCharges.map(x => x.count);
+          
+          const isDark = document.getElementById('app-body').classList.contains('dark-mode');
+          const isMobile = window.innerWidth <= 768;
+          
+          const options = {
+            series: series,
+            chart: {
+              type: 'donut',
+              height: isMobile ? 240 : 280,
+              background: 'transparent'
+            },
+            labels: labels,
+            colors: ['#3b82f6', '#818cf8', '#6366f1', '#10b981', '#059669', '#f59e0b', '#d97706', '#ef4444', '#b91c1c', '#a855f7'],
+            legend: {
+              show: false // Turn off native legend to use our premium HTML legend on the right/bottom
+            },
+            dataLabels: {
+              enabled: true,
+              formatter: function (val) { return Math.round(val) + "%" }
+            },
+            plotOptions: {
+              pie: {
+                donut: {
+                  size: '60%',
+                  background: 'transparent',
+                  labels: {
+                    show: true,
+                    name: { show: true, color: '#94a3b8', fontFamily: 'Sarabun' },
+                    value: { show: true, color: isDark ? '#f8fafc' : '#0f172a', fontSize: '20px', fontWeight: 'bold' },
+                    total: {
+                      show: true,
+                      label: 'รวมรับคดี',
+                      color: '#94a3b8',
+                      fontFamily: 'Sarabun',
+                      formatter: function (w) {
+                        return w.globals.seriesTotals.reduce((a, b) => a + b, 0) + ' คดี'
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            theme: { mode: isDark ? 'dark' : 'light' }
+          };
+
+          if (pieChart) pieChart.destroy();
+          pieChart = new ApexCharts(chartEl, options);
+          pieChart.render();
+        }
+
+        // ------------------ SEARCH & CRUD LOGIC ------------------
+
+        function loadDefendantsList(silent = false) {
+          if (!session.value || session.value.role === 'user') return;
+          if (!silent) loading.value = true;
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                if (!silent) loading.value = false;
+                if (res.success) {
+                  defendantsList.value = res.data;
+                  updateCacheField('defendants', res.data);
+                  isOffline.value = false;
+                } else {
+                  if (handleAuthError(res.message)) return;
+                  if (!silent) errorMsg.value = res.message;
+                  isOffline.value = true;
+                }
+              })
+              .withFailureHandler((err) => {
+                isOffline.value = true;
+                if (!silent) {
+                  loading.value = false;
+                  errorMsg.value = "ขณะนี้แหล่งข้อมูลขัดข้อง: " + (err ? err.message || err.toString() : "ไม่ระบุสาเหตุ");
+                }
+              })
+              .getAllDefendantsWithCases(session.value.token);
+          } else {
+            isOffline.value = true;
+            // Offline simulation
+            loading.value = false;
+            defendantsList.value = [
+              {
+                citizen_id: "1111111111111",
+                title_name: "นาย",
+                first_name: "สมเกียรติ",
+                last_name: "ดีเลิศ",
+                nick_name: "โต้ง",
+                birth_date: "2010-05-15",
+                age_year: 16,
+                age_month: 0,
+                phone_number: "0812345678",
+                cases: [
+                  { black_case: "อ.28/69", court_black_case: "พม12/2569", black_date: "2026-05-01", black_case_no: 28 },
+                  { black_case: "อ.99/69", court_black_case: "", black_date: "2026-04-10", black_case_no: 99 }
+                ]
+              },
+              {
+                citizen_id: "2222222222222",
+                title_name: "เด็กชาย",
+                first_name: "ณัฐพล",
+                last_name: "รักดี",
+                nick_name: "กอล์ฟ",
+                birth_date: "2012-08-20",
+                age_year: 13,
+                age_month: 9,
+                phone_number: "0898765432",
+                cases: [
+                  { black_case: "อ.45/69", court_black_case: "พม15/2569", black_date: "2026-05-15", black_case_no: 45 }
+                ]
+              },
+              {
+                citizen_id: "3333333333333",
+                title_name: "นางสาว",
+                first_name: "มณีรัตน์",
+                last_name: "แสงจันทร์",
+                nick_name: "พลอย",
+                birth_date: "",
+                age_year: "",
+                age_month: "",
+                phone_number: "0843210987",
+                cases: []
+              }
+            ];
+          }
+        }
+
+        function selectDefendantFromCard(citizenId) {
+          searchId.value = citizenId;
+          searchDefendant();
+        }
+
+        function goBackToMainList() {
+          searchDone.value = false;
+          newDefFormActive.value = false;
+          searchId.value = '';
+          loadDefendantsList(true); // รีโหลดเบื้องหลังเงียบๆ ไม่ต้องแสดงสปินเนอร์เพื่อความทันใจ 0ms
+        }
+
+        function triggerNewDefendantRegistration() {
+          const cid = prompt("กรุณาระบุเลขบัตรประชาชน 13 หลัก ของเด็กหรือเยาวชนที่ต้องการเพิ่มประวัติใหม่:");
+          if (cid === null) return;
+          
+          const cleanId = cid.replace(/\D/g, "");
+          if (cleanId.length !== 13) {
+            alert("โปรดกรอกหมายเลขบัตรประชาชนให้ครบถ้วน 13 หลัก (เฉพาะตัวเลขเท่านั้น)");
+            return;
+          }
+          
+          searchId.value = cleanId; // บันทึกเลขบัตรเก็บไว้เพื่อใช้ในฟังก์ชันค้นหา/บันทึกอัปเดตถัดไป
+          
+          const existing = defendantsList.value.find(def => def.citizen_id === cleanId);
+          if (existing) {
+            alert("มีข้อมูลประวัติของเด็ก/เยาวชนหมายเลขบัตรประชาชนนี้อยู่แล้วในระบบ ระบบจะแสดงรายละเอียดของรายดังกล่าว");
+            selectDefendantFromCard(cleanId);
+            return;
+          }
+          
+          loading.value = true;
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res.success) {
+                  if (res.found) {
+                    alert("พบข้อมูลเดิมในระบบฐานข้อมูลเรียบร้อยแล้ว ระบบจะเปิดประวัตินั้นขึ้นมา");
+                    currentDef.value = res.defendant;
+                    linkedCases.value = res.cases;
+                    searchDone.value = true;
+                  } else {
+                    resetDefForm(cleanId);
+                    newDefFormActive.value = true;
+                    searchDone.value = false;
+                  }
+                } else {
+                  errorMsg.value = res.message;
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                errorMsg.value = "เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์";
+              })
+              .searchDefendantByCitizenId(cleanId, session.value.token);
+          } else {
+            loading.value = false;
+            resetDefForm(cleanId);
+            newDefFormActive.value = true;
+            searchDone.value = false;
+          }
+        }
+
+        function switchView(viewName) {
+          if (viewName === 'users' && session.value.role !== 'admin') {
+            alert("ขออภัย บัญชีของคุณไม่มีสิทธิ์ในการเข้าถึงหน้าจัดการสมาชิก");
+            currentView.value = 'dashboard';
+            return;
+          }
+          if (viewName === 'counselors' && session.value.role !== 'admin' && session.value.role !== 'psychologist') {
+            alert("ขออภัย บัญชีของคุณไม่มีสิทธิ์ในการเข้าถึงหน้าจัดการคณะผู้ให้คำปรึกษา");
+            currentView.value = 'dashboard';
+            return;
+          }
+          if (viewName === 'search' && session.value.role === 'user') {
+            alert("ขออภัย บัญชีของคุณไม่มีสิทธิ์ในการเข้าถึงหน้าจัดการคดี");
+            currentView.value = 'dashboard';
+            return;
+          }
+          if (viewName === 'calendar' && session.value.role === 'user') {
+            alert("ขออภัย บัญชีของคุณไม่มีสิทธิ์ในการเข้าถึงหน้าปฏิทินวันนัด");
+            currentView.value = 'dashboard';
+            return;
+          }
+          currentView.value = viewName;
+          if (viewName === 'search') {
+            searchDone.value = false;
+            newDefFormActive.value = false;
+            cardSearchQuery.value = '';
+            cardCurrentPage.value = 1;
+            if (defendantsList.value.length === 0) {
+              loadDefendantsList();
+            }
+          } else if (viewName === 'dashboard') {
+            if (stats.totalNewCases === 0) {
+              loadDashboardData();
+            }
+          } else if (viewName === 'users') {
+            if (usersList.value.length === 0) {
+              loadUsersList();
+            }
+          } else if (viewName === 'counselors') {
+            if (counselorsList.value.length === 0) {
+              loadCounselorsList();
+            }
+          } else if (viewName === 'calendar') {
+            if (appointments.value.length === 0) {
+              loadAppointments();
+            }
+          }
+        }
+
+        function loadAppointments() {
+          loading.value = true;
+          errorMsg.value = '';
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res.success) {
+                  appointments.value = res.appointments;
+                  updateCacheField('appointments', res.appointments);
+                  isOffline.value = false;
+                } else {
+                  if (handleAuthError(res.message)) return;
+                  errorMsg.value = res.message;
+                  isOffline.value = true;
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                errorMsg.value = "ขณะนี้แหล่งข้อมูลขัดข้อง: " + (err ? err.message || err.toString() : "ไม่ระบุสาเหตุ");
+                isOffline.value = true;
+              })
+              .getAppointments(session.value.token);
+          } else {
+            isOffline.value = true;
+            loading.value = false;
+            simulateOfflineAppointments();
+          }
+        }
+
+        function simulateOfflineAppointments() {
+          appointments.value = [
+            {
+              rowNum: 2,
+              black_case: "ม.1/2569",
+              citizen_id: "1234567890123",
+              def_name: "ด.ช.เด็กดี มั่นคง",
+              appointment_date: formatLocalDateString(new Date()),
+              appointment_time: "13:00",
+              appointment_reason: "นัดรายงานตัวและประเมินจิตวิทยาครั้งที่ 1",
+              counselor: "นางอรสา ทวีคุณ (Counselor)",
+              performance: "ผ่านการประเมินเบื้องต้น"
+            },
+            {
+              rowNum: 3,
+              black_case: "ม.5/2569",
+              citizen_id: "1234567890123",
+              def_name: "ด.ช.เด็กดี มั่นคง",
+              appointment_date: formatLocalDateString(new Date(new Date().setDate(new Date().getDate() + 2))),
+              appointment_time: "10:00",
+              appointment_reason: "ติดตามความประพฤติและคัดกรองพฤติกรรมเสี่ยง",
+              counselor: "นายสมชาย ใจดี (Counselor)",
+              performance: ""
+            }
+          ];
+        }
+
+        function prevMonth() {
+          if (calendarMonth.value === 0) {
+            calendarMonth.value = 11;
+            calendarYear.value--;
+          } else {
+            calendarMonth.value--;
+          }
+          selectedDate.value = null;
+        }
+
+        function nextMonth() {
+          if (calendarMonth.value === 11) {
+            calendarMonth.value = 0;
+            calendarYear.value++;
+          } else {
+            calendarMonth.value++;
+          }
+          selectedDate.value = null;
+        }
+
+        function goToToday() {
+          const today = new Date();
+          const y = today.getFullYear();
+          calendarYear.value = y > 2400 ? y - 543 : y;
+          calendarMonth.value = today.getMonth();
+          selectedDate.value = formatLocalDateString(today);
+        }
+
+        function selectDay(dateStr) {
+          selectedDate.value = dateStr;
+        }
+
+        function formatThaiLongDate(dateStr) {
+          if (!dateStr) return "-";
+          var d = new Date(dateStr);
+          if (isNaN(d.getTime())) return dateStr;
+          
+          var months = [
+            "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+            "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+          ];
+          var day = d.getDate();
+          var month = months[d.getMonth()];
+          var rawYear = d.getFullYear();
+          var year = rawYear > 2400 ? rawYear : rawYear + 543;
+          return day + " " + month + " พ.ศ. " + year;
+        }
+
+        function formatThaiFullMonthDate(dateStr) {
+          if (!dateStr) return "-";
+          var d = new Date(dateStr);
+          if (isNaN(d.getTime())) return dateStr;
+          
+          var months = [
+            "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+            "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+          ];
+          var day = d.getDate();
+          var month = months[d.getMonth()];
+          var rawYear = d.getFullYear();
+          var year = rawYear > 2400 ? rawYear : rawYear + 543;
+          return day + " " + month + " " + year;
+        }
+
+        function viewDefendantFromCalendar(citizenId, blackCase, appointmentReason) {
+          if (!citizenId) {
+            alert("ไม่สามารถเข้าถึงประวัติได้เนื่องจากคดีนี้ยังไม่มีการกรองหมายเลขบัตรประชาชนเชื่อมโยง");
+            return;
+          }
+          calendarDetailReason.value = appointmentReason || "";
+          
+          // ฟังก์ชันทำความสะอาดข้อความคดีดำเพื่อเปรียบเทียบ (ลบจุด, ขีด, ทับ, ช่องว่าง)
+          const normalizeCase = (str) => {
+            if (!str) return "";
+            return str.toString().replace(/[\s\.\-\/]+/g, "").toLowerCase();
+          };
+          
+          const cleanSelected = normalizeCase(blackCase);
+          const cleanId = citizenId.replace(/\D/g, "");
+          
+          // ค้นหาในหน่วยความจำเครื่องก่อน (Local List) เพื่อความเร็วระดับ 0ms
+          const localDef = defendantsList.value.find(d => d.citizen_id === cleanId);
+          if (localDef) {
+            calendarDetailDef.value = localDef;
+            if (cleanSelected && localDef.cases) {
+              calendarDetailCases.value = localDef.cases.filter(c => {
+                return normalizeCase(c.black_case) === cleanSelected || 
+                       normalizeCase(c.court_black_case) === cleanSelected;
+              });
+            } else {
+              calendarDetailCases.value = localDef.cases || [];
+            }
+            calendarDetailModalActive.value = true;
+            return;
+          }
+          
+          loading.value = true;
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res.success) {
+                  if (res.found) {
+                    calendarDetailDef.value = res.defendant;
+                    // กรองให้แสดงเฉพาะข้อมูลคดีที่ตรงกับที่ถูกกดเลือกนัดหมาย
+                    if (cleanSelected && res.cases) {
+                      calendarDetailCases.value = res.cases.filter(c => {
+                        return normalizeCase(c.black_case) === cleanSelected || 
+                               normalizeCase(c.court_black_case) === cleanSelected;
+                      });
+                    } else {
+                      calendarDetailCases.value = res.cases || [];
+                    }
+                    calendarDetailModalActive.value = true;
+                    
+                    // บันทึกเก็บแคชลง defendantsList ในหน่วยความจำเพื่อความไวในการเปิดถัดไป
+                    const idx = defendantsList.value.findIndex(d => d.citizen_id === cleanId);
+                    const updatedDef = { ...res.defendant, cases: res.cases };
+                    if (idx !== -1) {
+                      defendantsList.value[idx] = updatedDef;
+                    } else {
+                      defendantsList.value.push(updatedDef);
+                    }
+                    updateCacheField('defendants', defendantsList.value);
+                  } else {
+                    alert("ไม่พบข้อมูลประวัติของเยาวชนรายนี้ในฐานข้อมูล");
+                  }
+                } else {
+                  alert(res.message || "เกิดข้อผิดพลาดในการโหลดข้อมูล");
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                alert("เกิดข้อผิดพลาดในการเชื่อมต่อ: " + (err ? err.message || err.toString() : "ไม่ทราบสาเหตุ"));
+              })
+              .searchDefendantByCitizenId(citizenId, session.value.token);
+          } else {
+            // โหมดทดสอบแบบออฟไลน์
+            const found = defendantsList.value.find(d => d.citizen_id === citizenId);
+            if (found) {
+              calendarDetailDef.value = found;
+              if (cleanSelected && found.cases) {
+                calendarDetailCases.value = found.cases.filter(c => {
+                  return normalizeCase(c.black_case) === cleanSelected || 
+                         normalizeCase(c.court_black_case) === cleanSelected;
+                });
+              } else {
+                calendarDetailCases.value = found.cases || [];
+              }
+              calendarDetailModalActive.value = true;
+            } else {
+              calendarDetailDef.value = {
+                citizen_id: citizenId,
+                title_name: "ด.ช.",
+                first_name: "สมศักดิ์",
+                last_name: "รักสงบ",
+                nick_name: "เอ็ม",
+                gender: "ชาย",
+                birth_date: "2552-11-20",
+                address: "123/45 ถนนราษฎร์บำรุง ต.เนินพระ อ.เมืองระยอง จ.ระยอง",
+                medical_history: "ไม่มีโรคประจำตัว",
+                drug_history: "ไม่มีประวัติการใช้สารเสพติด",
+                psy_diagnosis: "อยู่ในเกณฑ์ปกติ มีสัมพันธภาพที่ดีในครอบครัว"
+              };
+              const mockCases = [
+                {
+                  black_case: "ม.2/2569",
+                  court_black_case: "ม.2/2569",
+                  black_date: "2026-03-01",
+                  charge: "ขับรถจักรยานยนต์ดัดแปลงโดยประมาท",
+                  age_at_offense: 16,
+                  counselor: "นายธวัชชัย แสงทอง",
+                  note: "ให้ความร่วมมือในการเข้าพบดีมาก"
+                },
+                {
+                  black_case: "ม.1/2569",
+                  court_black_case: "ม.1/2569",
+                  black_date: "2026-02-15",
+                  charge: "ลักทรัพย์ในเวลากลางคืน",
+                  age_at_offense: 16,
+                  counselor: "นางอรสา ทวีคุณ",
+                  note: "คดีเชื่อมโยงสำรอง (แสดงเมื่อไม่ระบุการกรอง)"
+                }
+              ];
+              calendarDetailCases.value = cleanSelected ? mockCases.filter(c => {
+                return normalizeCase(c.black_case) === cleanSelected || 
+                       normalizeCase(c.court_black_case) === cleanSelected;
+              }) : mockCases;
+              calendarDetailModalActive.value = true;
+            }
+            loading.value = false;
+          }
+        }
+
+        function openInCaseManager(citizenId) {
+          calendarDetailModalActive.value = false;
+          switchView('search');
+          nextTick(() => {
+            selectDefendantFromCard(citizenId);
+          });
+        }
+
+        function getRoleLabel(role) {
+          if (!role) return "";
+          const r = role.toString().toLowerCase();
+          if (r === 'admin') return 'ผู้ดูแลระบบ (Admin)';
+          if (r === 'psychologist') return 'นักจิตวิทยา (Psychologist)';
+          if (r === 'director') return 'ผู้อำนวยการ (Director)';
+          if (r === 'counselor' || r === 'teacher') return 'ผู้ให้คำปรึกษา (Counselor)';
+          if (r === 'user') return 'ผู้ใช้งานทั่วไป (User)';
+          return role;
+        }
+
+        function searchDefendant(forceRefresh = false) {
+          searchDone.value = false;
+          newDefFormActive.value = false;
+          errorMsg.value = '';
+          
+          if (!searchId.value) return;
+          const cleanId = searchId.value.replace(/\D/g, "");
+          
+          // ค้นหาในหน่วยความจำเครื่องก่อน (Local List) เพื่อความเร็วระดับ 0ms (เว้นแต่จะบังคับรีเฟรชจากการบันทึก)
+          if (!forceRefresh) {
+            const localDef = defendantsList.value.find(d => d.citizen_id === cleanId);
+            if (localDef) {
+              currentDef.value = localDef;
+              linkedCases.value = localDef.cases || [];
+              searchDone.value = true;
+              return;
+            }
+          }
+          
+          loading.value = true;
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res.success) {
+                  if (res.found) {
+                    currentDef.value = res.defendant;
+                    linkedCases.value = res.cases;
+                    searchDone.value = true;
+                    
+                    // บันทึกเก็บแคชลง defendantsList ในหน่วยความจำเพื่อความไวในการเปิดถัดไป
+                    const idx = defendantsList.value.findIndex(d => d.citizen_id === cleanId);
+                    const updatedDef = { ...res.defendant, cases: res.cases };
+                    if (idx !== -1) {
+                      defendantsList.value[idx] = updatedDef;
+                    } else {
+                      defendantsList.value.push(updatedDef);
+                    }
+                    updateCacheField('defendants', defendantsList.value);
+                  } else {
+                    // เปิดฟอร์มให้สร้างประวัติเด็กคนใหม่ขึ้นมาเลย
+                    resetDefForm(searchId.value);
+                    newDefFormActive.value = true;
+                  }
+                } else {
+                  if (handleAuthError(res.message)) return;
+                  errorMsg.value = res.message;
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                errorMsg.value = "ขณะนี้แหล่งข้อมูลขัดข้อง: " + (err ? err.message || err.toString() : "ไม่ระบุสาเหตุ");
+              })
+              .searchDefendantByCitizenId(searchId.value, session.value.token);
+          } else {
+            simulateOfflineSearch();
+          }
+        }
+
+        function saveNewDefendant() {
+          loading.value = true;
+          errorMsg.value = '';
+          
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res.success) {
+                  newDefFormActive.value = false;
+                  currentDef.value = res.defendant;
+                  linkedCases.value = res.cases;
+                  searchDone.value = true;
+                  
+                  // บันทึกเก็บแคชลง defendantsList ในหน่วยความจำเพื่อความไวในการเปิดถัดไป
+                  const cleanId = res.defendant.citizen_id.replace(/\D/g, "");
+                  const idx = defendantsList.value.findIndex(d => d.citizen_id === cleanId);
+                  const updatedDef = { ...res.defendant, cases: res.cases };
+                  if (idx !== -1) {
+                    defendantsList.value[idx] = updatedDef;
+                  } else {
+                    defendantsList.value.push(updatedDef);
+                  }
+                  updateCacheField('defendants', defendantsList.value);
+                  
+                  alert(res.message);
+                } else {
+                  errorMsg.value = res.message;
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                errorMsg.value = "ขณะนี้แหล่งข้อมูลขัดข้อง โปรดตรวจสอบใหม่อีกครั้งในภายหลัง";
+              })
+              .upsertDefendant(defForm, session.value.token);
+          } else {
+            // โหมดออฟไลน์
+            loading.value = false;
+            const newDef = { ...defForm, cases: [] };
+            const cleanId = newDef.citizen_id.replace(/\D/g, "");
+            const idx = defendantsList.value.findIndex(d => d.citizen_id === cleanId);
+            if (idx !== -1) {
+              defendantsList.value[idx] = newDef;
+            } else {
+              defendantsList.value.push(newDef);
+            }
+            updateCacheField('defendants', defendantsList.value);
+            currentDef.value = newDef;
+            linkedCases.value = [];
+            alert("บันทึกข้อมูลเยาวชนรายใหม่สำเร็จแล้ว (โหมดออฟไลน์จำลอง)");
+            newDefFormActive.value = false;
+            searchDone.value = true;
+          }
+
+        }
+
+        function openEditDefModal() {
+          // ดึงค่าเยาวชนคนปัจจุบันยัดลงฟอร์มในโมดอล
+          Object.assign(defForm, currentDef.value);
+          // จัดการความถูกต้องของวันที่เพื่อให้แสดงบน Tag input type=date ได้ถูกต้อง
+          if (defForm.birth_date) {
+            var d = new Date(defForm.birth_date);
+            defForm.birth_date = formatLocalDateString(d);
+          }
+          editDefModalActive.value = true;
+        }
+
+        function saveEditDefendant() {
+          loading.value = true;
+          editDefModalActive.value = false;
+          
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res.success) {
+                  currentDef.value = res.defendant;
+                  linkedCases.value = res.cases;
+                  searchDone.value = true;
+                  
+                  // บันทึกเก็บแคชลง defendantsList ในหน่วยความจำเพื่อความไวในการเปิดถัดไป
+                  const cleanId = res.defendant.citizen_id.replace(/\D/g, "");
+                  const idx = defendantsList.value.findIndex(d => d.citizen_id === cleanId);
+                  const updatedDef = { ...res.defendant, cases: res.cases };
+                  if (idx !== -1) {
+                    defendantsList.value[idx] = updatedDef;
+                  } else {
+                    defendantsList.value.push(updatedDef);
+                  }
+                  updateCacheField('defendants', defendantsList.value);
+                  
+                  alert(res.message);
+                } else {
+                  errorMsg.value = res.message;
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                errorMsg.value = "ขณะนี้แหล่งข้อมูลขัดข้อง โปรดตรวจสอบใหม่อีกครั้งในภายหลัง";
+              })
+              .upsertDefendant(defForm, session.value.token);
+          } else {
+            loading.value = false;
+            Object.assign(currentDef.value, defForm);
+            const cleanId = defForm.citizen_id.replace(/\D/g, "");
+            const idx = defendantsList.value.findIndex(d => d.citizen_id === cleanId);
+            if (idx !== -1) {
+              defendantsList.value[idx] = { ...defForm, cases: linkedCases.value };
+            }
+            updateCacheField('defendants', defendantsList.value);
+            alert("บันทึกข้อมูลแก้ไขประวัติเยาวชนสำเร็จ");
+          }
+        }
+
+        function confirmDeleteDef() {
+          Object.assign(defForm, currentDef.value);
+          deleteConfirmPassword.value = '';
+          confirmDeleteDefModalActive.value = true;
+        }
+
+        function cancelDeleteDef() {
+          confirmDeleteDefModalActive.value = false;
+          deleteConfirmPassword.value = '';
+        }
+
+        function submitDeleteDef() {
+          if (!deleteConfirmPassword.value) return;
+          loading.value = true;
+          
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res.success) {
+                  confirmDeleteDefModalActive.value = false;
+                  editDefModalActive.value = false;
+                  deleteConfirmPassword.value = '';
+                  
+                  // ลบข้อมูลออกจากการ์ดในฝั่ง client ทันทีแบบเรียลไทม์
+                  const deletedCid = defForm.citizen_id.replace(/\D/g, "");
+                  defendantsList.value = defendantsList.value.filter(d => d.citizen_id.replace(/\D/g, "") !== deletedCid);
+                  updateCacheField('defendants', defendantsList.value);
+                  
+                  alert(res.message);
+                  goBackToMainList();
+                } else {
+                  alert(res.message);
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้ง");
+              })
+              .deleteDefendant(defForm.citizen_id, deleteConfirmPassword.value, session.value.token);
+          } else {
+            loading.value = false;
+            confirmDeleteDefModalActive.value = false;
+            editDefModalActive.value = false;
+            deleteConfirmPassword.value = '';
+            
+            // ลบข้อมูลออกจากการ์ดในฝั่ง client ทันทีแบบเรียลไทม์
+            const deletedCid = defForm.citizen_id.replace(/\D/g, "");
+            defendantsList.value = defendantsList.value.filter(d => d.citizen_id.replace(/\D/g, "") !== deletedCid);
+            updateCacheField('defendants', defendantsList.value);
+            
+            alert("ลบข้อมูลประวัติเยาวชนสำเร็จแล้ว (โหมดออฟไลน์จำลอง)");
+            goBackToMainList();
+          }
+        }
+
+        // ------------------ CASE CRUD LOGIC ------------------
+
+        function openAddCaseModal() {
+          resetCaseForm();
+          caseForm.citizen_id = currentDef.value.citizen_id;
+          caseFormMode.value = 'add';
+          caseModalActive.value = true;
+        }
+
+        function openEditCaseModal(c) {
+          Object.assign(caseForm, c);
+          
+          // จัดการความถูกต้องของรูปแบบวันที่ในฟอร์มแก้ไข
+          if (caseForm.black_date) {
+            caseForm.black_date = formatLocalDateString(new Date(caseForm.black_date));
+          }
+          if (caseForm.red_date) {
+            caseForm.red_date = formatLocalDateString(new Date(caseForm.red_date));
+          } else {
+            caseForm.red_date = '';
+          }
+          
+          caseFormMode.value = 'edit';
+          caseModalActive.value = true;
+        }
+
+        function saveCase() {
+          loading.value = true;
+          caseModalActive.value = false;
+          
+          // ตรวจจับและปรับแก้นามย่อคดีแดงคดีดำตามประเภทคดีที่เลือกอัตโนมัติ
+          updateCaseTypeAbb();
+          
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res.success) {
+                  currentDef.value = res.defendant;
+                  linkedCases.value = res.cases;
+                  searchDone.value = true;
+                  
+                  // บันทึกเก็บแคชลง defendantsList ในหน่วยความจำเพื่อความไวในการเปิดถัดไป
+                  const cleanId = res.defendant.citizen_id.replace(/\D/g, "");
+                  const idx = defendantsList.value.findIndex(d => d.citizen_id === cleanId);
+                  const updatedDef = { ...res.defendant, cases: res.cases };
+                  if (idx !== -1) {
+                    defendantsList.value[idx] = updatedDef;
+                  } else {
+                    defendantsList.value.push(updatedDef);
+                  }
+                  updateCacheField('defendants', defendantsList.value);
+                  
+                  alert(res.message);
+                } else {
+                  errorMsg.value = res.message;
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                errorMsg.value = "ขณะนี้แหล่งข้อมูลขัดข้อง โปรดตรวจสอบใหม่อีกครั้งในภายหลัง";
+              })
+              .upsertCase(caseForm, session.value.token);
+          } else {
+            loading.value = false;
+            alert("บันทึกคดีจำลองสำเร็จ (โหมดออฟไลน์)");
+          }
+        }
+
+        function handleDeleteCase(c) {
+          if (!confirm("คุณแน่ใจหรือไม่ที่จะทำการลบข้อมูลคดีนี้ออกจากระบบฐานข้อมูลอย่างถาวร? การกระทำนี้ไม่สามารถย้อนคืนได้")) return;
+          
+          loading.value = true;
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res.success) {
+                  currentDef.value = res.defendant;
+                  linkedCases.value = res.cases;
+                  searchDone.value = true;
+                  
+                  // บันทึกเก็บแคชลง defendantsList ในหน่วยความจำเพื่อความไวในการเปิดถัดไป
+                  const cleanId = res.defendant.citizen_id.replace(/\D/g, "");
+                  const idx = defendantsList.value.findIndex(d => d.citizen_id === cleanId);
+                  const updatedDef = { ...res.defendant, cases: res.cases };
+                  if (idx !== -1) {
+                    defendantsList.value[idx] = updatedDef;
+                  } else {
+                    defendantsList.value.push(updatedDef);
+                  }
+                  updateCacheField('defendants', defendantsList.value);
+                  
+                  alert(res.message);
+                } else {
+                  errorMsg.value = res.message;
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                errorMsg.value = "ขณะนี้แหล่งข้อมูลขัดข้อง โปรดตรวจสอบใหม่อีกครั้งในภายหลัง";
+              })
+              .deleteCase(c.rowNum, session.value.token);
+          } else {
+            loading.value = false;
+            alert("ลบข้อมูลคดีเรียบร้อยแล้ว (โหมดออฟไลน์จำลอง)");
+          }
+        }
+
+        function closeCaseModal() {
+          caseModalActive.value = false;
+        }
+
+        // ------------------ SELECT LISTS & ADMIN USERS ------------------
+
+        function loadSelectLists() {
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                if (res.success) {
+                  selectLists.charges = res.charges;
+                  selectLists.caseTypes = res.caseTypes;
+                  selectLists.subCaseTypes = res.subCaseTypes;
+                  selectLists.counselors = res.counselors;
+                  selectLists.approverName = res.approverName || "";
+                  selectLists.acknowledgerName = res.acknowledgerName || "";
+                  updateCacheField('selectLists', {
+                    charges: res.charges,
+                    caseTypes: res.caseTypes,
+                    subCaseTypes: res.subCaseTypes,
+                    counselors: res.counselors,
+                    approverName: res.approverName || "",
+                    acknowledgerName: res.acknowledgerName || ""
+                  });
+                }
+              })
+              .getFormSelectLists(session.value.token);
+          }
+        }
+
+        function loadUsersList() {
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                if (res.success) {
+                  usersList.value = res.users;
+                  updateCacheField('users', res.users);
+                }
+              })
+              .adminGetUsers(session.value.token);
+          }
+        }
+
+        function handleUpdateUserByAdmin(u) {
+          loading.value = true;
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                alert(res.message);
+                loadUsersList();
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                errorMsg.value = "ขณะนี้แหล่งข้อมูลขัดข้อง โปรดตรวจสอบใหม่อีกครั้งในภายหลัง";
+              })
+              .adminUpdateUser(u, session.value.token);
+          } else {
+            loading.value = false;
+            alert("แก้ไขข้อมูลสมาชิกสำเร็จ (โหมดออฟไลน์จำลอง)");
+          }
+        }
+
+        function loadCounselorsList() {
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                if (res.success) {
+                  counselorsList.value = res.counselors.map(c => ({ ...c, isEditing: false }));
+                  updateCacheField('counselors', res.counselors);
+                }
+              })
+              .adminGetCounselors(session.value.token);
+          } else {
+            // Offline fallback simulation
+            counselorsList.value = [
+              { userId: 1, counselorName: "นายกำพล กวีพิชชาพัชร", counselorPosition: "นักจิตวิทยาชำนาญการ", counselorPositionSecond: "รักษาการหัวหน้าศูนย์", rowNum: 2, isEditing: false },
+              { userId: 2, counselorName: "นางสาวมณี ใจดี", counselorPosition: "ผู้ให้คำปรึกษาประจำศาล", counselorPositionSecond: "", rowNum: 3, isEditing: false }
+            ];
+          }
+        }
+
+        function handleUpdateCounselor(c) {
+          loading.value = true;
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                c.isEditing = false;
+                alert(res.message);
+                loadCounselorsList();
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                errorMsg.value = "ขณะนี้แหล่งข้อมูลขัดข้อง โปรดตรวจสอบใหม่อีกครั้งในภายหลัง";
+              })
+              .adminUpdateCounselor(c, session.value.token);
+          } else {
+            loading.value = false;
+            c.isEditing = false;
+            alert("แก้ไขข้อมูลผู้ให้คำปรึกษาสำเร็จ (โหมดออฟไลน์จำลอง)");
+          }
+        }
+
+        function cancelEditCounselor(c) {
+          c.isEditing = false;
+          loadCounselorsList();
+        }
+
+        function confirmDeleteCounselor(c) {
+          counselorToDelete.value = c;
+          deleteCounselorPassword.value = '';
+          confirmDeleteCounselorModalActive.value = true;
+        }
+
+        function cancelDeleteCounselor() {
+          confirmDeleteCounselorModalActive.value = false;
+          deleteCounselorPassword.value = '';
+          counselorToDelete.value = null;
+        }
+
+        function submitDeleteCounselor() {
+          if (!deleteCounselorPassword.value) return;
+          loading.value = true;
+          
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res.success) {
+                  confirmDeleteCounselorModalActive.value = false;
+                  deleteCounselorPassword.value = '';
+                  counselorToDelete.value = null;
+                  alert(res.message);
+                  loadCounselorsList();
+                } else {
+                  alert(res.message);
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้ง");
+              })
+              .deleteCounselor(counselorToDelete.value.rowNum, deleteCounselorPassword.value, session.value.token);
+          } else {
+            loading.value = false;
+            confirmDeleteCounselorModalActive.value = false;
+            deleteCounselorPassword.value = '';
+            counselorsList.value = counselorsList.value.filter(c => c.rowNum !== counselorToDelete.value.rowNum);
+            counselorToDelete.value = null;
+            alert("ลบข้อมูลผู้ให้คำปรึกษาสำเร็จแล้ว (โหมดออฟไลน์จำลอง)");
+          }
+        }
+
+        function openAddCounselorModal() {
+          counselorForm.userId = '';
+          counselorForm.counselorName = '';
+          counselorForm.counselorPosition = '';
+          counselorForm.counselorPositionSecond = '';
+          addCounselorModalActive.value = true;
+        }
+
+        function closeAddCounselorModal() {
+          addCounselorModalActive.value = false;
+        }
+
+        function saveNewCounselor() {
+          loading.value = true;
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res.success) {
+                  addCounselorModalActive.value = false;
+                  alert(res.message);
+                  loadCounselorsList();
+                } else {
+                  alert(res.message);
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
+              })
+              .adminAddCounselor(counselorForm, session.value.token);
+          } else {
+            loading.value = false;
+            addCounselorModalActive.value = false;
+            counselorsList.value.push({
+              userId: counselorForm.userId,
+              counselorName: counselorForm.counselorName,
+              counselorPosition: counselorForm.counselorPosition,
+              counselorPositionSecond: counselorForm.counselorPositionSecond,
+              isEditing: false,
+              rowNum: counselorsList.value.length + 2
+            });
+            alert("เพิ่มข้อมูลผู้ให้คำปรึกษาใหม่สำเร็จ (โหมดออฟไลน์จำลอง)");
+          }
+        }
+
+        // ------------------ SETTINGS & PROFILE EDIT LOGIC ------------------
+
+        function openSettingsModal() {
+          if (!session.value) return;
+          
+          isEditingProfile.value = false;
+          settingsTab.value = 'profile';
+          settingsForm.username = session.value.username || '';
+          settingsForm.fullName = session.value.fullName || '';
+          settingsForm.position = session.value.position || '';
+          settingsForm.phone = session.value.phone || '';
+          settingsForm.email = session.value.email || '';
+          settingsForm.createdAt = session.value.createdAt || '';
+          settingsForm.profileImage = session.value.profileImage || '';
+          
+          pwdForm.oldPassword = '';
+          pwdForm.newPassword = '';
+          pwdForm.confirmPassword = '';
+          
+          settingsModalActive.value = true;
+        }
+
+        function closeSettingsModal() {
+          settingsModalActive.value = false;
+        }
+
+        function cancelEditingProfile() {
+          isEditingProfile.value = false;
+          settingsForm.username = session.value.username || '';
+          settingsForm.fullName = session.value.fullName || '';
+          settingsForm.position = session.value.position || '';
+          settingsForm.phone = session.value.phone || '';
+          settingsForm.email = session.value.email || '';
+          settingsForm.profileImage = session.value.profileImage || '';
+        }
+
+        function onProfileImageChange(e) {
+          const file = e.target.files[0];
+          if (!file) return;
+          if (file.size > 1024 * 1024) {
+            alert("รูปภาพมีขนาดใหญ่เกินไป โปรดเลือกรูปที่มีขนาดไม่เกิน 1MB");
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const maxDim = 120;
+              let width = img.width;
+              let height = img.height;
+              if (width > height) {
+                if (width > maxDim) {
+                  height = Math.round((height * maxDim) / width);
+                  width = maxDim;
+                }
+              } else {
+                if (height > maxDim) {
+                  width = Math.round((width * maxDim) / height);
+                  height = maxDim;
+                }
+              }
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, width, height);
+              settingsForm.profileImage = canvas.toDataURL('image/jpeg', 0.8);
+            };
+            img.src = event.target.result;
+          };
+          reader.readAsDataURL(file);
+        }
+
+        function saveProfile() {
+          loading.value = true;
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res.success) {
+                  session.value = res.user;
+                  session.value.token = res.token;
+                  
+                  localStorage.setItem('ccms_session_token', JSON.stringify(res.token));
+                  localStorage.setItem('ccms_user_profile', JSON.stringify(res.user));
+                  
+                  if (res.user.role === 'admin') {
+                    adminProfileImage.value = res.user.profileImage || '';
+                  }
+                  
+                  isEditingProfile.value = false;
+                  alert(res.message);
+                } else {
+                  alert(res.message);
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์ โปรดลองใหม่อีกครั้ง");
+              })
+              .updateUserProfile(settingsForm, session.value.token);
+          } else {
+            loading.value = false;
+            Object.assign(session.value, {
+              username: settingsForm.username,
+              fullName: settingsForm.fullName,
+              position: settingsForm.position,
+              phone: settingsForm.phone,
+              email: settingsForm.email,
+              profileImage: settingsForm.profileImage
+            });
+            localStorage.setItem('ccms_user_profile', JSON.stringify(session.value));
+            
+            if (session.value.role === 'admin') {
+              adminProfileImage.value = session.value.profileImage || '';
+            }
+            
+            isEditingProfile.value = false;
+            alert("อัปเดตข้อมูลส่วนตัวสำเร็จ (โหมดออฟไลน์จำลอง)");
+          }
+        }
+
+        function saveNewPassword() {
+          if (pwdForm.newPassword !== pwdForm.confirmPassword) {
+            alert("รหัสผ่านใหม่และการยืนยันรหัสผ่านไม่ตรงกัน โปรดตรวจสอบอีกครั้ง");
+            return;
+          }
+          
+          loading.value = true;
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res.success) {
+                  alert(res.message);
+                  pwdForm.oldPassword = '';
+                  pwdForm.newPassword = '';
+                  pwdForm.confirmPassword = '';
+                  settingsModalActive.value = false;
+                } else {
+                  alert(res.message);
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                alert("เกิดข้อผิดพลาดจากเซิร์ฟเวอร์ โปรดลองใหม่อีกครั้ง");
+              })
+              .changeUserPassword(pwdForm.oldPassword, pwdForm.newPassword, session.value.token);
+          } else {
+            loading.value = false;
+            alert("เปลี่ยนรหัสผ่านจำลองสำเร็จ (โหมดออฟไลน์จำลอง)");
+            settingsModalActive.value = false;
+          }
+        }
+
+        // ------------------ UI HELPERS & UTILITIES ------------------
+
+        const greetingText = computed(() => {
+          const hour = new Date().getHours();
+          if (hour >= 5 && hour < 12) return 'อรุณสวัสดิ์';
+          if (hour >= 12 && hour < 16) return 'สวัสดีตอนบ่าย';
+          if (hour >= 16 && hour < 19) return 'สวัสดีตอนเย็น';
+          return 'สวัสดี';
+        });
+
+        function getCleanName(name) {
+          if (!name) return "";
+          return name.replace(/^(นาย|นางสาว|นาง|เด็กชาย|เด็กหญิง|คุณ|ดร\.|นพ\.|พญ\.)\s*/, '');
+        }
+
+        function getChartColor(idx) {
+          const colors = ['#3b82f6', '#818cf8', '#6366f1', '#10b981', '#059669', '#f59e0b', '#d97706', '#ef4444', '#b91c1c', '#a855f7'];
+          return colors[idx % colors.length];
+        }
+
+        function updateTime() {
+          const now = new Date();
+          const hh = String(now.getHours()).padStart(2, '0');
+          const mm = String(now.getMinutes()).padStart(2, '0');
+          const ss = String(now.getSeconds()).padStart(2, '0');
+          currentTime.value = hh + ":" + mm + ":" + ss;
+          
+          const days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+          const months = [
+            'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+            'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+          ];
+          
+          const dayName = days[now.getDay()];
+          const date = now.getDate();
+          const monthName = months[now.getMonth()];
+          const rawYear = now.getFullYear();
+          const year = rawYear > 2400 ? rawYear : rawYear + 543;
+          
+          currentThaiDate.value = "วัน" + dayName + "ที่ " + date + " " + monthName + " " + year;
+        }
+
+        function toggleTheme() {
+          isDarkTheme.value = !isDarkTheme.value;
+        }
+
+        function formatThaiDate(dateStr) {
+          if (!dateStr) return "-";
+          var d = new Date(dateStr);
+          if (isNaN(d.getTime())) return dateStr;
+          
+          var months = [
+            "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
+            "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."
+          ];
+          var day = d.getDate();
+          var month = months[d.getMonth()];
+          var rawYear = d.getFullYear();
+          var year = rawYear > 2400 ? rawYear : rawYear + 543;
+          return day + " " + month + " " + year;
+        }
+
+        function getAge(birthDateStr) {
+          if (!birthDateStr) return { years: 0, months: 0 };
+          const birthDate = new Date(birthDateStr);
+          if (isNaN(birthDate.getTime())) return { years: 0, months: 0 };
+          
+          const today = new Date();
+          const todayYear = today.getFullYear() > 2400 ? today.getFullYear() - 543 : today.getFullYear();
+          const birthYear = birthDate.getFullYear() > 2400 ? birthDate.getFullYear() - 543 : birthDate.getFullYear();
+          
+          let years = todayYear - birthYear;
+          let months = today.getMonth() - birthDate.getMonth();
+          
+          if (months < 0 || (months === 0 && today.getDate() < birthDate.getDate())) {
+            years--;
+            months += 12;
+          }
+          if (today.getDate() < birthDate.getDate()) {
+            months--;
+          }
+          if (months < 0) {
+            years--;
+            months = 11;
+          }
+          return { years, months };
+        }
+
+        function formatAppointmentTime(timeVal) {
+          if (timeVal === undefined || timeVal === null || timeVal === '') {
+            return '--:--';
+          }
+          var str = timeVal.toString().trim();
+          if (str.indexOf(':') !== -1) {
+            var parts = str.split(':');
+            var hours = parseInt(parts[0], 10);
+            var minutes = parts[1] || '00';
+            if (minutes.length === 1) {
+              minutes = minutes + '0';
+            }
+            return hours + '.' + minutes + ' น.';
+          } else {
+            var num = parseFloat(str);
+            if (isNaN(num)) {
+              return str;
+            }
+            var parts = str.split(/[\.,]/);
+            var hours = parts[0];
+            var minutes = parts[1] || '00';
+            if (minutes.length === 1) {
+              minutes = minutes + '0';
+            }
+            return parseInt(hours, 10) + '.' + minutes + ' น.';
+          }
+        }
+
+        function getPercent(val, total) {
+          if (!total) return 0;
+          return Math.round((val / total) * 100);
+        }
+
+        function updateCaseTypeAbb() {
+          const ct = selectLists.caseTypes.filter(x => x.id == caseForm.case_type_id)[0];
+          if (ct) {
+            if (ct.name.indexOf("73") !== -1) caseForm.case_type_abb = "ศป";
+            else if (ct.name.indexOf("90") !== -1) caseForm.case_type_abb = "มอ";
+            else if (ct.name.indexOf("132") !== -1) caseForm.case_type_abb = "มพ";
+            else if (ct.name.indexOf("138") !== -1) caseForm.case_type_abb = "ศป";
+            else caseForm.case_type_abb = "ยชอ";
+          }
+        }
+
+        function resetDefForm(cid) {
+          Object.assign(defForm, {
+            citizen_id: cid || '', title_name: 'นาย', first_name: '', last_name: '', nick_name: '',
+            gender: 'ชาย', birth_date: '', phone_number: '', address: '',
+            medical_history: '', drug_history: '', interested: '',
+            guardian_name: '', relationship: 'บิดา', phone_number_guardian: '', occupation_guardian: '',
+            psy_diagnosis: ''
+          });
+        }
+
+        function resetCaseForm() {
+          const currentYear = new Date().getFullYear() > 2400 ? new Date().getFullYear() - 543 : new Date().getFullYear();
+          Object.assign(caseForm, {
+            rowNum: null, citizen_id: '', black_date: formatLocalDateString(new Date()), black_case: '',
+            case_type_id: 1, sub_case_type_id: '', case_type_abb: 'ศป',
+            black_case_no: '', black_case_year: currentYear + 543 - 2500, prosecutor: 'พนักงานอัยการโจทก์',
+            charge: '', charge_no: 1, age_at_offense: 15,
+            red_date: '', red_case_no: '', red_case_year: '', red_because: '',
+            recidivism: 'ไม่ซ้ำ', user_id: session.value ? session.value.userId : '',
+            counselor: session.value ? session.value.fullName : '', judge: '',
+            officer: '', mediator: '', note: ''
+          });
+        }
+
+        // ------------------ MOCK SIMULATOR FOR OFFLINE DEVELOPMENT ------------------
+
+        function simulateOfflineLogin() {
+          loading.value = false;
+          const input = loginForm.usernameOrEmail;
+          const mockUser = {
+            userId: 1,
+            email: input.indexOf('@') !== -1 ? input : input + "@example.ac.th",
+            role: input.indexOf('admin') !== -1 ? 'admin' : 'teacher',
+            fullName: input.indexOf('admin') !== -1 ? 'นายกำพล กวีพิชชาพัชร (Admin)' : 'นางสาวรัชนี ศิริสกุลงาม (Counselor)',
+            position: 'นักจิตวิทยาปฏิบัติการ'
+          };
+          session.value = mockUser;
+          session.value.token = "mock_session_token_123456";
+          
+          localStorage.setItem('ccms_session_token', session.value.token);
+          localStorage.setItem('ccms_user_profile', JSON.stringify(mockUser));
+          
+          simulateOfflineDashboard();
+          simulateOfflineSelectLists();
+        }
+
+        function simulateOfflineDashboard() {
+          loading.value = false;
+          const data = {
+            newCaseSections: { "มาตรา 73": 124, "มาตรา 90": 85, "มาตรา 132 วรรคหนึ่ง": 240, "มาตรา 132 วรรคสอง": 92, "คดีจากศาลอื่น": 30, "คดีอื่นๆ": 10 },
+            closedCaseSections: { "มาตรา 73": 110, "มาตรา 90": 80, "มาตรา 132 วรรคหนึ่ง": 210, "มาตรา 132 วรรคสอง": 82, "คดีจากศาลอื่น": 25, "คดีอื่นๆ": 10 },
+            pendingCaseSections: { "มาตรา 73": 14, "มาตรา 90": 5, "มาตรา 132 วรรคหนึ่ง": 30, "มาตรา 132 วรรคสอง": 10, "คดีจากศาลอื่น": 5, "คดีอื่นๆ": 0 },
+            carriedForwardCaseSections: { "มาตรา 73": 12, "มาตรา 90": 4, "มาตรา 132 วรรคหนึ่ง": 25, "มาตรา 132 วรรคสอง": 8, "คดีจากศาลอื่น": 3, "คดีอื่นๆ": 1 },
+            recidivismCount: 38,
+            topCharges: [
+              { name: "ความผิดฐานลักทรัพย์ ม.334 - 335", count: 185 },
+              { name: "ความผิดต่อชีวิต ม.288 - ม.290, ม.292 - ม.294", count: 98 },
+              { name: "พ.ร.บ. ยาเสพติดให้โทษ เมทแอมเฟตามีน", count: 88 },
+              { name: "ความผิดต่อร่างกาย ม.295 - 299", count: 72 },
+              { name: "พ.ร.บ. อาวุธปืน เครื่องกระสุนปืน ฯ พ.ศ.2490", count: 42 },
+              { name: "ความผิดเกี่ยวกับการข่มขืนกระทำชำเรา ม.276", count: 35 },
+              { name: "ความผิดฐานฉ้อโกง ม.341 - 348", count: 28 },
+              { name: "ความผิดต่อชีวิต ประมาท ม.291", count: 15 },
+              { name: "พ.ร.บ. ทางหลวง พ.ศ.2535", count: 12 },
+              { name: "ความผิดฐานบุกรุก ม.362 - 366", count: 8 }
+            ],
+            topChargesBySection: {
+              "ทั้งหมด": [
+                { name: "ความผิดฐานลักทรัพย์ ม.334 - 335", count: 185 },
+                { name: "ความผิดต่อชีวิต ม.288 - ม.290, ม.292 - ม.294", count: 98 },
+                { name: "พ.ร.บ. ยาเสพติดให้โทษ เมทแอมเฟตามีน", count: 88 },
+                { name: "ความผิดต่อร่างกาย ม.295 - 299", count: 72 },
+                { name: "พ.ร.บ. อาวุธปืน เครื่องกระสุนปืน ฯ พ.ศ.2490", count: 42 }
+              ],
+              "มาตรา 73": [
+                { name: "ความผิดฐานลักทรัพย์ ม.334 - 335", count: 50 },
+                { name: "ความผิดต่อร่างกาย ม.295 - 299", count: 20 }
+              ],
+              "มาตรา 90": [
+                { name: "พ.ร.บ. ยาเสพติดให้โทษ เมทแอมเฟตามีน", count: 40 }
+              ],
+              "มาตรา 132 วรรคหนึ่ง": [
+                { name: "ความผิดฐานลักทรัพย์ ม.334 - 335", count: 100 },
+                { name: "ความผิดต่อชีวิต ม.288 - ม.290, ม.292 - ม.294", count: 50 }
+              ],
+              "มาตรา 132 วรรคสอง": [
+                { name: "ความผิดฐานลักทรัพย์ ม.334 - 335", count: 30 }
+              ],
+              "คดีจากศาลอื่น": [
+                { name: "ความผิดฐานลักทรัพย์ ม.334 - 335", count: 15 }
+              ],
+              "คดีอื่นๆ": [
+                { name: "พ.ร.บ. ทางหลวง พ.ศ.2535", count: 12 }
+              ]
+            },
+            genderCounts: { "ชาย": 480, "หญิง": 101 },
+            genderCountsBySection: {
+              "ทั้งหมด": { "ชาย": 480, "หญิง": 101 },
+              "มาตรา 73": { "ชาย": 100, "หญิง": 24 },
+              "มาตรา 90": { "ชาย": 70, "หญิง": 15 },
+              "มาตรา 132 วรรคหนึ่ง": { "ชาย": 200, "หญิง": 40 },
+              "มาตรา 132 วรรคสอง": { "ชาย": 80, "หญิง": 12 },
+              "คดีจากศาลอื่น": { "ชาย": 25, "หญิง": 5 },
+              "คดีอื่นๆ": { "ชาย": 5, "หญิง": 5 }
+            },
+            ageCounts: {
+              "18 ปีขึ้นไป": 34,
+              "15 ปี แต่ไม่ถึง 18 ปี": 412,
+              "12 ปี แต่ไม่ถึง 15 ปี": 120,
+              "ต่ำกว่า 12 ปี": 15,
+              "ไม่มีข้อมูล": 5
+            },
+            ageCountsBySection: {
+              "ทั้งหมด": { "18 ปีขึ้นไป": 34, "15 ปี แต่ไม่ถึง 18 ปี": 412, "12 ปี แต่ไม่ถึง 15 ปี": 120, "ต่ำกว่า 12 ปี": 15, "ไม่มีข้อมูล": 5 },
+              "มาตรา 73": { "18 ปีขึ้นไป": 0, "15 ปี แต่ไม่ถึง 18 ปี": 80, "12 ปี แต่ไม่ถึง 15 ปี": 40, "ต่ำกว่า 12 ปี": 4, "ไม่มีข้อมูล": 0 },
+              "มาตรา 90": { "18 ปีขึ้นไป": 4, "15 ปี แต่ไม่ถึง 18 ปี": 60, "12 ปี แต่ไม่ถึง 15 ปี": 20, "ต่ำกว่า 12 ปี": 1, "ไม่มีข้อมูล": 0 },
+              "มาตรา 132 วรรคหนึ่ง": { "18 ปีขึ้นไป": 20, "15 ปี แต่ไม่ถึง 18 ปี": 180, "12 ปี แต่ไม่ถึง 15 ปี": 40, "ต่ำกว่า 12 ปี": 0, "ไม่มีข้อมูล": 0 },
+              "มาตรา 132 วรรคสอง": { "18 ปีขึ้นไป": 10, "15 ปี แต่ไม่ถึง 18 ปี": 70, "12 ปี แต่ไม่ถึง 15 ปี": 12, "ต่ำกว่า 12 ปี": 0, "ไม่มีข้อมูล": 0 },
+              "คดีจากศาลอื่น": { "18 ปีขึ้นไป": 0, "15 ปี แต่ไม่ถึง 18 ปี": 20, "12 ปี แต่ไม่ถึง 15 ปี": 8, "ต่ำกว่า 12 ปี": 0, "ไม่มีข้อมูล": 2 },
+              "คดีอื่นๆ": { "18 ปีขึ้นไป": 0, "15 ปี แต่ไม่ถึง 18 ปี": 2, "12 ปี แต่ไม่ถึง 15 ปี": 0, "ต่ำกว่า 12 ปี": 10, "ไม่มีข้อมูล": 3 }
+            },
+            districtCounts: { "เมืองระยอง": 232, "แกลง": 158, "ปลวกแดง": 125, "บ้านค่าย": 111, "นิคมพัฒนา": 97, "บ้านฉาง": 95, "เขาชะเมา": 55, "วังจันทร์": 40, "จังหวัดอื่นๆ": 12, "ไม่มีข้อมูล": 3 },
+            districtCountsBySection: {
+              "ทั้งหมด": { "เมืองระยอง": 232, "แกลง": 158, "ปลวกแดง": 125, "บ้านค่าย": 111, "นิคมพัฒนา": 97, "บ้านฉาง": 95, "เขาชะเมา": 55, "วังจันทร์": 40, "จังหวัดอื่นๆ": 12, "ไม่มีข้อมูล": 3 },
+              "มาตรา 73": { "เมืองระยอง": 50, "แกลง": 30, "ปลวกแดง": 20, "บ้านค่าย": 10 },
+              "มาตรา 90": { "เมืองระยอง": 40, "แกลง": 20, "ปลวกแดง": 15, "บ้านค่าย": 10 },
+              "มาตรา 132 วรรคหนึ่ง": { "เมืองระยอง": 100, "แกลง": 80, "ปลวกแดง": 50, "บ้านค่าย": 10 },
+              "มาตรา 132 วรรคสอง": { "เมืองระยอง": 30, "แกลง": 20, "ปลวกแดง": 30, "บ้านค่าย": 12 },
+              "คดีจากศาลอื่น": { "เมืองระยอง": 10, "แกลง": 8, "ปลวกแดง": 10, "บ้านค่าย": 2 },
+              "คดีอื่นๆ": { "เมืองระยอง": 2, "จังหวัดอื่นๆ": 8 }
+            },
+            recidivismCountBySection: {
+              "ทั้งหมด": 38,
+              "มาตรา 73": 10,
+              "มาตรา 90": 8,
+              "มาตรา 132 วรรคหนึ่ง": 15,
+              "มาตรา 132 วรรคสอง": 3,
+              "คดีจากศาลอื่น": 2,
+              "คดีอื่นๆ": 0
+            }
+          };
+          updateDashboardUI(data);
+        }
+
+        function simulateOfflineSelectLists() {
+          selectLists.charges = [
+            { id: 1, name: "ยาเสพติดให้โทษ" },
+            { id: 2, name: "ความผิดเกี่ยวกับเพศ" },
+            { id: 3, name: "ความผิดเกี่ยวกับทรัพย์" },
+            { id: 4, name: "พ.ร.บ.อาวุธปืน" }
+          ];
+          selectLists.caseTypes = [
+            { id: 1, name: "มาตรา 73", detail: "ให้คำปรึกษาแนะนำ" },
+            { id: 2, name: "มาตรา 90", detail: "มาตรการพิเศษแทนคดีอาญา" },
+            { id: 3, name: "มาตรา 132", detail: "กำหนดมาตรการแทนพิพากษา" }
+          ];
+          selectLists.subCaseTypes = [
+            { id: 1, name: "วรรคที่ 1" },
+            { id: 2, name: "วรรคที่ 2" }
+          ];
+          selectLists.counselors = [
+            { userId: 1, fullName: "นายกำพล กวีพิชชาพัชร" },
+            { userId: 2, fullName: "นางสาวรัชนี ศิริสกุลงาม" }
+          ];
+          selectLists.approverName = "นางสมควร เลิศรัตนชัย";
+          selectLists.acknowledgerName = "นายวิรัช รุ่งเรืองพิพัฒน์";
+        }
+
+        function simulateOfflineSearch() {
+          loading.value = false;
+          if (searchId.value === "1111111111111") {
+            currentDef.value = {
+              citizen_id: "1111111111111", title_name: "นาย", first_name: "สมเกียรติ", last_name: "ดีเลิศ", nick_name: "โต้ง",
+              gender: "ชาย", birth_date: "2008-05-15", address: "123/4 ม.3 อ.แกลง จ.ระยอง",
+              medical_history: "โรคภูมิแพ้อากาศ", drug_history: "เคยทดลองสูบกัญชา", interested: "ดนตรีและกีฬาฟุตบอล",
+              psy_diagnosis: "เด็กมีความวิตกกังวลสูงเบื้องต้น มีระดับความเครียดปานกลางเนื่องจากสัมพันธภาพในครอบครัวมีความตึงเครียด แต่เด็กไม่มีความก้าวร้าวรุนแรง ทัศนคติต่อการฟื้นฟูพัฒนาตนเองอยู่ในเกณฑ์ดี มีแนวโน้มปรับปรุงพฤติกรรมได้ดี"
+            };
+            linkedCases.value = [
+              {
+                rowNum: 2, citizen_id: "1111111111111", black_date: "2026-04-10", black_case: "อ.28/69",
+                case_type_id: 3, sub_case_type_id: 1, case_type_abb: "มพ",
+                black_case_no: 28, black_case_year: 69, prosecutor: "พนักงานอัยการระยอง",
+                charge: "ลักทรัพย์ในเวลากลางคืน", charge_no: 3, age_at_offense: 17,
+                red_date: "", red_case_no: "", red_case_year: "", red_because: "",
+                recidivism: "ไม่ซ้ำ", counselor: session.value.fullName, user_id: session.value.userId,
+                judge: "นายรักศักดิ์ ดำรงเกียรติ", note: "ติดตามความประพฤติทุก 1 เดือน"
+              }
+            ];
+            searchDone.value = true;
+          } else {
+            resetDefForm(searchId.value);
+            newDefFormActive.value = true;
+          }
+        }
+
+        const manualZoom = ref(0.45);
+        let initialDistance = 0;
+        let initialZoom = 0.45;
+
+        function handleTouchStart(e) {
+          if (e.touches.length === 2) {
+            initialDistance = Math.hypot(
+              e.touches[0].pageX - e.touches[1].pageX,
+              e.touches[0].pageY - e.touches[1].pageY
+            );
+            initialZoom = manualZoom.value;
+          }
+        }
+
+        function handleTouchMove(e) {
+          if (e.touches.length === 2 && initialDistance > 0) {
+            // ป้องกัน scroll เบราว์เซอร์ขณะกำลังจีบนิ้วย่อขยาย
+            e.preventDefault();
+            const currentDistance = Math.hypot(
+              e.touches[0].pageX - e.touches[1].pageX,
+              e.touches[0].pageY - e.touches[1].pageY
+            );
+            const scale = currentDistance / initialDistance;
+            let newZoom = initialZoom * scale;
+            newZoom = Math.min(2.0, Math.max(0.35, newZoom));
+            manualZoom.value = Math.round(newZoom * 100) / 100;
+            document.documentElement.style.setProperty('--report-zoom', manualZoom.value.toString());
+          }
+        }
+
+        function handleTouchEnd(e) {
+          if (e.touches.length < 2) {
+            initialDistance = 0;
+          }
+        }
+
+        function adjustZoom(amount) {
+          let newZoom = manualZoom.value + amount;
+          newZoom = Math.min(2.0, Math.max(0.35, newZoom));
+          manualZoom.value = Math.round(newZoom * 100) / 100;
+          document.documentElement.style.setProperty('--report-zoom', manualZoom.value.toString());
+        }
+
+        function adjustDashboardZoom(amount) {
+          let newZoom = dashboardZoom.value + amount;
+          newZoom = Math.min(2.0, Math.max(0.35, newZoom));
+          dashboardZoom.value = Math.round(newZoom * 100) / 100;
+        }
+
+        function handleDashTouchStart(e) {
+          if (currentView.value === 'dashboard' && !printModalActive.value && e.touches.length === 2) {
+            initialDashDistance = Math.hypot(
+              e.touches[0].pageX - e.touches[1].pageX,
+              e.touches[0].pageY - e.touches[1].pageY
+            );
+            initialDashZoom = dashboardZoom.value;
+          }
+        }
+
+        function handleDashTouchMove(e) {
+          if (currentView.value === 'dashboard' && !printModalActive.value && e.touches.length === 2 && initialDashDistance > 0) {
+            e.preventDefault();
+            const currentDistance = Math.hypot(
+              e.touches[0].pageX - e.touches[1].pageX,
+              e.touches[0].pageY - e.touches[1].pageY
+            );
+            const scale = currentDistance / initialDashDistance;
+            let newZoom = initialDashZoom * scale;
+            newZoom = Math.min(2.0, Math.max(0.35, newZoom));
+            dashboardZoom.value = Math.round(newZoom * 100) / 100;
+          }
+        }
+
+        function handleDashTouchEnd(e) {
+          if (e.touches.length < 2) {
+            initialDashDistance = 0;
+          }
+        }
+
+        function updateReportZoom() {
+          const container = document.querySelector('.print-preview-scroll-container');
+          const width = container ? container.clientWidth : window.innerWidth;
+          const zoomFactor = Math.min(1, (width - 16) / 794);
+          manualZoom.value = Math.round(zoomFactor * 100) / 100;
+          document.documentElement.style.setProperty('--report-zoom', manualZoom.value.toString());
+        }
+
+        function openPrintPreview() {
+          if (!session.value || (session.value.role !== 'admin' && session.value.role !== 'psychologist')) {
+            alert("สิทธิ์ของท่านไม่ได้รับอนุญาตให้พิมพ์รายงานสรุปผลการดำเนินงาน");
+            return;
+          }
+          printModalActive.value = true;
+          
+          const width = window.innerWidth;
+          const zoomFactor = Math.min(1, (width - 16) / 794);
+          manualZoom.value = Math.max(0.35, Math.round(zoomFactor * 100) / 100);
+          
+          setTimeout(() => {
+            document.documentElement.style.setProperty('--report-zoom', manualZoom.value.toString());
+            const container = document.querySelector('.print-preview-scroll-container');
+            if (container) {
+              container.addEventListener('touchstart', handleTouchStart, { passive: true });
+              container.addEventListener('touchmove', handleTouchMove, { passive: false });
+              container.addEventListener('touchend', handleTouchEnd, { passive: true });
+            }
+          }, 50);
+          setTimeout(updateReportZoom, 250);
+        }
+
+        function closePrintModal() {
+          const container = document.querySelector('.print-preview-scroll-container');
+          if (container) {
+            container.removeEventListener('touchstart', handleTouchStart);
+            container.removeEventListener('touchmove', handleTouchMove);
+            container.removeEventListener('touchend', handleTouchEnd);
+          }
+          printModalActive.value = false;
+        }
+
+        function triggerPrint() {
+          window.print();
+        }
+
+        return {
+          session, currentView, authView, loading, errorMsg, cacheTime, isOffline, authAlert, adminProfileImage, isEditingProfile, cancelEditingProfile,
+          searchId, searchDone, currentDef, linkedCases, newDefFormActive, usersList, counselorsList,
+          confirmDeleteCounselorModalActive, deleteCounselorPassword, counselorToDelete,
+          addCounselorModalActive, counselorForm, openAddCounselorModal, closeAddCounselorModal, saveNewCounselor,
+          caseModalActive, caseFormMode, editDefModalActive, settingsModalActive, settingsTab,
+          settingsForm, pwdForm, dashboardFilter, selectLists, stats, loginForm, registerForm, 
+          defForm, caseForm, handleLogin, handleRegister, handleLogout, toggleTheme, formatThaiDate,
+          searchDefendant, saveNewDefendant, openEditDefModal, saveEditDefendant,
+          confirmDeleteDefModalActive, deleteConfirmPassword, confirmDeleteDef, cancelDeleteDef, submitDeleteDef,
+          openAddCaseModal, openEditCaseModal, saveCase, handleDeleteCase, closeCaseModal,
+          handleUpdateUserByAdmin, handleUpdateCounselor, loadCounselorsList, confirmDeleteCounselor, cancelDeleteCounselor, submitDeleteCounselor, cancelEditCounselor, getPercent, loadDashboardData, updateCaseTypeAbb, formatAppointmentTime,
+          openSettingsModal, closeSettingsModal, onProfileImageChange, saveProfile, saveNewPassword,
+          printModalActive, openPrintPreview, closePrintModal, triggerPrint, dashboardRawData,
+          manualZoom, adjustZoom,
+          
+          // New card grid states, properties and methods
+          defendantsList, cardSearchQuery, cardCurrentPage, cardPageSize,
+          filteredDefendants, totalPages, paginatedDefendants,
+          loadDefendantsList, selectDefendantFromCard, goBackToMainList,
+          triggerNewDefendantRegistration, switchView, getRoleLabel,
+          onPageInputChange, countCourtCases,
+          
+          // Calendar states and methods
+          calendarYear, calendarMonth, appointments, selectedDate, thaiMonths,
+          calendarDays, selectedDayAppointments, loadAppointments, prevMonth,
+          nextMonth, goToToday, selectDay, formatThaiLongDate, formatThaiFullMonthDate, viewDefendantFromCalendar,
+          calendarDetailModalActive, calendarDetailDef, calendarDetailCases, calendarDetailReason, openInCaseManager,
+          
+          // Theme and clock variables
+          isDarkTheme, currentTime, currentThaiDate, greetingText, getCleanName, getChartColor, getAge,
+           
+           // Section filter states
+           selectedSectionFilter, onSectionFilterChange,
+           dashboardZoom, adjustDashboardZoom,
+          
+          // Unfiltered stats for print preview
+          unfilteredStats
+        };
+      }
+    }).mount('#app');
+  </script>

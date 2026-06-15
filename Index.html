@@ -1,0 +1,1902 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>CCMS Rayong - ระบบบริหารจัดการศูนย์ให้คำปรึกษาฯ ศาลเยาวชนและครอบครัวจังหวัดระยอง</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=5.0, user-scalable=yes">
+  <!-- Google Fonts: Outfit & Inter (Thai support) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <?!= include('Styles'); ?>
+  <!-- ApexCharts CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+</head>
+<body class="dark-mode" id="app-body">
+
+  <div class="bg-animation">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+  </div>
+
+  <div id="app" v-cloak>
+    <!-- BANNER แจ้งเตือนข้อผิดพลาด/ข้อมูลขัดข้อง -->
+    <div v-if="errorMsg" class="modal-overlay" style="z-index: 2000;">
+      <div class="glass-card banner banner-danger" style="max-width: 500px; text-align: center; flex-direction: column; padding: 30px;">
+        <i class="fa-solid fa-circle-exclamation" style="font-size: 3rem; margin-bottom: 10px;"></i>
+        <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 10px;">ขัดข้องชั่วคราว</h3>
+        <p>{{ errorMsg }}</p>
+        <button class="btn btn-secondary" style="margin-top: 15px; width: 100%;" @click="errorMsg = ''">ตกลง</button>
+      </div>
+    </div>
+    
+    <!-- BANNER ข้อมูลล่าสุดแคชเมื่อ offline -->
+    <div v-if="isOffline && cacheTime" class="banner banner-success" style="position: sticky; top: 0; z-index: 500; border-radius: 0; margin-bottom: 0;">
+      <i class="fa-solid fa-circle-info"></i>
+      <span>ขณะนี้ระบบรันแบบออฟไลน์ แสดงข้อมูลประมวลผลล่าสุดแคชเมื่อ: <strong>{{ cacheTime }}</strong></span>
+    </div>
+
+    <!-- ==========================================
+         1. หน้าต่างความปลอดภัย (LOGIN / REGISTER)
+         ========================================== -->
+    <div v-if="!session" class="auth-container" style="flex-direction: column; gap: 20px;">
+      <div class="glass-card auth-card shadow animate-in">
+        <!-- ปุ่มสลับโหมดกลางวัน/กลางคืน -->
+        <div style="position: absolute; top: 20px; right: 25px; display: flex; align-items: center; gap: 8px; z-index: 10;">
+          <span style="font-size: 0.78rem; color: #94a3b8;"><i class="fa-solid fa-moon"></i> โหมดกลางคืน</span>
+          <label class="switch">
+            <input type="checkbox" v-model="isDarkTheme">
+            <span class="slider"></span>
+          </label>
+        </div>
+        
+        <div class="auth-logo">
+          <div class="brand-logo"><i class="fa-solid fa-scale-balanced"></i></div>
+          <div class="brand-name">CCMS Rayong</div>
+          <div style="font-size: 0.85rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">ระบบบริหารจัดการศูนย์ให้คำปรึกษาฯ</div>
+          <div style="font-size: 0.85rem; color: #94a3b8; font-weight: 500;">ศาลเยาวชนและครอบครัวจังหวัดระยอง</div>
+        </div>
+
+        <!-- หน้าล็อกอิน -->
+        <div v-if="authView === 'login'">
+          <h2 class="auth-title" style="margin-bottom: 25px;">เข้าสู่ระบบ</h2>
+          
+          <div v-if="authAlert" class="banner banner-danger" style="padding: 10px 15px; margin-bottom: 15px; font-size: 0.85rem;">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>{{ authAlert }}</span>
+          </div>
+
+          <form @submit.prevent="handleLogin">
+            <div class="form-group">
+              <label class="form-label">อีเมลหรือชื่อผู้ใช้งาน (Email or Username)</label>
+              <input type="text" class="form-control" v-model="loginForm.usernameOrEmail" required>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 30px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <label class="form-label" style="margin-bottom: 0;">รหัสผ่าน</label>
+              </div>
+              <input type="password" class="form-control" v-model="loginForm.password" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; height: 50px;" :disabled="loading">
+              <span v-if="loading" class="loader" style="width: 20px; height: 20px; border-width: 2.5px;"></span>
+              <span v-else>เข้าสู่ระบบ <i class="fa-solid fa-arrow-right-to-bracket"></i></span>
+            </button>
+          </form>
+          
+          <div style="text-align: center; margin-top: 25px; font-size: 0.9rem; color: #94a3b8;">
+            ยังไม่มีบัญชีสมาชิก? <a href="#" style="color: var(--accent); font-weight: 600; text-decoration: none;" @click.prevent="authView = 'register'">ลงทะเบียนสมัครสมาชิก <i class="fa-solid fa-user-plus"></i></a>
+          </div>
+        </div>
+
+        <!-- หน้าลงทะเบียน -->
+        <div v-if="authView === 'register'">
+          <h2 class="auth-title" style="margin-bottom: 25px;">สมัครสมาชิกใหม่</h2>
+          
+          <div v-if="authAlert" class="banner banner-danger" style="padding: 10px 15px; margin-bottom: 15px; font-size: 0.85rem;">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>{{ authAlert }}</span>
+          </div>
+
+          <form @submit.prevent="handleRegister">
+            <div class="form-group">
+              <label class="form-label">ชื่อ-นามสกุลจริง</label>
+              <input type="text" class="form-control" v-model="registerForm.full_name" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">ตำแหน่ง</label>
+              <input type="text" class="form-control" v-model="registerForm.position" required>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">อีเมลผู้ใช้งาน</label>
+              <input type="email" class="form-control" v-model="registerForm.email" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">ชื่อผู้ใช้งาน (Username)</label>
+              <input type="text" class="form-control" v-model="registerForm.username" required>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">รหัสผ่านสำหรับเข้าใช้งาน</label>
+              <input type="password" class="form-control" v-model="registerForm.password" required minlength="8">
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; height: 50px; margin-top: 10px;" :disabled="loading">
+              <span v-if="loading" class="loader" style="width: 20px; height: 20px; border-width: 2.5px;"></span>
+              <span v-else>ลงทะเบียนสมาชิก <i class="fa-solid fa-paper-plane"></i></span>
+            </button>
+          </form>
+          
+          <div style="text-align: center; margin-top: 25px; font-size: 0.9rem; color: #94a3b8;">
+            มีบัญชีสมาชิกอยู่แล้ว? <a href="#" style="color: var(--accent); font-weight: 600; text-decoration: none;" @click.prevent="authView = 'login'">เข้าสู่ระบบ <i class="fa-solid fa-arrow-right-to-bracket"></i></a>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- กล่องข้อมูลผู้พัฒนาแบบพรีเมียม (Footer) -->
+      <div class="glass-card" style="width: 100%; max-width: 480px; display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-radius: 16px; font-size: 0.8rem; color: #94a3b8 !important; background: #1e293b !important; border: 1px solid rgba(255, 255, 255, 0.12) !important; margin-top: 10px; box-shadow: var(--shadow); transition: all 0.3s;">
+        <div>2026 &copy; โปรแกรมศูนย์ให้คำปรึกษาฯ - v1.2.57</div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <!-- อวตารแอดมินหรือภาพจำลองดั้งเดิม -->
+          <div style="width: 36px; height: 36px; border-radius: 50%; overflow: hidden; background: rgba(var(--accent-rgb), 0.15); border: 1px solid var(--accent); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <img v-if="adminProfileImage" :src="adminProfileImage" style="width: 100%; height: 100%; object-fit: cover;">
+            <span v-else style="font-weight: bold; color: var(--accent); font-size: 0.75rem;">กพ</span>
+          </div>
+          <div style="text-align: left; line-height: 1.3;">
+            <div style="font-size: 0.7rem; color: #94a3b8;">พัฒนาโดย</div>
+            <div style="font-weight: 600; color: var(--warning);">นายกำพล กวีพิชชาพัชร</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         2. โครงสร้างเมนูบาร์สำหรับหลังเข้าล็อกอินสำเร็จ
+         ========================================== -->
+    <div v-else class="app-container" v-show="!printModalActive">
+      
+      <!-- SIDEBAR NAV (DESKTOP) -->
+      <aside class="sidebar">
+        <div>
+          <div class="brand" style="margin-bottom: 25px; align-items: flex-start;">
+            <div class="brand-logo" style="flex-shrink: 0;"><i class="fa-solid fa-scale-balanced"></i></div>
+            <div>
+              <div class="brand-name">CCMS Rayong</div>
+              <div style="font-size: 0.55rem; color: var(--text-muted); line-height: 1.3; margin-top: 3px; font-weight: 500;">ศูนย์ให้คำปรึกษาแนะนำและประสานการประชุม เพื่อแก้ไข บำบัด ฟื้นฟู เด็ก เยาวชนและครอบครัว</div>
+              <div style="font-size: 0.65rem; color: var(--text-muted); font-weight: 600; margin-top: 3px; letter-spacing: 0.5px;">ศาลเยาวชนและครอบครัวจังหวัดระยอง</div>
+            </div>
+          </div>
+          
+          <!-- นาฬิกาดิจิตอล -->
+          <div class="sidebar-clock">
+            <div class="sidebar-clock-time">{{ currentTime }}</div>
+            <div class="sidebar-clock-date">{{ currentThaiDate }}</div>
+          </div>
+          
+          <!-- ข้อมูลผู้ใช้งานที่จัดวางส่วนบน -->
+          <div class="sidebar-user">
+            <div class="sidebar-user-avatar">
+              <img v-if="session.profileImage" :src="session.profileImage" style="width: 100%; height: 100%; object-fit: cover;">
+              <span v-else>{{ session.fullName.substring(0, 2) }}</span>
+            </div>
+            <div class="sidebar-user-info">
+              <div class="sidebar-user-name" style="display: flex; justify-content: space-between; align-items: center; gap: 5px;">
+                <span style="white-space: normal; line-height: 1.1; word-break: break-word;" :style="{ fontSize: getCleanName(session.fullName).length > 15 ? '0.75rem' : '0.85rem' }">{{ getCleanName(session.fullName) }}</span>
+                <a href="#" @click.prevent="openSettingsModal" style="color: #f59e0b; font-size: 0.85rem;" title="ตั้งค่าข้อมูลส่วนตัว">
+                  <i class="fa-solid fa-gear"></i>
+                </a>
+              </div>
+              <div class="sidebar-user-role">{{ getRoleLabel(session.role) }}</div>
+            </div>
+          </div>
+          
+          <ul class="nav-menu">
+            <li class="nav-item" :class="{ active: currentView === 'dashboard' }">
+              <a href="#" @click.prevent="switchView('dashboard')"><i class="fa-solid fa-gauge-high"></i> แดชบอร์ด</a>
+            </li>
+            <li v-if="session.role !== 'user'" class="nav-item" :class="{ active: currentView === 'search' }">
+              <a href="#" @click.prevent="switchView('search')"><i class="fa-solid fa-folder-open"></i> จัดการข้อมูลเด็กและเยาวชน</a>
+            </li>
+            <li v-if="session.role !== 'user'" class="nav-item" :class="{ active: currentView === 'calendar' }">
+              <a href="#" @click.prevent="switchView('calendar')"><i class="fa-solid fa-calendar-days"></i> ปฏิทินวันนัด</a>
+            </li>
+            <li v-if="session.role === 'admin' || session.role === 'psychologist'" class="nav-item" :class="{ active: currentView === 'counselors' }">
+              <a href="#" @click.prevent="switchView('counselors')"><i class="fa-solid fa-user-doctor"></i> ข้อมูลผู้ให้คำปรึกษา</a>
+            </li>
+            <li v-if="session.role === 'admin'" class="nav-item" :class="{ active: currentView === 'users' }">
+              <a href="#" @click.prevent="switchView('users')"><i class="fa-solid fa-user-gear"></i> สิทธิ์ผู้ใช้งาน</a>
+            </li>
+          </ul>
+        </div>
+        
+        <div class="sidebar-footer">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 5px;">
+            <span style="font-size: 0.8rem; color: #94a3b8;"><i class="fa-solid fa-moon"></i> โหมดกลางคืน</span>
+            <label class="switch">
+              <input type="checkbox" v-model="isDarkTheme">
+              <span class="slider"></span>
+            </label>
+          </div>
+          
+          <button class="btn btn-secondary" style="width: 100%; border-radius: 12px; padding: 10px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08); color: #ffffff;" @click="handleLogout">
+            ออกจากระบบ <i class="fa-solid fa-arrow-right-from-bracket"></i>
+          </button>
+        </div>
+      </aside>
+      
+      <!-- MOBILE BOTTOM NAV -->
+      <nav class="bottom-nav">
+        <a href="#" class="bottom-nav-item" :class="{ active: currentView === 'dashboard' }" @click.prevent="switchView('dashboard')">
+          <i class="fa-solid fa-chart-line"></i><span>สถิติ</span>
+        </a>
+        <a v-if="session.role !== 'user'" href="#" class="bottom-nav-item" :class="{ active: currentView === 'search' }" @click.prevent="switchView('search')">
+          <i class="fa-solid fa-folder-open"></i><span>จัดการคดี</span>
+        </a>
+        <a v-if="session.role !== 'user'" href="#" class="bottom-nav-item" :class="{ active: currentView === 'calendar' }" @click.prevent="switchView('calendar')">
+          <i class="fa-solid fa-calendar-days"></i><span>ปฏิทิน</span>
+        </a>
+        <a v-if="session.role === 'admin' || session.role === 'psychologist'" href="#" class="bottom-nav-item" :class="{ active: currentView === 'counselors' }" @click.prevent="switchView('counselors')">
+          <i class="fa-solid fa-user-doctor"></i><span>ผู้ให้คำปรึกษา</span>
+        </a>
+        <a v-if="session.role === 'admin'" href="#" class="bottom-nav-item" :class="{ active: currentView === 'users' }" @click.prevent="switchView('users')">
+          <i class="fa-solid fa-user-gear"></i><span>จัดการผู้ใช้</span>
+        </a>
+        <a href="#" class="bottom-nav-item" @click.prevent="openSettingsModal">
+          <i class="fa-solid fa-gear"></i><span>ตั้งค่า</span>
+        </a>
+        <a href="#" class="bottom-nav-item" @click.prevent="handleLogout">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i><span>ออก</span>
+        </a>
+      </nav>
+
+      <!-- ==========================================
+           3. หน้าจอหลักในการทำคอนเทนต์ (MAIN CONTENT)
+           ========================================== -->
+      <main class="main-content">
+        
+        <!-- ====================================
+             3.1 แดชบอร์ดภาพรวมสถิติ (DASHBOARD)
+             ==================================== -->
+        <div id="dashboard-view-container" v-show="currentView === 'dashboard'" class="animate-in" :style="{ position: 'relative', zoom: dashboardZoom }">
+          <div v-if="loading" class="loading-overlay">
+            <span class="loader"></span>
+            <p style="font-weight: 500;">กำลังรวบรวมข้อมูลและจัดเตรียมสถิติภาพรวมศาล...</p>
+          </div>
+
+          <div class="page-header header-dashboard" style="border-left: 5px solid #2563eb;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <div class="page-header-icon" style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);">
+                <i class="fa-solid fa-chart-pie"></i>
+              </div>
+              <div>
+                <h1 class="page-title dashboard-title">แดชบอร์ด</h1>
+                <p class="page-title-desc">รายงานสถิติศูนย์ให้คำปรึกษาฯ ศาลเยาวชนและครอบครัวจังหวัดระยอง (เรียลไทม์)</p>
+              </div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 20px;">
+              <div style="display: flex; align-items: center; gap: 15px;" class="hide-mobile">
+                <div style="display: flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; color: #10b981;">
+                  <span style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; display: inline-block; animation: pulse 1.5s infinite;"></span>
+                  ออนไลน์
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
+                  <i class="fa-regular fa-calendar-days"></i> {{ currentThaiDate }}
+                </div>
+              </div>
+              <button class="btn btn-secondary" style="border-radius: 12px; padding: 10px 18px;" @click="loadDashboardData" :disabled="loading">
+                <i class="fa-solid fa-arrows-rotate" :class="{ 'fa-spin': loading }"></i> ดึงค่าใหม่
+              </button>
+              <button v-if="session && (session.role === 'admin' || session.role === 'psychologist')" class="btn btn-primary" style="border-radius: 12px; padding: 10px 18px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);" @click="openPrintPreview" :disabled="loading">
+                <i class="fa-solid fa-print"></i> พิมพ์รายงาน PDF
+              </button>
+            </div>
+          </div>
+
+          <!-- แบนเนอร์ต้อนรับสไตล์พรีเมียม (Welcome Banner) -->
+          <div class="welcome-banner">
+            <h2 class="welcome-title">{{ greetingText }} คุณ{{ getCleanName(session.fullName) }}</h2>
+            <div class="welcome-subtitle">
+              {{ currentThaiDate }} &bull; ศาลเยาวชนและครอบครัวจังหวัดระยอง
+            </div>
+          </div>
+          
+          <!-- แผงฟิลเตอร์ช่วงข้อมูลวันที่ -->
+          <div class="glass-card date-filter-panel">
+            <div class="form-group">
+              <label class="form-label">ตั้งแต่วันที่</label>
+              <input type="date" class="form-control" v-model="dashboardFilter.start">
+            </div>
+            <div class="form-group">
+              <label class="form-label">ถึงวันที่</label>
+              <input type="date" class="form-control" v-model="dashboardFilter.end">
+            </div>
+            <div class="form-group">
+              <label class="form-label">เรียงตามรายมาตรา</label>
+              <select class="form-control" v-model="selectedSectionFilter" @change="onSectionFilterChange">
+                <option value="ทั้งหมด" :style="{ backgroundColor: isDarkTheme ? '#1e293b' : '#ffffff', color: isDarkTheme ? '#f8fafc' : '#0f172a' }">ทั้งหมด</option>
+                <option value="มาตรา 73" :style="{ backgroundColor: isDarkTheme ? '#1e293b' : '#ffffff', color: isDarkTheme ? '#f8fafc' : '#0f172a' }">เฉพาะ มาตรา 73</option>
+                <option value="มาตรา 90" :style="{ backgroundColor: isDarkTheme ? '#1e293b' : '#ffffff', color: isDarkTheme ? '#f8fafc' : '#0f172a' }">เฉพาะ มาตรา 90</option>
+                <option value="มาตรา 132 วรรคหนึ่ง" :style="{ backgroundColor: isDarkTheme ? '#1e293b' : '#ffffff', color: isDarkTheme ? '#f8fafc' : '#0f172a' }">เฉพาะ มาตรา 132 วรรคหนึ่ง</option>
+                <option value="มาตรา 132 วรรคสอง" :style="{ backgroundColor: isDarkTheme ? '#1e293b' : '#ffffff', color: isDarkTheme ? '#f8fafc' : '#0f172a' }">เฉพาะ มาตรา 132 วรรคสอง</option>
+                <option value="คดีจากศาลอื่น" :style="{ backgroundColor: isDarkTheme ? '#1e293b' : '#ffffff', color: isDarkTheme ? '#f8fafc' : '#0f172a' }">เฉพาะ คดีจากศาลอื่น</option>
+                <option value="คดีอื่นๆ" :style="{ backgroundColor: isDarkTheme ? '#1e293b' : '#ffffff', color: isDarkTheme ? '#f8fafc' : '#0f172a' }">เฉพาะ คดีอื่นๆ</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label"><i class="fa-solid fa-magnifying-glass-plus"></i> ย่อ/ขยายแดชบอร์ด</label>
+              <div style="display: flex; gap: 8px; align-items: center; height: 50px;">
+                <button type="button" class="btn btn-secondary" style="flex: 1; height: 100%; border-radius: 10px; background: var(--bg-card); color: var(--text-main); border: 1px solid var(--card-border); padding: 0; display: flex; align-items: center; justify-content: center;" @click="adjustDashboardZoom(-0.05)" title="ย่อหน้าจอ">
+                  <i class="fa-solid fa-minus"></i>
+                </button>
+                <span style="font-family: monospace; font-size: 0.9rem; font-weight: 600; min-width: 55px; text-align: center;">{{ Math.round(dashboardZoom * 100) }}%</span>
+                <button type="button" class="btn btn-secondary" style="flex: 1; height: 100%; border-radius: 10px; background: var(--bg-card); color: var(--text-main); border: 1px solid var(--card-border); padding: 0; display: flex; align-items: center; justify-content: center;" @click="adjustDashboardZoom(0.05)" title="ขยายหน้าจอ">
+                  <i class="fa-solid fa-plus"></i>
+                </button>
+              </div>
+            </div>
+            <button class="btn btn-primary" style="height: 50px; font-weight: 600;" @click="loadDashboardData" :disabled="loading">
+              สืบค้นสถิติ <i class="fa-solid fa-chart-simple"></i>
+            </button>
+          </div>
+
+          <!-- แผงรายงานตัวเลขสถิติ (Stat Cards) -->
+          <div class="stats-grid">
+            <div class="glass-card stat-card hover-scale">
+              <div class="stat-icon" :style="{ background: isDarkTheme ? 'linear-gradient(135deg, #60a5fa 0%, #1e293b 100%)' : 'linear-gradient(135deg, #475569 0%, #2c3e50 100%)' }">
+                <i class="fa-solid fa-folder-open"></i>
+              </div>
+              <div>
+                <div class="stat-val stat-val-new" :style="{ color: isDarkTheme ? '#60a5fa' : '#2c3e50' }">{{ stats.totalNewCases }}</div>
+                <div class="stat-label">คดีเด็ก/เยาวชน รับเข้าใหม่</div>
+              </div>
+            </div>
+            
+            <div class="glass-card stat-card hover-scale">
+              <div class="stat-icon" :style="{ background: isDarkTheme ? 'linear-gradient(135deg, #f43f5e 0%, #9e1b32 100%)' : 'linear-gradient(135deg, #c22e46 0%, #8b0000 100%)' }">
+                <i class="fa-solid fa-circle-check"></i>
+              </div>
+              <div>
+                <div class="stat-val stat-val-closed" :style="{ color: isDarkTheme ? '#fda4af' : '#9e1b32' }">{{ stats.totalClosedCases }}</div>
+                <div class="stat-label">คดีดำเนินการยุติคดีเสร็จสิ้น</div>
+              </div>
+            </div>
+            
+            <div class="glass-card stat-card hover-scale">
+              <div class="stat-icon" :style="{ background: isDarkTheme ? 'linear-gradient(135deg, #f59e0b 0%, #b45309 100%)' : 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)' }">
+                <i class="fa-solid fa-rotate-left"></i>
+              </div>
+              <div>
+                <div class="stat-val stat-val-recidivism" :style="{ color: isDarkTheme ? '#fbbf24' : '#b45309' }">{{ stats.recidivismCount }}</div>
+                <div class="stat-label">จำนวนการกระทำผิดซ้ำ</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- กราฟแผนภูมิหลัก -->
+          <div class="dashboard-layout">
+            
+            <!-- ส่วนที่ 1: เปรียบเทียบตามมาตราของคดีและประเภท -->
+            <div class="glass-card">
+              <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 25px;">
+                <i class="fa-solid fa-chart-column"></i> เปรียบเทียบปริมาณคดีเข้าใหม่และยุติแยกตามมาตรา
+              </h3>
+              <div class="chart-container">
+                <div id="section-comparison-chart"></div>
+              </div>
+            </div>
+            
+            <!-- ส่วนที่ 2: อัตราการเจาะข้อมูลข้อหาที่พบมากที่สุด (10 อันดับแรก) -->
+            <div class="glass-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                <h3 style="font-family: var(--font-display); font-weight: 700; margin: 0;">
+                  <i class="fa-solid fa-chart-pie"></i> ประเภทคดีสูงสุด 10 อันดับแรก
+                </h3>
+              </div>
+              <div class="charges-chart-wrapper">
+                <div id="top-charges-pie-chart" class="charges-chart-left"></div>
+                <div class="charges-legend-right">
+                  <div v-for="(item, idx) in stats.topCharges" :key="idx" class="custom-legend-item">
+                    <span class="legend-color-dot" :style="{ backgroundColor: getChartColor(idx) }"></span>
+                    <span class="legend-label-text">
+                      <span class="legend-rank">{{ idx + 1 }}.</span> {{ item.name }} 
+                      <span class="legend-count">({{ item.count }} คดี)</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+          </div>
+
+          <!-- แผงประชากรศาสตร์ (Youth Demographics Panel) -->
+          <div class="glass-card" style="margin-top: 30px;">
+            <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 25px;">
+              <i class="fa-solid fa-users-viewfinder"></i> จำแนกสถิติเด็กและเยาวชนรับเข้าใหม่ (เพศ, ช่วงอายุ, และรายอำเภอในระยอง)
+            </h3>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px;">
+              
+              <!-- สถิติทางเพศ -->
+              <div>
+                <h4 style="font-size: 0.95rem; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--card-border); padding-bottom: 10px; margin-bottom: 15px;">
+                  <i class="fa-solid fa-venus-mars"></i> สัดส่วนจำแนกตามเพศ
+                </h4>
+                <div class="metric-item" v-for="(val, key) in stats.genderCounts">
+                  <div class="metric-header">
+                    <span>{{ key }}</span>
+                    <span>{{ val }} คน ({{ getPercent(val, Object.values(stats.genderCounts).reduce((a, b) => a + b, 0)) }}%)</span>
+                  </div>
+                  <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" :style="{ width: getPercent(val, Object.values(stats.genderCounts).reduce((a, b) => a + b, 0)) + '%' }"></div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- สถิติตามอายุ -->
+              <div>
+                <h4 style="font-size: 0.95rem; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--card-border); padding-bottom: 10px; margin-bottom: 15px;">
+                  <i class="fa-solid fa-hourglass-half"></i> จำแนกตามช่วงอายุขณะกระทำผิด
+                </h4>
+                <div class="metric-item" v-for="key in ['18 ปีขึ้นไป', '15 ปี แต่ไม่ถึง 18 ปี', '12 ปี แต่ไม่ถึง 15 ปี', 'ต่ำกว่า 12 ปี', 'ไม่มีข้อมูล']" :key="key">
+                  <div class="metric-header">
+                    <span>{{ key }}</span>
+                    <span>{{ stats.ageCounts[key] || 0 }} คน ({{ getPercent(stats.ageCounts[key] || 0, Object.values(stats.ageCounts).reduce((a, b) => a + b, 0)) }}%)</span>
+                  </div>
+                  <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" :style="{ width: getPercent(stats.ageCounts[key] || 0, Object.values(stats.ageCounts).reduce((a, b) => a + b, 0)) + '%' }"></div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- สถิติตามอำเภอระยอง -->
+              <div>
+                <h4 style="font-size: 0.95rem; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--card-border); padding-bottom: 10px; margin-bottom: 15px;">
+                  <i class="fa-solid fa-map-location-dot"></i> จำแนกตามอำเภอที่อยู่อาศัย (จ.ระยอง)
+                </h4>
+                <div class="metric-item" v-for="key in ['เมืองระยอง', 'แกลง', 'บ้านฉาง', 'บ้านค่าย', 'ปลวกแดง', 'นิคมพัฒนา', 'วังจันทร์', 'เขาชะเมา', 'จังหวัดอื่นๆ', 'ไม่มีข้อมูล']" :key="key">
+                  <div class="metric-header">
+                    <span>{{ key === 'จังหวัดอื่นๆ' || key === 'ไม่มีข้อมูล' ? key : 'อำเภอ' + key }}</span>
+                    <span>{{ stats.districtCounts[key] || 0 }} คน ({{ getPercent(stats.districtCounts[key] || 0, Object.values(stats.districtCounts).reduce((a, b) => a + b, 0)) }}%)</span>
+                  </div>
+                  <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" :style="{ width: getPercent(stats.districtCounts[key] || 0, Object.values(stats.districtCounts).reduce((a, b) => a + b, 0)) + '%' }"></div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ====================================
+             3.2 ค้นหาข้อมูลเยาวชน/คดี (SEARCH)
+             ==================================== -->
+        <div v-show="currentView === 'search'" class="animate-in" style="position: relative;">
+          <div v-if="loading" class="loading-overlay">
+            <span class="loader"></span>
+            <p style="font-weight: 500;">กำลังประมวลผลข้อมูลเด็กและคดีความ...</p>
+          </div>
+
+          <div class="page-header header-cases" style="border-left: 5px solid #10b981;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <div class="page-header-icon" style="background: linear-gradient(135deg, #10b981 0%, #34d399 100%);">
+                <i class="fa-solid fa-folder-open"></i>
+              </div>
+              <div>
+                <h1 class="page-title search-title">จัดการข้อมูลเด็ก เยาวชน และคดี</h1>
+                <p class="page-title-desc">ค้นหาประวัติเยาวชน ติดตามรายละเอียด และการประเมินผลการตรวจจิตวิทยา</p>
+              </div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 20px;">
+              <div style="display: flex; align-items: center; gap: 15px;" class="hide-mobile">
+                <div style="display: flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; color: #10b981;">
+                  <span style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; display: inline-block; animation: pulse 1.5s infinite;"></span>
+                  ออนไลน์
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
+                  <i class="fa-regular fa-calendar-days"></i> {{ currentThaiDate }}
+                </div>
+              </div>
+              <button v-if="(session.role === 'admin' || session.role === 'psychologist') && !searchDone && !newDefFormActive" class="btn btn-primary" style="border-radius: 12px; padding: 10px 18px;" @click="triggerNewDefendantRegistration">
+                <i class="fa-solid fa-user-plus"></i> เพิ่มประวัติเด็กใหม่
+              </button>
+            </div>
+          </div>
+
+          <!-- โหมดแสดงรายการการ์ดหลักของเด็กเยาวชนทั้งหมด (ยังไม่ได้เปิดหน้ารายบุคคล) -->
+          <div v-if="!searchDone && !newDefFormActive" class="animate-in">
+            <!-- แผงช่องการค้นหาอัจฉริยะแบบครอบคลุม -->
+            <div class="glass-card" style="margin-bottom: 25px;">
+              <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                <div class="form-group" style="flex: 1; margin-bottom: 0; min-width: 250px;">
+                  <label class="form-label"><i class="fa-solid fa-magnifying-glass"></i> ค้นหาข้อมูลเด็กและเยาวชน</label>
+                  <input type="text" class="form-control" placeholder="ค้นหาด้วย ชื่อ, นามสกุล, ชื่อเล่น, เลขคดีดำ หรือ เลขคดีดำศาล (เช่น 28 หรือ 28/69 หรือ 12/2569)..." v-model="cardSearchQuery">
+                </div>
+                <div v-if="cardSearchQuery" style="margin-top: 25px; display: flex; gap: 10px;">
+                  <button class="btn btn-secondary" style="height: 50px; border-radius: 14px;" @click="cardSearchQuery = ''">
+                    ล้างการค้นหา <i class="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- การแสดงผลกริดการ์ดรายการเด็ก/เยาวชนแบ่งหน้า -->
+            <div v-if="filteredDefendants.length > 0">
+              <div class="card-grid">
+                <div v-for="def in paginatedDefendants" :key="def.citizen_id" class="def-card" @click="selectDefendantFromCard(def.citizen_id)">
+                  <div>
+                    <div class="def-card-header" style="margin-bottom: 8px;">
+                      <div>
+                        <div class="def-card-name">{{ def.title_name }}{{ def.first_name }} {{ def.last_name }}</div>
+                        <div class="def-card-nickname" style="margin-top: 4px;">ชื่อเล่น: {{ def.nick_name || 'ไม่ระบุ' }}</div>
+                      </div>
+                    </div>
+                    
+                    <!-- ข้อมูลเพิ่มเติม: อายุ และ เบอร์โทรศัพท์ -->
+                    <div style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px;">
+                      <div v-if="def.birth_date" style="font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-cake-candles" style="font-size: 0.75rem; width: 14px; color: var(--accent); opacity: 0.8;"></i>
+                        <span>อายุ: {{ getAge(def.birth_date).years }} ปี {{ getAge(def.birth_date).months }} เดือน</span>
+                      </div>
+                      <div style="font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-phone" style="font-size: 0.75rem; width: 14px; color: var(--accent); opacity: 0.8;"></i>
+                        <span>เบอร์โทร: {{ def.phone_number || 'ไม่ระบุ' }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div class="def-card-cases">
+                    <div class="def-card-cases-title">เลขคดีดำศูนย์ให้คำปรึกษาฯ ({{ countCourtCases(def.cases) }})</div>
+                    <div class="def-card-badges" v-if="def.cases && def.cases.length > 0">
+                      <!-- แสดงสูงสุด 2 คดี -->
+                      <div v-for="c in def.cases.slice(0, 2)" :key="c.black_case" class="def-badge" :title="'คดีดำ: ' + c.black_case + (c.court_black_case ? ' | คดีศาล: ' + c.court_black_case : '')">
+                        <i class="fa-solid fa-file-invoice"></i>
+                        <span>{{ c.black_case }}</span>
+                        <span v-if="c.court_black_case" style="opacity: 0.7; font-size: 0.75rem;">(ศาล: {{ c.court_black_case }})</span>
+                      </div>
+                    </div>
+                    <div v-else style="font-size: 0.8rem; color: var(--text-muted); font-style: italic;">
+                      ไม่มีคดีที่เชื่อมโยง
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- การนำทางสำหรับตัวแบ่งหน้า (Pagination Controls) -->
+              <div class="pagination-container" style="display: flex; justify-content: flex-start; align-items: center; margin-top: 25px; flex-wrap: wrap; gap: 20px;">
+                <div style="display: flex; gap: 6px; align-items: center;">
+                  <!-- หน้าแรกสุด -->
+                  <button class="btn btn-secondary" style="padding: 8px 12px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;" :disabled="cardCurrentPage === 1" @click="cardCurrentPage = 1" title="หน้าแรก">
+                    <i class="fa-solid fa-angles-left"></i>
+                  </button>
+                  <!-- ก่อนหน้า -->
+                  <button class="btn btn-secondary" style="padding: 8px 12px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;" :disabled="cardCurrentPage === 1" @click="cardCurrentPage--" title="ก่อนหน้า">
+                    <i class="fa-solid fa-chevron-left"></i>
+                  </button>
+                  
+                  <!-- เลขหน้าแบบพิมพ์ระบุหน้าเองได้ -->
+                  <span style="display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; font-weight: 600; font-size: 0.9rem; color: var(--text-main);">
+                    หน้า 
+                    <input type="number" 
+                           :value="cardCurrentPage" 
+                           @change="onPageInputChange" 
+                           min="1" 
+                           :max="totalPages" 
+                           style="width: 55px; text-align: center; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-main); border-radius: 8px; padding: 5px; font-weight: 600; font-size: 0.9rem;" />
+                    / {{ totalPages }}
+                  </span>
+                  
+                  <!-- ถัดไป -->
+                  <button class="btn btn-secondary" style="padding: 8px 12px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;" :disabled="cardCurrentPage === totalPages" @click="cardCurrentPage++" title="ถัดไป">
+                    <i class="fa-solid fa-chevron-right"></i>
+                  </button>
+                  <!-- หน้าสุดท้ายสุด -->
+                  <button class="btn btn-secondary" style="padding: 8px 12px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;" :disabled="cardCurrentPage === totalPages" @click="cardCurrentPage = totalPages" title="หน้าสุดท้าย">
+                    <i class="fa-solid fa-angles-right"></i>
+                  </button>
+                </div>
+                
+                <span style="font-size: 0.9rem; color: var(--text-muted);">
+                  แสดง {{ Math.min(filteredDefendants.length, (cardCurrentPage - 1) * cardPageSize + 1) }} - {{ Math.min(filteredDefendants.length, cardCurrentPage * cardPageSize) }} จากทั้งหมด {{ filteredDefendants.length }} รายการ
+                </span>
+              </div>
+            </div>
+
+            <!-- กล่องแจ้งเตือนกรณีสืบค้นไม่พบข้อมูลใดเลยตรงตามคำค้นหา -->
+            <div v-else>
+              <div class="glass-card" style="text-align: center; padding: 50px 30px; color: var(--text-muted); border-radius: 24px;">
+                <i class="fa-solid fa-magnifying-glass-minus" style="font-size: 4rem; color: var(--warning); margin-bottom: 20px;"></i>
+                <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 15px; color: var(--text-main); font-size: 1.4rem;">ไม่พบผลลัพธ์การค้นหา</h3>
+                <p style="font-size: 1rem; line-height: 1.6; max-width: 600px; margin: 0 auto; color: var(--text-muted);">
+                  ไม่พบข้อมูลเด็ก เยาวชน หรือคดีที่มีคำค้นหาตรงกับที่ระบุ โปรดตรวจสอบความถูกต้องของตัวสะกดหรือลองใช้เงื่อนไขการค้นหาใหม่อีกครั้ง
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- สถานะแสดงผลเมื่อค้นหาแล้วพบประวัติข้อมูลเยาวชน (แสดงแบบรายคน) -->
+          <div v-if="searchDone" class="animate-in">
+            <!-- ปุ่มกดย้อนกลับหน้าหลักของหน้ารายการข้อมูลคดีเยาวชน -->
+            <div style="margin-bottom: 20px;">
+              <button class="btn btn-secondary" style="border-radius: 12px; padding: 10px 18px;" @click="goBackToMainList">
+                <i class="fa-solid fa-arrow-left"></i> ย้อนกลับไปยังรายการหลัก
+              </button>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+              
+              <!-- ฟอร์มข้อมูลประวัติทั่วไป และผลการประเมินทางจิตวิทยา -->
+              <div class="glass-card" style="position: relative;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border); padding-bottom: 15px; margin-bottom: 25px;">
+                  <h3 style="font-family: var(--font-display); font-weight: 700;"><i class="fa-solid fa-user-tag"></i> ข้อมูลเด็กและเยาวชน</h3>
+                  <button v-if="session.role === 'admin' || session.role === 'psychologist'" class="btn btn-primary" style="padding: 6px 12px; border-radius: 8px; font-size: 0.85rem; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border: none; color: #ffffff;" @click="openEditDefModal">
+                    แก้ไขประวัติ <i class="fa-solid fa-user-pen"></i>
+                  </button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                  <div><strong style="color: var(--text-muted);">เลขบัตรประชาชน:</strong></div>
+                  <div>{{ currentDef.citizen_id }}</div>
+                  
+                  <div><strong style="color: var(--text-muted);">ชื่อ-สกุลจริง:</strong></div>
+                  <div>{{ currentDef.title_name }}{{ currentDef.first_name }} {{ currentDef.last_name }} ({{ currentDef.nick_name || 'ไม่มีชื่อเล่น' }})</div>
+                  
+                  <div><strong style="color: var(--text-muted);">เพศ:</strong></div>
+                  <div>{{ currentDef.gender }}</div>
+                  
+                  <div><strong style="color: var(--text-muted);">วันเกิด:</strong></div>
+                  <div>{{ formatThaiDate(currentDef.birth_date) }}</div>
+                  
+                  <div><strong style="color: var(--text-muted);">ที่อยู่ปัจจุบัน:</strong></div>
+                  <div>{{ currentDef.address || 'ไม่ระบุที่อยู่' }}</div>
+
+                  <div><strong style="color: var(--text-muted);">ประวัติการรักษาแพทย์:</strong></div>
+                  <div>{{ currentDef.medical_history || 'ไม่มีประวัติ' }}</div>
+
+                  <div><strong style="color: var(--text-muted);">ประวัติการยุ่งเกี่ยวสารเสพติด:</strong></div>
+                  <div>{{ currentDef.drug_history || 'ไม่มีประวัติ' }}</div>
+                </div>
+
+                <!-- ผลตรวจประเมินจิตวิทยาเบื้องต้นเด่นชัดเจน -->
+                <div style="margin-top: 25px; background: rgba(var(--accent-rgb), 0.05); border: 1px solid rgba(var(--accent-rgb), 0.2); padding: 20px; border-radius: 16px;">
+                  <h4 style="font-size: 0.9rem; font-weight: 600; color: var(--accent); margin-bottom: 10px;">
+                    <i class="fa-solid fa-brain"></i> ผลการตรวจวินิจฉัยทางจิตวิทยาเบื้องต้น
+                  </h4>
+                  <p style="font-size: 0.9rem; line-height: 1.6; color: var(--text-main); white-space: pre-line;">
+                    {{ currentDef.psy_diagnosis || 'ยังไม่ได้กรอกข้อมูลผลการประเมินทางจิตวิทยาเบื้องต้น' }}
+                  </p>
+                </div>
+              </div>
+
+              <!-- รายการข้อมูลคดีที่เชื่อมโยงกับเด็ก/เยาวชนคนนี้ (tb_cases) -->
+              <div class="glass-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border); padding-bottom: 15px; margin-bottom: 25px;">
+                  <h3 style="font-family: var(--font-display); font-weight: 700;"><i class="fa-solid fa-briefcase"></i> รายการคดีที่เชื่อมโยง ({{ linkedCases.length }} คดี)</h3>
+                  <button v-if="session.role === 'admin' || session.role === 'psychologist'" class="btn btn-primary" style="padding: 8px 16px; border-radius: 10px; font-size: 0.9rem;" @click="openAddCaseModal">
+                    เพิ่มคดีใหม่ <i class="fa-solid fa-circle-plus"></i>
+                  </button>
+                </div>
+
+                <div v-if="linkedCases.length === 0" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                  <i class="fa-solid fa-ban" style="font-size: 3rem; margin-bottom: 15px;"></i>
+                  <p>เยาวชนรายนี้ยังไม่มีประวัติคดีที่เปิดใช้งานในระบบของคุณ</p>
+                </div>
+
+                <div v-else style="max-height: 500px; overflow-y: auto; padding-right: 5px;">
+                  <div class="case-card" v-for="c in linkedCases" :key="c.rowNum">
+                    <div class="case-card-header">
+                      <div>
+                        <span style="font-weight: 700; font-size: 1.05rem; color: var(--accent);">หมายเลขคดีดำ: {{ c.black_case }}</span>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">วันที่รับเข้าดำ: {{ formatThaiDate(c.black_date) }}</div>
+                      </div>
+                      <div>
+                        <span v-if="c.red_case_no" class="badge badge-success">ยุติเสสิ้น: {{ c.red_case_no }}/{{ c.red_case_year }}</span>
+                        <span v-else class="badge badge-warning">กำลังดำเนินคดี</span>
+                      </div>
+                    </div>
+                    
+                    <div style="font-size: 0.9rem; margin-bottom: 15px; display: grid; grid-template-columns: 1fr; gap: 8px;">
+                      <div><strong style="color: var(--text-muted);">ข้อหาหลัก:</strong> {{ c.charge }}</div>
+                      <div><strong style="color: var(--text-muted);">อายุขณะทำผิด:</strong> {{ c.age_at_offense }} ปี</div>
+                      <div><strong style="color: var(--text-muted);">ผู้ให้คำปรึกษาดูแล:</strong> {{ c.counselor || 'ไม่ระบุ' }}</div>
+                      <div v-if="c.red_date"><strong style="color: var(--text-muted);">วันยุติคดีคดีแดง:</strong> {{ formatThaiDate(c.red_date) }} (เหตุเพราะ: {{ c.red_because || '-' }})</div>
+                      <div><strong style="color: var(--text-muted);">สถานะการทำผิดซ้ำ:</strong> {{ c.recidivism || 'ไม่ระบุ' }}</div>
+                      <div v-if="c.note"><strong style="color: var(--text-muted);">บันทึกพิเศษ:</strong> {{ c.note }}</div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                      <button v-if="session.role === 'admin' || session.role === 'psychologist'" class="btn btn-primary" style="padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border: none; color: #ffffff;" @click="openEditCaseModal(c)">
+                        แก้ไขคดี <i class="fa-solid fa-edit"></i>
+                      </button>
+                      <button v-if="session.role === 'admin'" class="btn btn-danger" style="padding: 6px 12px; border-radius: 8px; font-size: 0.8rem;" @click="handleDeleteCase(c)">
+                        ลบ <i class="fa-solid fa-trash"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- แบบฟอร์มเพิ่มเด็กและเยาวชนใหม่ลงระบบเมื่อค้นหาไม่พบ -->
+          <div v-if="newDefFormActive" class="glass-card animate-in">
+            <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 25px; border-bottom: 1px solid var(--card-border); padding-bottom: 15px;">
+              <i class="fa-solid fa-user-plus"></i> ไม่พบข้อมูลเด็ก/เยาวชน: โปรดกรอกข้อมูลเพื่อลงทะเบียนสร้างประวัติใหม่
+            </h3>
+
+            <form @submit.prevent="saveNewDefendant">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
+                <div class="form-group">
+                  <label class="form-label">เลขบัตรประชาชน (citizen_id)</label>
+                  <input type="text" class="form-control" v-model="defForm.citizen_id" disabled style="background: rgba(0,0,0,0.1); cursor: not-allowed;">
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label">คำนำหน้าชื่อ</label>
+                  <select class="form-control" v-model="defForm.title_name" required>
+                    <option value="นาย">นาย</option>
+                    <option value="นางสาว">นางสาว</option>
+                    <option value="เด็กชาย">เด็กชาย</option>
+                    <option value="เด็กหญิง">เด็กหญิง</option>
+                  </select>
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label">ชื่อจริง</label>
+                  <input type="text" class="form-control" v-model="defForm.first_name" required placeholder="สมชาย">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">นามสกุล</label>
+                  <input type="text" class="form-control" v-model="defForm.last_name" required placeholder="ดีใจยิ่ง">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">ชื่อเล่น (ถ้ามี)</label>
+                  <input type="text" class="form-control" v-model="defForm.nick_name" placeholder="บอย">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">เพศ</label>
+                  <select class="form-control" v-model="defForm.gender" required>
+                    <option value="ชาย">ชาย</option>
+                    <option value="หญิง">หญิง</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">วัน/เดือน/ปี เกิด</label>
+                  <input type="date" class="form-control" v-model="defForm.birth_date" required>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">เบอร์โทรศัพท์เด็ก/เยาวชน</label>
+                  <input type="text" class="form-control" v-model="defForm.phone_number" placeholder="0899999999">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">ที่อยู่ตามภูมิลำเนา (เพื่อระบบประมวลอำเภอแยกแยะอัตโนมัติ)</label>
+                <textarea class="form-control" v-model="defForm.address" placeholder="351/5 ม. ต.เนินพระ อ.เมืองระยอง จ.ระยอง" rows="2" required></textarea>
+              </div>
+
+              <!-- รายละเอียดผลตรวจจิตวิทยาเบื้องต้นตั้งแต่นาทีกรอกประวัติเด็กครั้งแรก -->
+              <div class="form-group">
+                <label class="form-label"><i class="fa-solid fa-brain" style="color: var(--accent);"></i> ผลการตรวจวินิจฉัยทางจิตวิทยาเบื้องต้น (ใส่เพื่อประกอบรายงานศาล)</label>
+                <textarea class="form-control" v-model="defForm.psy_diagnosis" placeholder="ระบุการประเมินสภาพจิตใจ พฤติกรรมประเมินทางจิตวิทยาเบื้องต้น ทัศนคติ สภาพแวดล้อมทางครอบครัว..." rows="4"></textarea>
+              </div>
+
+              <div style="display: flex; gap: 15px; justify-content: flex-end; margin-top: 25px;">
+                <button type="button" class="btn btn-secondary" @click="newDefFormActive = false">ยกเลิก</button>
+                <button type="submit" class="btn btn-primary">ลงทะเบียนบันทึกและสร้างประวัติเยาวชนใหม่ <i class="fa-solid fa-floppy-disk"></i></button>
+              </div>
+            </form>
+          </div>
+
+        </div>
+
+        <!-- ====================================
+             3.3 การจัดการสิทธิ์สมาชิกแอดมิน (USERS)
+             ==================================== -->
+        <div v-show="currentView === 'users'" class="animate-in" style="position: relative;">
+          <div v-if="loading" class="loading-overlay">
+            <span class="loader"></span>
+            <p style="font-weight: 500;">กำลังดึงและประมวลสิทธิ์รายชื่อสมาชิกผู้ใช้งานในตาราง...</p>
+          </div>
+
+          <div class="page-header header-users" style="border-left: 5px solid #ef4444;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <div class="page-header-icon" style="background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);">
+                <i class="fa-solid fa-user-gear"></i>
+              </div>
+              <div>
+                <h1 class="page-title users-title">การบริหารจัดการสิทธิ์สมาชิกผู้ใช้งาน</h1>
+                <p class="page-title-desc">จำกัดเฉพาะผู้ดูแลระบบ (Admin) ในการอนุมัติการล็อกอินและสิทธิ์ตำแหน่งบทบาทความปลอดภัยของศูนย์</p>
+              </div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 20px;">
+              <div style="display: flex; align-items: center; gap: 15px;" class="hide-mobile">
+                <div style="display: flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; color: #10b981;">
+                  <span style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; display: inline-block; animation: pulse 1.5s infinite;"></span>
+                  ออนไลน์
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
+                  <i class="fa-regular fa-calendar-days"></i> {{ currentThaiDate }}
+                </div>
+              </div>
+              <button class="btn btn-secondary" style="border-radius: 12px; padding: 10px 18px;" @click="loadUsersList">
+                ดึงค่ารายชื่อใหม่ <i class="fa-solid fa-rotate"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="glass-card">
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ลำดับผู้ใช้</th>
+                    <th>ชื่อ-สกุลจริง</th>
+                    <th>อีเมลเข้าใช้งาน</th>
+                    <th>ตำแหน่งทางวิชาชีพ</th>
+                    <th>บทบาทการเข้าถึงระบบ</th>
+                    <th>อนุมัติล็อกอินเข้างาน</th>
+                    <th>จัดการสิทธิ์</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="u in usersList" :key="u.userId">
+                    <td>
+                      <input type="text" class="form-control text-center" v-model="u.userId" style="width: 75px; padding: 6px 10px; font-size: 0.85rem; border-radius: 8px; font-weight: bold; text-align: center; border: 1px solid #cbd5e1;">
+                    </td>
+                    <td><strong style="color: var(--text-main);">{{ u.fullName }}</strong></td>
+                    <td>{{ u.email }}</td>
+                    <td>{{ u.position }}</td>
+                    <td>
+                      <!-- Dropdown บทบาท -->
+                      <select class="form-control" v-model="u.role" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 8px;">
+                        <option value="user">User (ผู้ใช้งานทั่วไป)</option>
+                        <option value="counselor">Counselor (ผู้ให้คำปรึกษา)</option>
+                        <option value="director">Director (ผอ.ศูนย์)</option>
+                        <option value="psychologist">Psychologist (นักจิตวิทยา)</option>
+                        <option value="admin">Admin (ผู้ดูแลระบบสูงสุด)</option>
+                      </select>
+                    </td>
+                    <td>
+                      <!-- Dropdown อนุมัติสิทธิ์การล็อกอิน -->
+                      <select class="form-control" v-model="u.isActive" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 8px;" :style="{ color: u.isActive === 'yes' ? 'var(--success)' : 'var(--danger)', fontWeight: 'bold' }">
+                        <option value="yes">YES (อนุมัติสิทธิ์แล้ว)</option>
+                        <option value="no">NO (บล็อก/จำกัดการเข้าใช้งาน)</option>
+                      </select>
+                    </td>
+                    <td>
+                      <button class="btn btn-primary" style="padding: 6px 12px; border-radius: 8px; font-size: 0.8rem;" @click="handleUpdateUserByAdmin(u)">
+                        บันทึกค่า <i class="fa-solid fa-floppy-disk"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ====================================
+             3.4 ปฏิทินวันนัดหมาย (CALENDAR)
+             ==================================== -->
+        <div v-show="currentView === 'calendar'" class="animate-in" style="position: relative;">
+          <div v-if="loading" class="loading-overlay">
+            <span class="loader"></span>
+            <p style="font-weight: 500;">กำลังดึงวันนัดหมายและตารางเวลา...</p>
+          </div>
+
+          <div class="page-header header-calendar" style="border-left: 5px solid #7c3aed;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <div class="page-header-icon" style="background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%);">
+                <i class="fa-solid fa-calendar-days"></i>
+              </div>
+              <div>
+                <h1 class="page-title">ปฏิทินวันนัดหมาย</h1>
+                <p class="page-title-desc">ตารางวันนัดพบเยาวชนและผู้ให้คำปรึกษาประจำเดือน</p>
+              </div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 20px;">
+              <div style="display: flex; align-items: center; gap: 15px;" class="hide-mobile">
+                <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
+                  <i class="fa-regular fa-calendar-days"></i> {{ currentThaiDate }}
+                </div>
+              </div>
+              <button class="btn btn-secondary" style="border-radius: 12px; padding: 10px 18px;" @click="loadAppointments">
+                ดึงข้อมูลใหม่ <i class="fa-solid fa-rotate"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- กล่องควบคุมปฏิทินและตาราง -->
+          <div class="calendar-container">
+            <div class="calendar-header">
+              <div class="calendar-title">
+                <i class="fa-regular fa-calendar"></i>
+                <span>{{ thaiMonths[calendarMonth] }} {{ calendarYear + 543 }}</span>
+              </div>
+              <div class="calendar-controls">
+                <div class="calendar-btn-group">
+                  <button class="calendar-btn nav-btn" @click="prevMonth" title="เดือนก่อนหน้า">
+                    <i class="fa-solid fa-chevron-left"></i>
+                  </button>
+                  <button class="calendar-btn" @click="goToToday">
+                    วันนี้
+                  </button>
+                  <button class="calendar-btn nav-btn" @click="nextMonth" title="เดือนถัดไป">
+                    <i class="fa-solid fa-chevron-right"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ตารางปฏิทิน -->
+            <div class="calendar-grid">
+              <!-- หัววัน -->
+              <div v-for="dayName in ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']" :key="dayName" class="calendar-day-header">
+                {{ dayName }}
+              </div>
+              
+              <!-- เซลล์วัน -->
+              <div v-for="day in calendarDays" :key="day.dateString" 
+                   class="calendar-day-cell" 
+                   :class="{ 'other-month': !day.isCurrentMonth, 'today': day.isToday, 'selected-day': selectedDate === day.dateString }"
+                   @click="selectDay(day.dateString)">
+                <div class="calendar-day-number">{{ day.dayNumber }}</div>
+                
+                <div class="calendar-events-list" :class="{ 'compact-events': day.appointments.length >= 3 }">
+                  <div v-for="app in day.appointments" :key="app.rowNum" 
+                       class="calendar-event-badge" 
+                       @click.stop="viewDefendantFromCalendar(app.citizen_id, app.black_case, app.appointment_reason)"
+                       :title="'คลิกดูประวัติ: ' + app.def_name + ' (' + app.appointment_reason + ')'">{{ app.black_case.trim() }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- รายละเอียดนัดหมายประจำวันสำหรับวันที่เลือก -->
+          <div v-if="selectedDate" class="glass-card" style="margin-top: 25px; border-left: 5px solid #7c3aed;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+              <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-regular fa-clock" style="color: #7c3aed;"></i>
+                ตารางนัดหมายประจำวันที่ {{ formatThaiLongDate(selectedDate) }}
+              </h3>
+              <span style="background: rgba(124, 58, 237, 0.1); color: #7c3aed; padding: 5px 12px; border-radius: 20px; font-weight: 600; font-size: 0.82rem; border: 1px solid rgba(124, 58, 237, 0.15);">
+                มีทั้งหมด {{ selectedDayAppointments.length }} รายการ
+              </span>
+            </div>
+            
+            <div v-if="selectedDayAppointments.length > 0" style="display: flex; flex-direction: column; gap: 12px;">
+              <div v-for="app in selectedDayAppointments" :key="app.rowNum" class="glass-card" 
+                   style="padding: 18px; background: var(--bg-main); border: 1px solid var(--card-border); border-radius: 16px; display: flex; justify-content: space-between; align-items: center; gap: 15px; cursor: pointer; transition: all 0.2s;" 
+                   @click="viewDefendantFromCalendar(app.citizen_id, app.black_case, app.appointment_reason)" 
+                   title="คลิกเพื่อเข้าสู่หน้าจอจัดการคดีและประวัติของเยาวชนรายนี้">
+                <div style="display: flex; align-items: flex-start; gap: 18px; width: 100%;">
+                  <div style="min-width: 72px; height: 46px; padding: 0 8px; border-radius: 12px; background: rgba(124, 58, 237, 0.1); border: 1px solid rgba(124, 58, 237, 0.15); display: flex; align-items: center; justify-content: center; color: #7c3aed; flex-shrink: 0; font-weight: 700; font-size: 0.85rem;">
+                    {{ formatAppointmentTime(app.appointment_time) }}
+                  </div>
+                  <div style="flex-grow: 1;">
+                    <div style="font-weight: 700; color: var(--text-main); font-size: 1.05rem; margin-bottom: 5px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                      <span>{{ app.def_name }}</span>
+                      <span class="badge" style="background: #7c3aed; color: #ffffff; padding: 2px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 600;">คดีดำ: {{ app.black_case }}</span>
+                    </div>
+                    <div style="font-size: 0.88rem; color: var(--text-muted); display: flex; flex-wrap: wrap; gap: 18px; line-height: 1.5;">
+                      <span><strong style="color: var(--text-main);"><i class="fa-solid fa-user-doctor" style="color: #7c3aed; margin-right: 4px;"></i>ผู้ให้คำปรึกษา:</strong> {{ app.counselor }}</span>
+                      <span v-if="app.appointment_reason"><strong style="color: var(--text-main);"><i class="fa-solid fa-circle-info" style="color: #7c3aed; margin-right: 4px;"></i>สาเหตุที่นัด:</strong> {{ app.appointment_reason }}</span>
+                      <span v-if="app.performance"><strong style="color: var(--text-main);"><i class="fa-solid fa-check-double" style="color: #7c3aed; margin-right: 4px;"></i>ผลการประเมิน:</strong> {{ app.performance }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div style="color: #7c3aed; font-size: 1.3rem; padding-right: 8px; transition: transform 0.2s;">
+                  <i class="fa-solid fa-chevron-right"></i>
+                </div>
+              </div>
+            </div>
+            
+            <div v-else style="padding: 30px; text-align: center; color: var(--text-muted); background: var(--bg-main); border-radius: 12px; border: 1px dashed var(--card-border);">
+              <i class="fa-regular fa-calendar" style="font-size: 2.5rem; color: #7c3aed; opacity: 0.4; margin-bottom: 12px; display: block;"></i>
+              ไม่มีรายการนัดหมายพบคณะผู้ให้คำปรึกษาในวันที่เลือกนี้
+            </div>
+          </div>
+        </div>
+
+        <!-- ====================================
+             3.4.1 ผู้ให้คำปรึกษา (COUNSELORS MANAGEMENT)
+             ==================================== -->
+        <div v-show="currentView === 'counselors'" class="animate-in" style="position: relative;">
+          
+          <div class="page-header header-counselors" style="border-left: 5px solid #d97706;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <div class="page-header-icon" style="background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);">
+                <i class="fa-solid fa-user-doctor"></i>
+              </div>
+              <div>
+                <h1 class="page-title">การบริหารจัดการคณะผู้ให้คำปรึกษา</h1>
+                <p class="page-title-desc">จำกัดเฉพาะผู้ดูแลระบบ (Admin) และนักจิตวิทยา ในการแก้ไขปรับปรุงลำดับ ชื่อ ตำแหน่ง และตำแหน่งรักษาการของคณะผู้ให้คำปรึกษา</p>
+              </div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 20px;">
+              <div style="display: flex; align-items: center; gap: 15px;" class="hide-mobile">
+                <div style="display: flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; color: #10b981;">
+                  <span style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; display: inline-block; animation: pulse 1.5s infinite;"></span>
+                  ออนไลน์
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
+                  <i class="fa-regular fa-calendar-days"></i> {{ currentThaiDate }}
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <button class="btn btn-primary" style="border-radius: 12px; padding: 10px 18px; background: linear-gradient(135deg, #d97706 0%, #b45309 100%); border: none;" @click="openAddCounselorModal">
+                  เพิ่มผู้ให้คำปรึกษาใหม่ <i class="fa-solid fa-user-plus"></i>
+                </button>
+                <button class="btn btn-secondary" style="border-radius: 12px; padding: 10px 18px;" @click="loadCounselorsList">
+                  ดึงค่าใหม่ <i class="fa-solid fa-rotate"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="glass-card">
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 100px; text-align: center;">ลำดับที่</th>
+                    <th>ชื่อ - นามสกุล</th>
+                    <th>ตำแหน่ง</th>
+                    <th>ตำแหน่ง (รักษาการ)</th>
+                    <th style="width: 150px; text-align: center;">จัดการข้อมูล</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="c in counselorsList" :key="c.rowNum">
+                    <td>
+                      <textarea class="form-control text-center" v-model="c.userId" :disabled="!c.isEditing" style="width: 80px; height: 85px; padding: 8px 5px; font-size: 0.85rem; border-radius: 8px; font-weight: bold; border: 1px solid #cbd5e1; resize: none; overflow: hidden; line-height: 1.4; text-align: center;"></textarea>
+                    </td>
+                    <td>
+                      <textarea class="form-control" v-model="c.counselorName" :disabled="!c.isEditing" style="width: 100%; min-width: 150px; height: 85px; padding: 8px 12px; font-size: 0.85rem; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: bold; color: var(--text-main); resize: none; line-height: 1.4; text-align: left;"></textarea>
+                    </td>
+                    <td>
+                      <textarea class="form-control" v-model="c.counselorPosition" :disabled="!c.isEditing" style="width: 100%; min-width: 150px; height: 85px; padding: 8px 12px; font-size: 0.85rem; border-radius: 8px; border: 1px solid #cbd5e1; resize: none; line-height: 1.4; text-align: left;"></textarea>
+                    </td>
+                    <td>
+                      <textarea class="form-control" v-model="c.counselorPositionSecond" :disabled="!c.isEditing" style="width: 100%; min-width: 150px; height: 85px; padding: 8px 12px; font-size: 0.85rem; border-radius: 8px; border: 1px solid #cbd5e1; resize: none; line-height: 1.4; text-align: left;"></textarea>
+                    </td>
+                    <td style="text-align: center; white-space: nowrap;">
+                      <template v-if="!c.isEditing">
+                        <button class="btn btn-primary" style="padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border: none; margin-right: 5px;" @click="c.isEditing = true">
+                          แก้ไข <i class="fa-solid fa-edit"></i>
+                        </button>
+                        <button class="btn btn-danger" style="padding: 6px 12px; border-radius: 8px; font-size: 0.8rem;" @click="confirmDeleteCounselor(c)">
+                          ลบข้อมูล <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                      </template>
+                      <template v-else>
+                        <button class="btn btn-success" style="padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; margin-right: 5px;" @click="handleUpdateCounselor(c)" :disabled="loading">
+                          บันทึกข้อมูล <i class="fa-solid fa-floppy-disk"></i>
+                        </button>
+                        <button class="btn btn-secondary" style="padding: 6px 12px; border-radius: 8px; font-size: 0.8rem;" @click="cancelEditCounselor(c)" :disabled="loading">
+                          ยกเลิก <i class="fa-solid fa-xmark"></i>
+                        </button>
+                      </template>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </main>
+
+    </div>
+
+    <!-- ==========================================
+         4. MODAL หน้าต่างเสริมในการเพิ่ม / แก้ไขคดี (tb_cases)
+         ========================================== -->
+    <div v-if="caseModalActive" class="modal-overlay" class="animate-in">
+      <div class="glass-card modal-card animate-in shadow">
+        <button class="modal-close-btn" @click="closeCaseModal"><i class="fa-solid fa-xmark"></i></button>
+        
+        <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 25px; border-bottom: 1px solid var(--card-border); padding-bottom: 15px;">
+          <i class="fa-solid fa-briefcase"></i> {{ caseFormMode === 'add' ? 'เพิ่มรายละเอียดคดีใหม่' : 'แก้ไขรายละเอียดคดี' }}
+        </h3>
+
+        <form @submit.prevent="saveCase">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 20px;">
+            
+            <div class="form-group">
+              <label class="form-label">เลขคดีดำ (เช่น อ.28/69 หรือ Ȼ.18/57)</label>
+              <input type="text" class="form-control" v-model="caseForm.black_case" required placeholder="อ.28/69">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">วันที่รับคดีดำ (black_date)</label>
+              <input type="date" class="form-control" v-model="caseForm.black_date" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">ประเภทคดีหลัก (มาตราหลัก)</label>
+              <select class="form-control" v-model="caseForm.case_type_id" required @change="updateCaseTypeAbb">
+                <option v-for="ct in selectLists.caseTypes" :key="ct.id" :value="ct.id">
+                  {{ ct.name }} ({{ ct.detail }})
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">ประเภทย่อยคดี (ถ้าเป็นมาตรา 132)</label>
+              <select class="form-control" v-model="caseForm.sub_case_type_id">
+                <option value="">- ไม่มี / ไม่ใช้ของมาตรานี้ -</option>
+                <option v-for="sct in selectLists.subCaseTypes" :key="sct.id" :value="sct.id">
+                  {{ sct.name }}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">เลขคดีดำตัวเลข (black_case_no)</label>
+              <input type="number" class="form-control" v-model="caseForm.black_case_no" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">ปีคดีดำ (พ.ศ. ย่อ เช่น 69)</label>
+              <input type="number" class="form-control" v-model="caseForm.black_case_year" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">พนักงานอัยการโจทก์</label>
+              <input type="text" class="form-control" v-model="caseForm.prosecutor">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">ฐานความผิด (พิมพ์เต็ม)</label>
+              <input type="text" class="form-control" v-model="caseForm.charge" required placeholder="ลักทรัพย์ในเวลากลางคืน">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">หมวดสถิติข้อหาหลัก</label>
+              <select class="form-control" v-model="caseForm.charge_no" required>
+                <option v-for="ch in selectLists.charges" :key="ch.id" :value="ch.id">
+                  {{ ch.name }}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">อายุขณะกระทำความผิด (ตัวเลข)</label>
+              <input type="number" class="form-control" v-model="caseForm.age_at_offense" required min="0" max="100">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">วันที่มีคำสั่งคดีแดง (ถ้ามี)</label>
+              <input type="date" class="form-control" v-model="caseForm.red_date">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">เลขคดีแดงตัวเลข (ถ้ามี)</label>
+              <input type="number" class="form-control" v-model="caseForm.red_case_no">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">ปีคดีแดง (พ.ศ. ย่อ เช่น 69)</label>
+              <input type="number" class="form-control" v-model="caseForm.red_case_year">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">เหตุของคำสั่งคดีแดง (ถ้ามี)</label>
+              <input type="text" class="form-control" v-model="caseForm.red_because" placeholder="ศาลยกเลิกแผนฟื้นฟู/แผนสำเร็จ">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">การทำผิดซ้ำ</label>
+              <select class="form-control" v-model="caseForm.recidivism" required>
+                <option value="ไม่ซ้ำ">ไม่ซ้ำ (เพิ่งเข้าศูนย์ครั้งแรก)</option>
+                <option value="ซ้ำ">ซ้ำ (เคยมีคดีเดิมประวัติผิดมาก่อน)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">ผู้พิพากษารับผิดชอบคดี</label>
+              <input type="text" class="form-control" v-model="caseForm.judge">
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">ผู้ให้คำปรึกษาคดี (Counselor)</label>
+              <select class="form-control" v-model="caseForm.user_id" :disabled="session.role !== 'admin'" style="background: rgba(var(--accent-rgb), 0.05); font-weight: 500;">
+                <option v-for="c in selectLists.counselors" :key="c.userId" :value="c.userId">
+                  {{ c.fullName }}
+                </option>
+              </select>
+            </div>
+
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">บันทึกพิเศษหรือรายละเอียดการเฝ้าระวังเฝ้าติดตามคดี</label>
+            <textarea class="form-control" v-model="caseForm.note" rows="2"></textarea>
+          </div>
+
+          <div style="display: flex; gap: 15px; justify-content: flex-end; margin-top: 25px; border-top: 1px solid var(--card-border); padding-top: 20px;">
+            <button type="button" class="btn btn-secondary" @click="closeCaseModal">ยกเลิก</button>
+            <button type="submit" class="btn btn-primary">บันทึกรายละเอียดข้อมูลคดี <i class="fa-solid fa-circle-check"></i></button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         5. MODAL หน้าต่างแก้ไขข้อมูลประวัติเด็กและจิตวิทยา (EDIT DEFENDANT)
+         ========================================== -->
+    <div v-if="editDefModalActive" class="modal-overlay" class="animate-in">
+      <div class="glass-card modal-card animate-in shadow">
+        <button class="modal-close-btn" @click="editDefModalActive = false"><i class="fa-solid fa-xmark"></i></button>
+        
+        <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 25px; border-bottom: 1px solid var(--card-border); padding-bottom: 15px;">
+          <i class="fa-solid fa-user-pen"></i> แก้ไขข้อมูลประวัติเด็ก เยาวชน และผลวินิจฉัยจิตวิทยา
+        </h3>
+
+        <form @submit.prevent="saveEditDefendant">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 20px;">
+            
+            <div class="form-group">
+              <label class="form-label">เลขบัตรประชาชน ( citizen_id )</label>
+              <input type="text" class="form-control" v-model="defForm.citizen_id" disabled style="background: rgba(0,0,0,0.1); cursor: not-allowed;">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">คำนำหน้าชื่อ</label>
+              <select class="form-control" v-model="defForm.title_name" required>
+                <option value="นาย">นาย</option>
+                <option value="นางสาว">นางสาว</option>
+                <option value="เด็กชาย">เด็กชาย</option>
+                <option value="เด็กหญิง">เด็กหญิง</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">ชื่อจริง</label>
+              <input type="text" class="form-control" v-model="defForm.first_name" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">นามสกุลจริง</label>
+              <input type="text" class="form-control" v-model="defForm.last_name" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">ชื่อเล่น</label>
+              <input type="text" class="form-control" v-model="defForm.nick_name">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">เพศ</label>
+              <select class="form-control" v-model="defForm.gender" required>
+                <option value="ชาย">ชาย</option>
+                <option value="หญิง">หญิง</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">วัน/เดือน/ปี เกิด</label>
+              <input type="date" class="form-control" v-model="defForm.birth_date" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">เบอร์โทรศัพท์ติดต่อเยาวชน</label>
+              <input type="text" class="form-control" v-model="defForm.phone_number">
+            </div>
+
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">ที่อยู่ภูมิลำเนา (เพื่อประมวลคำนวณสถิติอำเภอ)</label>
+            <textarea class="form-control" v-model="defForm.address" rows="2" required></textarea>
+          </div>
+
+          <!-- ฟิลด์แก้ไขตรวจจิตวิทยาประวัติเชิงลึกใน Modal ชัดเจน -->
+          <div class="form-group" style="background: rgba(var(--accent-rgb), 0.05); padding: 20px; border-radius: 16px; border: 1px solid rgba(var(--accent-rgb), 0.2);">
+            <label class="form-label" style="color: var(--accent); font-weight: bold; font-size: 0.95rem;">
+              <i class="fa-solid fa-brain"></i> ผลการตรวจวินิจฉัยทางจิตวิทยาเบื้องต้น
+            </label>
+            <textarea class="form-control" v-model="defForm.psy_diagnosis" placeholder="ระบุการประเมินวิเคราะห์สภาพจิตใจ สภาพสังคม ครอบครัว บุคลิกภาพเพื่อใช้แนบคำร้องศาลเยาวชน..." rows="5"></textarea>
+          </div>
+
+          <div style="display: flex; gap: 15px; justify-content: flex-end; margin-top: 25px; border-top: 1px solid var(--card-border); padding-top: 20px;">
+            <button v-if="session.role === 'admin' || session.role === 'psychologist'" type="button" class="btn btn-danger" @click="confirmDeleteDef" style="margin-right: auto;">
+              <i class="fa-solid fa-trash-can"></i> ลบประวัติเยาวชน
+            </button>
+            <button type="button" class="btn btn-secondary" @click="editDefModalActive = false">ยกเลิก</button>
+            <button type="submit" class="btn btn-primary">อัปเดตและบันทึกประวัติเยาวชน <i class="fa-solid fa-circle-check"></i></button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL หน้าต่างกรอกรหัสผ่านเพื่อยืนยันการลบ (CONFIRM DELETE DEFENDANT) -->
+    <div v-if="confirmDeleteDefModalActive" class="modal-overlay animate-in">
+      <div class="glass-card modal-card animate-in shadow" style="max-width: 450px;">
+        <button class="modal-close-btn" type="button" @click="cancelDeleteDef"><i class="fa-solid fa-xmark"></i></button>
+        
+        <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 15px; color: var(--danger); border-bottom: 1px solid var(--card-border); padding-bottom: 15px;">
+          <i class="fa-solid fa-triangle-exclamation"></i> ยืนยันการลบประวัติเยาวชน
+        </h3>
+        
+        <p style="font-size: 0.9rem; margin-bottom: 20px; line-height: 1.5; color: var(--text-main);">
+          คุณกำลังจะลบข้อมูลประวัติของ <strong>{{ defForm.title_name }}{{ defForm.first_name }} {{ defForm.last_name }}</strong> และข้อมูลคดีที่เกี่ยวข้องทั้งหมดออกจากระบบ
+          <br>
+          <span style="color: var(--danger); font-weight: 600;">* การกระทำนี้ไม่สามารถย้อนคืนได้</span>
+        </p>
+        
+        <div class="form-group">
+          <label class="form-label" style="font-weight: 600;">กรอกรหัสผ่านของคุณเพื่อยืนยัน:</label>
+          <input type="password" class="form-control" v-model="deleteConfirmPassword" placeholder="ระบุรหัสผ่านเข้าใช้งาน..." required>
+        </div>
+        
+        <div style="display: flex; gap: 15px; justify-content: flex-end; margin-top: 25px; border-top: 1px solid var(--card-border); padding-top: 20px;">
+          <button type="button" class="btn btn-secondary" @click="cancelDeleteDef">ยกเลิก</button>
+          <button type="button" class="btn btn-danger" @click="submitDeleteDef" :disabled="loading || !deleteConfirmPassword">
+            <i class="fa-solid fa-trash-can" v-if="!loading"></i>
+            <i class="fa-solid fa-circle-notch fa-spin" v-else></i>
+            ยืนยันการลบข้อมูล
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL หน้าต่างกรอกรหัสผ่านเพื่อยืนยันการลบผู้ให้คำปรึกษา (CONFIRM DELETE COUNSELOR) -->
+    <div v-if="confirmDeleteCounselorModalActive" class="modal-overlay animate-in">
+      <div class="glass-card modal-card animate-in shadow" style="max-width: 450px;">
+        <button class="modal-close-btn" type="button" @click="cancelDeleteCounselor"><i class="fa-solid fa-xmark"></i></button>
+        
+        <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 15px; color: var(--danger); border-bottom: 1px solid var(--card-border); padding-bottom: 15px;">
+          <i class="fa-solid fa-triangle-exclamation"></i> ยืนยันการลบผู้ให้คำปรึกษา
+        </h3>
+        
+        <p style="font-size: 0.9rem; margin-bottom: 20px; line-height: 1.5; color: var(--text-main);">
+          คุณกำลังจะลบข้อมูลของ <strong>{{ counselorToDelete ? counselorToDelete.counselorName : '' }}</strong> ออกจากระบบ
+          <br>
+          <span style="color: var(--danger); font-weight: 600;">* การกระทำนี้ไม่สามารถย้อนคืนได้</span>
+        </p>
+        
+        <div class="form-group">
+          <label class="form-label" style="font-weight: 600;">กรอกรหัสผ่านของคุณเพื่อยืนยัน:</label>
+          <input type="password" class="form-control" v-model="deleteCounselorPassword" placeholder="ระบุรหัสผ่านเข้าใช้งาน..." required>
+        </div>
+        
+        <div style="display: flex; gap: 15px; justify-content: flex-end; margin-top: 25px; border-top: 1px solid var(--card-border); padding-top: 20px;">
+          <button type="button" class="btn btn-secondary" @click="cancelDeleteCounselor">ยกเลิก</button>
+          <button type="button" class="btn btn-danger" @click="submitDeleteCounselor" :disabled="loading || !deleteCounselorPassword">
+            <i class="fa-solid fa-trash-can" v-if="!loading"></i>
+            <i class="fa-solid fa-circle-notch fa-spin" v-else></i>
+            ยืนยันการลบข้อมูล
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL หน้าต่างเพิ่มข้อมูลผู้ให้คำปรึกษาใหม่ (ADD COUNSELOR MODAL) -->
+    <div v-if="addCounselorModalActive" class="modal-overlay animate-in">
+      <div class="glass-card modal-card animate-in shadow" style="max-width: 500px;">
+        <button class="modal-close-btn" type="button" @click="closeAddCounselorModal"><i class="fa-solid fa-xmark"></i></button>
+        
+        <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 25px; border-bottom: 1px solid var(--card-border); padding-bottom: 15px;">
+          <i class="fa-solid fa-user-plus" style="color: #d97706;"></i> เพิ่มข้อมูลผู้ให้คำปรึกษาใหม่
+        </h3>
+        
+        <form @submit.prevent="saveNewCounselor">
+          <div style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px;">
+            <div class="form-group">
+              <label class="form-label">ลำดับที่</label>
+              <input type="text" class="form-control" v-model="counselorForm.userId" placeholder="ระบุ ลำดับที่" required>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">ชื่อ - นามสกุล</label>
+              <input type="text" class="form-control" v-model="counselorForm.counselorName" placeholder="ระบุ ชื่อ - นามสกุล" required>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">ตำแหน่ง</label>
+              <input type="text" class="form-control" v-model="counselorForm.counselorPosition" placeholder="ระบุ ตำแหน่ง" required>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">ตำแหน่ง (รักษาการ)</label>
+              <input type="text" class="form-control" v-model="counselorForm.counselorPositionSecond" placeholder="ระบุ ตำแหน่งรักษาการ (ถ้ามี)">
+            </div>
+          </div>
+          
+          <div style="display: flex; gap: 15px; justify-content: flex-end; margin-top: 25px; border-top: 1px solid var(--card-border); padding-top: 20px;">
+            <button type="button" class="btn btn-secondary" @click="closeAddCounselorModal">ยกเลิก</button>
+            <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #d97706 0%, #b45309 100%); border: none;">
+              บันทึกข้อมูลผู้ให้คำปรึกษา <i class="fa-solid fa-circle-check"></i>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         6. MODAL หน้าต่างตั้งค่าข้อมูลส่วนตัว (SETTINGS MODAL)
+         ========================================== -->
+    <div v-if="settingsModalActive" class="modal-overlay" class="animate-in">
+      <div class="glass-card modal-card animate-in shadow" style="max-width: 600px;">
+        <button class="modal-close-btn" @click="closeSettingsModal"><i class="fa-solid fa-xmark"></i></button>
+        
+        <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 25px; border-bottom: 1px solid var(--card-border); padding-bottom: 15px;">
+          <i class="fa-solid fa-user-gear"></i> ตั้งค่าข้อมูลส่วนตัว
+        </h3>
+
+        <!-- แถบเลือกสลับระหว่าง แก้ไขข้อมูลส่วนตัว กับ เปลี่ยนรหัสผ่าน -->
+        <div class="tab-menu" style="margin-bottom: 25px;">
+          <button class="tab-btn" :class="{ active: settingsTab === 'profile' }" @click="settingsTab = 'profile'">
+            <i class="fa-solid fa-id-card"></i> ข้อมูลส่วนตัว
+          </button>
+          <button class="tab-btn" :class="{ active: settingsTab === 'password' }" @click="settingsTab = 'password'">
+            <i class="fa-solid fa-key"></i> เปลี่ยนรหัสผ่าน
+          </button>
+        </div>
+
+        <!-- แท็บที่ 1: ข้อมูลส่วนตัวและการแก้ไข -->
+        <div v-if="settingsTab === 'profile'">
+          <form @submit.prevent="saveProfile">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 15px; margin-bottom: 25px;">
+              <!-- รูปภาพโปรไฟล์ -->
+              <div style="position: relative; width: 100px; height: 100px; border-radius: 50%; border: 3px solid var(--accent); box-shadow: var(--shadow); overflow: hidden; background: rgba(var(--accent-rgb), 0.1); display: flex; align-items: center; justify-content: center;">
+                <img v-if="settingsForm.profileImage" :src="settingsForm.profileImage" style="width: 100%; height: 100%; object-fit: cover;">
+                <span v-else style="font-size: 2rem; font-weight: bold; color: var(--accent);">{{ session.fullName.substring(0, 2) }}</span>
+              </div>
+              
+              <label v-if="isEditingProfile" class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.85rem; cursor: pointer; border-radius: 10px;">
+                <i class="fa-solid fa-camera"></i> เลือกรูปภาพโปรไฟล์
+                <input type="file" ref="profileImageInput" style="display: none;" accept="image/*" @change="onProfileImageChange">
+              </label>
+              <div v-if="isEditingProfile" style="font-size: 0.75rem; color: var(--text-muted);">แนะนำรูปทรงจัตุรัส ขนาดไฟล์ไม่เกิน 1MB</div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 25px;">
+              <div class="form-group">
+                <label class="form-label">ชื่อผู้ใช้งาน (Username)</label>
+                <input type="text" class="form-control" v-model="settingsForm.username" :disabled="!isEditingProfile" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">ชื่อ-นามสกุลจริง</label>
+                <input type="text" class="form-control" v-model="settingsForm.fullName" :disabled="!isEditingProfile" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">ตำแหน่งหน้าที่</label>
+                <input type="text" class="form-control" v-model="settingsForm.position" :disabled="!isEditingProfile" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">เบอร์โทรศัพท์</label>
+                <input type="text" class="form-control" v-model="settingsForm.phone" :disabled="!isEditingProfile">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">อีเมลผู้ใช้งาน</label>
+                <input type="email" class="form-control" v-model="settingsForm.email" :disabled="!isEditingProfile" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">วันเริ่มเข้าใช้งานระบบ</label>
+                <input type="text" class="form-control" :value="formatThaiDate(settingsForm.createdAt)" disabled>
+              </div>
+            </div>
+
+            <div v-if="!isEditingProfile" style="display: flex; gap: 15px; justify-content: flex-end; border-top: 1px solid var(--card-border); padding-top: 20px;">
+              <button type="button" class="btn btn-secondary" @click="closeSettingsModal">ปิดหน้าต่าง</button>
+              <button type="button" class="btn btn-primary" @click="isEditingProfile = true">แก้ไขข้อมูล <i class="fa-solid fa-user-pen"></i></button>
+            </div>
+            
+            <div v-else style="display: flex; gap: 15px; justify-content: flex-end; border-top: 1px solid var(--card-border); padding-top: 20px;">
+              <button type="button" class="btn btn-secondary" @click="cancelEditingProfile">ยกเลิก</button>
+              <button type="submit" class="btn btn-primary">เสร็จสิ้น (แก้ไขข้อมูลใหม่) <i class="fa-solid fa-circle-check"></i></button>
+            </div>
+          </form>
+        </div>
+
+        <!-- แท็บที่ 2: เปลี่ยนรหัสผ่าน -->
+        <div v-if="settingsTab === 'password'">
+          <form @submit.prevent="saveNewPassword">
+            <div class="form-group">
+              <label class="form-label">รหัสผ่านเดิม</label>
+              <input type="password" class="form-control" v-model="pwdForm.oldPassword" required placeholder="กรอกรหัสผ่านเดิม">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">รหัสผ่านใหม่</label>
+              <input type="password" class="form-control" v-model="pwdForm.newPassword" required minlength="8" placeholder="อย่างน้อย 8 ตัวอักษร">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">ยืนยันรหัสผ่านใหม่</label>
+              <input type="password" class="form-control" v-model="pwdForm.confirmPassword" required minlength="8" placeholder="อย่างน้อย 8 ตัวอักษร">
+            </div>
+
+            <div style="display: flex; gap: 15px; justify-content: flex-end; border-top: 1px solid var(--card-border); padding-top: 20px; margin-top: 25px;">
+              <button type="button" class="btn btn-secondary" @click="closeSettingsModal">ยกเลิก</button>
+              <button type="submit" class="btn btn-primary">เปลี่ยนรหัสผ่าน <i class="fa-solid fa-key"></i></button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         4.5 MODAL ป๊อปอัปแสดงรายละเอียดเด็กและคดีจากหน้าปฏิทิน (CALENDAR DETAILS POPUP)
+         ========================================== -->
+    <div v-if="calendarDetailModalActive && calendarDetailDef" class="modal-overlay animate-in">
+      <div class="glass-card modal-card animate-in shadow" style="max-width: 800px; width: 95%;">
+        <button class="modal-close-btn" @click="calendarDetailModalActive = false"><i class="fa-solid fa-xmark"></i></button>
+        
+        <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 20px; border-bottom: 1px solid var(--card-border); padding-bottom: 15px; color: var(--text-main); display: flex; align-items: center; gap: 10px;">
+          <i class="fa-solid fa-address-card" style="color: #7c3aed;"></i> รายละเอียดข้อมูลประวัติและคดีเด็ก/เยาวชน
+        </h3>
+        
+        <div style="max-height: 60vh; overflow-y: auto; padding-right: 5px;">
+          <!-- ส่วนประวัติเด็ก -->
+          <div class="glass-card" style="padding: 20px; margin-bottom: 20px; background: var(--bg-main); border: 1px solid var(--card-border);">
+            <h4 style="margin-top: 0; margin-bottom: 15px; color: #7c3aed; font-weight: 700; font-size: 1rem; border-bottom: 2px solid rgba(124, 58, 237, 0.2); padding-bottom: 6px; display: inline-block;">
+              ข้อมูลประวัติส่วนบุคคล
+            </h4>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; font-size: 0.92rem; line-height: 1.6;">
+              <div><strong style="color: var(--text-muted);">เลขประจำตัวประชาชน:</strong> <span>{{ calendarDetailDef.citizen_id }}</span></div>
+              <div><strong style="color: var(--text-muted);">ชื่อ-สกุล (ชื่อเล่น):</strong> <span>{{ calendarDetailDef.title_name }}{{ calendarDetailDef.first_name }} {{ calendarDetailDef.last_name }} ({{ calendarDetailDef.nick_name || '-' }})</span></div>
+              <div><strong style="color: var(--text-muted);">เพศ:</strong> <span>{{ calendarDetailDef.gender }}</span></div>
+              <div><strong style="color: var(--text-muted);">วันเกิด:</strong> <span>{{ formatThaiDate(calendarDetailDef.birth_date) }}</span></div>
+              <div style="grid-column: 1 / -1;"><strong style="color: var(--text-muted);">ที่อยู่ปัจจุบัน:</strong> <span>{{ calendarDetailDef.address || '-' }}</span></div>
+              <div style="grid-column: 1 / -1;"><strong style="color: var(--text-muted);">ประวัติการรักษาทางการแพทย์:</strong> <span>{{ calendarDetailDef.medical_history || 'ไม่มีประวัติ' }}</span></div>
+              <div style="grid-column: 1 / -1;"><strong style="color: var(--text-muted);">ประวัติพฤติกรรมเสี่ยง/สารเสพติด:</strong> <span>{{ calendarDetailDef.drug_history || 'ไม่มีประวัติ' }}</span></div>
+            </div>
+            
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--card-border);">
+              <strong style="color: var(--text-muted); display: block; margin-bottom: 6px; font-size: 0.92rem;">ผลการประเมินสภาวะทางจิตวิทยาเบื้องต้น:</strong>
+              <div style="background: var(--card-bg); padding: 12px; border-radius: 8px; border: 1px solid var(--card-border); font-size: 0.9rem; line-height: 1.5; color: var(--text-main);">
+                {{ calendarDetailDef.psy_diagnosis || 'ยังไม่ได้ระบุผลประเมินสภาวะจิตใจ' }}
+              </div>
+            </div>
+          </div>
+          
+          <!-- ส่วนรายการคดีที่เกี่ยวข้อง -->
+          <div>
+            <h4 style="margin-top: 0; margin-bottom: 15px; color: #7c3aed; font-weight: 700; font-size: 1rem; border-bottom: 2px solid rgba(124, 58, 237, 0.2); padding-bottom: 6px; display: inline-block;">
+              ข้อมูลคดีที่นัดหมาย
+            </h4>
+            
+            <div v-if="calendarDetailCases && calendarDetailCases.length > 0" style="display: flex; flex-direction: column; gap: 15px;">
+              <div v-for="(c, idx) in calendarDetailCases" :key="c.rowNum || idx" class="glass-card" style="padding: 18px; border: 1px solid var(--card-border); border-radius: 14px; position: relative;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--card-border); padding-bottom: 10px;">
+                  <span style="font-weight: 700; color: var(--text-main); font-size: 0.95rem;">สาเหตุที่นัด: {{ calendarDetailReason || 'ไม่ระบุ' }}</span>
+                  <div>
+                    <span v-if="c.red_case_no" class="badge" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.15); padding: 3px 8px; border-radius: 6px; font-weight: 600; font-size: 0.75rem;">
+                      คดีแดง: {{ c.red_case_no }}/{{ c.red_case_year }}
+                    </span>
+                    <span v-else class="badge" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.15); padding: 3px 8px; border-radius: 6px; font-weight: 600; font-size: 0.75rem;">
+                      อยู่ระหว่างปรึกษา
+                    </span>
+                  </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; font-size: 0.88rem; line-height: 1.6;">
+                  <div><strong style="color: var(--text-muted);">เลขคดีดำศูนย์:</strong> <span style="font-weight: 700; color: #7c3aed;">{{ c.black_case }}</span></div>
+                  <div><strong style="color: var(--text-muted);">เลขคดีดำศาลสะกดเต็ม:</strong> <span>{{ c.court_black_case || c.black_case }}</span></div>
+                  <div><strong style="color: var(--text-muted);">วันที่รับคดีเข้าศูนย์:</strong> <span>{{ formatThaiDate(c.black_date) }}</span></div>
+                  <div><strong style="color: var(--text-muted);">ข้อหา/มาตราคดี:</strong> <span>{{ c.charge || '-' }}</span></div>
+                  <div><strong style="color: var(--text-muted);">อายุขณะกระทำความผิด:</strong> <span>{{ c.age_at_offense }} ปี</span></div>
+                  <div><strong style="color: var(--text-muted);">ผู้ให้คำปรึกษาประจำตัว:</strong> <span>{{ c.counselor || 'ไม่ระบุ' }}</span></div>
+                  <div style="grid-column: 1 / -1;" v-if="c.note"><strong style="color: var(--text-muted);">บันทึกย่อเพิ่มเติม:</strong> <span>{{ c.note }}</span></div>
+                </div>
+              </div>
+            </div>
+            
+            <div v-else style="padding: 20px; text-align: center; color: var(--text-muted); background: var(--bg-main); border-radius: 12px; border: 1px dashed var(--card-border);">
+              ไม่พบประวัติข้อมูลคดีที่บันทึกเชื่อมโยงในระบบ
+            </div>
+          </div>
+        </div>
+        
+        <!-- ส่วนท้ายปุ่มปิด/แก้ไข -->
+        <div style="display: flex; gap: 15px; justify-content: flex-end; border-top: 1px solid var(--card-border); padding-top: 20px; margin-top: 10px;">
+          <button type="button" class="btn btn-secondary" style="border-radius: 10px; padding: 8px 20px;" @click="calendarDetailModalActive = false">ปิดหน้าต่าง</button>
+          <button v-if="session.role === 'admin' || session.role === 'psychologist'" 
+                  type="button" 
+                  class="btn btn-primary" 
+                  style="border-radius: 10px; padding: 8px 20px; background: #7c3aed; border-color: #7c3aed;" 
+                  @click="openInCaseManager(calendarDetailDef.citizen_id)">
+            แก้ไขในระบบจัดการคดี <i class="fa-solid fa-up-right-from-square" style="font-size: 0.85rem; margin-left: 4px;"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         8. หน้าต่างแสดงตัวอย่างรายงานก่อนพิมพ์ (Print/PDF Preview Modal)
+         ========================================== -->
+    <div v-if="printModalActive" class="print-modal-overlay animate-in">
+      <div class="print-modal-actions" style="flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; padding: 10px 15px;">
+        <button class="btn btn-secondary" style="border-radius: 12px; padding: 8px 16px; background: rgba(255,255,255,0.08); color: white;" @click="closePrintModal">
+          <i class="fa-solid fa-xmark"></i> ปิดพรีวิว
+        </button>
+        
+        <!-- แผงย่อขยายด่วนสำหรับโทรศัพท์และหน้าจอทั่วไป -->
+        <div style="display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.06); padding: 4px 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12);">
+          <button type="button" class="btn btn-secondary" style="padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; min-width: 32px; background: rgba(255,255,255,0.05); color: white;" @click="adjustZoom(-0.05)" title="ย่อหน้าจอรายงาน">
+            <i class="fa-solid fa-minus"></i>
+          </button>
+          <span style="font-size: 0.82rem; font-weight: 600; color: #ffffff; min-width: 68px; text-align: center; font-family: monospace;">ซูม: {{ Math.round(manualZoom * 100) }}%</span>
+          <button type="button" class="btn btn-secondary" style="padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; min-width: 32px; background: rgba(255,255,255,0.05); color: white;" @click="adjustZoom(0.05)" title="ขยายหน้าจอรายงาน">
+            <i class="fa-solid fa-plus"></i>
+          </button>
+        </div>
+        
+        <button class="btn btn-primary" style="border-radius: 12px; padding: 8px 20px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);" @click="triggerPrint">
+          <i class="fa-solid fa-print"></i> พิมพ์ / บันทึก PDF
+        </button>
+      </div>
+      <div class="print-preview-scroll-container">
+        <div class="a4-print-page" id="printable-report">
+          
+          <!-- แผ่นที่ 1: รายงานสถิติภาพรวมและการแยกข้อหา -->
+          <div class="a4-sheet">
+            <div>
+              <!-- หัวรายงานและตราสัญลักษณ์ (ลบรูปสัญญลักษณ์ออกและสปลิตบรรทัด) -->
+              <div class="report-header" style="justify-content: center; text-align: center;">
+                <div class="report-title-block" style="text-align: center; width: 100%;">
+                  <h1 class="report-title" style="font-size: 1.55rem; margin-bottom: 5px;">รายงานสรุปสถิติผลการดำเนินงาน</h1>
+                  <h2 class="report-subtitle" style="font-size: 1.25rem; font-weight: 700; color: #1e293b; margin-bottom: 4px;">ศูนย์ให้คำปรึกษาแนะนำและประสานการประชุม</h2>
+                  <h3 class="report-subtitle" style="font-size: 1.15rem; font-weight: 600; color: #475569; margin-bottom: 4px;">เพื่อแก้ไข บำบัด ฟื้นฟู เด็ก เยาวชนและครอบครัว</h3>
+                  <h4 class="report-subtitle" style="font-size: 1.05rem; color: #64748b; font-weight: 500; margin-bottom: 10px;">ศาลเยาวชนและครอบครัวจังหวัดระยอง</h4>
+                  <div class="report-period">
+                    ระหว่างวันที่ <strong>{{ formatThaiFullMonthDate(dashboardFilter.start) }}</strong> ถึงวันที่ <strong>{{ formatThaiFullMonthDate(dashboardFilter.end) }}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <!-- แผง KPI การดำเนินงานที่สำคัญ -->
+              <div class="report-kpi-grid">
+                <div class="report-kpi-card">
+                  <div class="kpi-title">ยอดยกมา</div>
+                  <div class="kpi-value">{{ unfilteredStats.totalCarriedForward }} <span class="kpi-unit">ราย</span></div>
+                </div>
+                <div class="report-kpi-card">
+                  <div class="kpi-title">คดีรับเข้าใหม่สะสม</div>
+                  <div class="kpi-value">{{ unfilteredStats.totalNewCases }} <span class="kpi-unit">ราย</span></div>
+                </div>
+                <div class="report-kpi-card">
+                  <div class="kpi-title">ยุติคดี/เสร็จสิ้นสะสม</div>
+                  <div class="kpi-value">{{ unfilteredStats.totalClosedCases }} <span class="kpi-unit">ราย</span></div>
+                </div>
+                <div class="report-kpi-card">
+                  <div class="kpi-title">สถิติการกระทำผิดซ้ำ</div>
+                  <div class="kpi-value">{{ unfilteredStats.recidivismCount }} <span class="kpi-unit">ราย</span></div>
+                </div>
+              </div>
+
+              <!-- ตารางสถิติแยกตามประเภทคดี -->
+              <div class="report-section-title">
+                <i class="fa-solid fa-folder-tree"></i> สถิติปริมาณคดีสะสมและคงค้างแยกเป็นรายมาตรา
+              </div>
+              <table class="report-table">
+                <thead>
+                  <tr>
+                    <th style="font-size: 0.8rem; white-space: nowrap;">มาตรา/ประเภทคดี</th>
+                    <th style="text-align: center; width: 110px;">ยอดยกมา</th>
+                    <th style="text-align: center; width: 120px;">รับเข้าใหม่ (คดีดำ)</th>
+                    <th style="text-align: center; width: 130px;">ยุติคดี/เสร็จสิ้น</th>
+                    <th style="text-align: center; width: 140px; line-height: 1.2;">อยู่ระหว่าง<br>ดำเนินการ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="key in ['มาตรา 73', 'มาตรา 90', 'มาตรา 132 วรรคหนึ่ง', 'มาตรา 132 วรรคสอง', 'คดีจากศาลอื่น', 'คดีอื่นๆ']" :key="key">
+                    <td style="font-weight: 600; color: #1e293b; white-space: nowrap;" :style="{ fontSize: key.includes('132') ? '0.78rem' : '0.85rem' }">{{ key }}</td>
+                    <td style="text-align: center; font-weight: 600;">{{ dashboardRawData?.carriedForwardCaseSections?.[key] || 0 }}</td>
+                    <td style="text-align: center; font-weight: 600;">{{ dashboardRawData?.newCaseSections?.[key] || 0 }}</td>
+                    <td style="text-align: center; color: #9e1b32; font-weight: 600;">{{ dashboardRawData?.closedCaseSections?.[key] || 0 }}</td>
+                    <td style="text-align: center; font-weight: 700; color: #b45309;">{{ dashboardRawData?.pendingCaseSections?.[key] || 0 }}</td>
+                  </tr>
+                  <tr class="report-table-total">
+                    <td style="font-weight: bold;">รวมทั้งสิ้น (Total)</td>
+                    <td style="text-align: center; font-weight: bold;">{{ unfilteredStats.totalCarriedForward }}</td>
+                    <td style="text-align: center; font-weight: bold;">{{ unfilteredStats.totalNewCases }}</td>
+                    <td style="text-align: center; font-weight: bold;">{{ unfilteredStats.totalClosedCases }}</td>
+                    <td style="text-align: center; font-weight: bold;">
+                      {{ Object.values(dashboardRawData?.pendingCaseSections || {}).reduce((a, b) => a + b, 0) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- ท้ายกระดาษแผ่นที่ 1 -->
+            <div class="report-footer">
+              <div style="font-size: 0.72rem; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 15px; display: flex; justify-content: space-between;">
+                <span>โปรแกรมบริหารจัดการระบบศูนย์ให้คำปรึกษา (CCMS Rayong)</span>
+                <span>หน้า 1 จาก 3</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- แผ่นที่ 2: รายละเอียดข้อหาข้อหายอดนิยม -->
+          <div class="a4-sheet">
+            <div>
+              <!-- หัวกระดาษแผ่นที่ 2 -->
+              <div class="report-header" style="border-bottom: 2px solid #cbd5e1; padding-bottom: 12px; margin-bottom: 20px;">
+                <div class="report-title-block">
+                  <h2 class="report-title" style="font-size: 1.35rem; color: #334155; margin-bottom: 4px;">รายละเอียดฐานความผิด/ข้อหาที่กระทำผิดสูงสุด 10 อันดับแรก</h2>
+                  <h3 class="report-subtitle" style="font-size: 1.1rem; color: #475569; font-weight: 600; margin-bottom: 2px;">(รวมทุกมาตรา)</h3>
+                </div>
+              </div>
+
+              <!-- ตารางแสดงข้อหายอดนิยม -->
+              <div v-if="unfilteredStats.topCharges && unfilteredStats.topCharges.length > 0">
+                <table class="report-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 70px; text-align: center;">อันดับ</th>
+                      <th>ฐานความผิด/ข้อหา</th>
+                      <th style="width: 150px; text-align: center;">จำนวนเด็กและเยาวชน (ราย)</th>
+                      <th style="width: 160px; text-align: center;">สัดส่วนต่อคดีรวมทั้งหมด</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(tc, idx) in unfilteredStats.topCharges" :key="idx">
+                      <td style="text-align: center; font-weight: 700; color: #2563eb;">{{ idx + 1 }}</td>
+                      <td style="font-weight: 500; color: #334155;">{{ tc.name }}</td>
+                      <td style="text-align: center; font-weight: 700; color: #1e293b;">{{ tc.count }}</td>
+                      <td style="text-align: center;">{{ getPercent(tc.count, unfilteredStats.totalNewCases) }}%</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div v-else class="report-empty-state">
+                <i class="fa-solid fa-inbox" style="font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 10px;"></i>
+                ไม่มีการบันทึกข้อมูลข้อหาสำหรับกลุ่มคดีและช่วงเวลานี้
+              </div>
+            </div>
+
+            <!-- ท้ายกระดาษแผ่นที่ 2 -->
+            <div class="report-footer">
+              <div style="font-size: 0.72rem; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 15px; display: flex; justify-content: space-between;">
+                <span>เอกสารนี้สร้างขึ้นจากระบบงานอัตโนมัติ สถิติอาจมีการเปลี่ยนแปลงรายวัน</span>
+                <span>หน้า 2 จาก 3</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- แผ่นที่ 3: ข้อมูลสถิติเด็กเยาวชนและส่วนลงลายมือชื่อ -->
+          <div class="a4-sheet" style="display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <!-- หัวกระดาษแผ่นที่ 3 -->
+              <div class="report-header" style="border-bottom: 2px solid #cbd5e1; padding-bottom: 12px; margin-bottom: 15px;">
+                <div class="report-title-block">
+                  <h2 class="report-title" style="font-size: 1.35rem; color: #334155; margin-bottom: 2px;">ข้อมูลจำแนกสถิติเด็กและเยาวชนที่รับเข้าใหม่สะสม</h2>
+                  <div class="report-period" style="margin-top: 0;">
+                    จำแนกคดีในช่วงสืบค้นเดียวกัน &bull; ศาลเยาวชนและครอบครัวจังหวัดระยอง
+                  </div>
+                </div>
+              </div>
+
+              <!-- แผงข้อมูล Demographics สองฝั่งซ้ายขวา (ปรับให้ความยาวสูงเท่ากันและขยายออก) -->
+              <div style="display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 15px; margin-top: 10px; align-items: stretch;">
+                <!-- ด้านซ้าย: จำแนกตามภูมิลำเนา (อำเภอ) -->
+                <div class="demo-card" style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; background-color: #f8fafc; height: 100%; display: flex; flex-direction: column;">
+                  <div style="font-weight: bold; font-size: 0.8rem; color: #334155; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin-bottom: 8px;">
+                    <i class="fa-solid fa-map-location-dot"></i> จำแนกตามภูมิลำเนา (อำเภอ)
+                  </div>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.74rem;">
+                    <div v-for="key in ['เมืองระยอง', 'แกลง', 'บ้านฉาง', 'บ้านค่าย', 'ปลวกแดง', 'นิคมพัฒนา', 'วังจันทร์', 'เขาชะเมา', 'จังหวัดอื่นๆ', 'ไม่มีข้อมูล']" :key="key" style="display: flex; justify-content: space-between; padding: 1px 0; border-bottom: 1px dashed #e2e8f0;">
+                      <span style="white-space: nowrap;">{{ key === 'จังหวัดอื่นๆ' || key === 'ไม่มีข้อมูล' ? key : 'อ.' + key }}</span>
+                      <span style="font-weight: bold; color: #1e293b; white-space: nowrap;">{{ unfilteredStats.districtCounts[key] || 0 }} ราย ({{ getPercent(unfilteredStats.districtCounts[key] || 0, unfilteredStats.totalNewCases) }}%)</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ด้านขวา: จำแนกตามเพศ และช่วงอายุขณะกระทำผิด -->
+                <div style="display: flex; flex-direction: column; gap: 10px; justify-content: space-between;">
+                  <!-- แยกตามเพศ -->
+                  <div class="demo-card" style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; background-color: #f8fafc; flex: 1;">
+                    <div style="font-weight: bold; font-size: 0.8rem; color: #334155; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin-bottom: 6px;">
+                      <i class="fa-solid fa-venus-mars"></i> จำแนกตามเพศ
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px; font-size: 0.74rem;">
+                      <div v-for="(count, gender) in unfilteredStats.genderCounts" :key="gender" style="display: flex; justify-content: space-between;">
+                        <span>{{ gender }}</span>
+                        <span style="font-weight: bold; color: #1e293b;">{{ count }} ราย ({{ getPercent(count, unfilteredStats.totalNewCases) }}%)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- แยกตามช่วงอายุ -->
+                  <div class="demo-card" style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; background-color: #f8fafc; flex: 1.5; margin-top: 0px;">
+                    <div style="font-weight: bold; font-size: 0.8rem; color: #334155; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin-bottom: 6px;">
+                      <i class="fa-solid fa-cake-candles"></i> จำแนกตามช่วงอายุขณะกระทำผิด
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px; font-size: 0.74rem;">
+                      <div v-for="key in ['18 ปีขึ้นไป', '15 ปี แต่ไม่ถึง 18 ปี', '12 ปี แต่ไม่ถึง 15 ปี', 'ต่ำกว่า 12 ปี', 'ไม่มีข้อมูล']" :key="key" style="display: flex; justify-content: space-between;">
+                        <span>{{ key === '15 ปี แต่ไม่ถึง 18 ปี' ? '15-18 ปี' : key === '12 ปี แต่ไม่ถึง 15 ปี' ? '12-15 ปี' : key }}</span>
+                        <span style="font-weight: bold; color: #1e293b; white-space: nowrap;">{{ unfilteredStats.ageCounts[key] || 0 }} ราย ({{ getPercent(unfilteredStats.ageCounts[key] || 0, unfilteredStats.totalNewCases) }}%)</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ส่วนกล่องผู้จัดทำ ผู้อนุมัติ และผู้รับทราบรายงาน (เรียงลำดับดิ่งลงล่างและขยายความกว้าง) -->
+              <div class="report-signoff-section">
+                
+                <!-- 1. ผู้จัดทำและตรวจสอบรายงาน -->
+                <div class="signoff-box">
+                  <span class="signoff-title">ผู้จัดทำและตรวจสอบรายงาน</span>
+                  <div class="signoff-line"></div>
+                  <p class="signoff-name">( {{ session.fullName }} )</p>
+                  <p class="signoff-role">ตำแหน่ง: {{ session.position || 'เจ้าหน้าที่ดำเนินงานศูนย์ให้คำปรึกษา' }}</p>
+                  <p class="signoff-date">วันที่จัดทำ: {{ formatThaiFullMonthDate(new Date().toISOString()) }}</p>
+                </div>
+
+                <!-- 2. ผู้อนุมัติรายงาน -->
+                <div class="signoff-box">
+                  <span class="signoff-title">ผู้อนุมัติรายงาน</span>
+                  <div class="signoff-line"></div>
+                  <p class="signoff-name">( {{ selectLists.approverName || '........................................................' }} )</p>
+                  <p class="signoff-role">ตำแหน่ง: ผู้อำนวยการสำนักงานประจำศาลเยาวชนและครอบครัวจังหวัดระยอง</p>
+                  <p class="signoff-date">วันที่อนุมัติ: ...... / ................ / .............</p>
+                </div>
+
+                <!-- 3. ผู้รับทราบรายงาน -->
+                <div class="signoff-box">
+                  <span class="signoff-title">ผู้รับทราบรายงาน</span>
+                  <div class="signoff-line"></div>
+                  <p class="signoff-name">( {{ selectLists.acknowledgerName || '........................................................' }} )</p>
+                  <p class="signoff-role">ตำแหน่ง: ผู้พิพากษาหัวหน้าศาลเยาวชนและครอบครัวจังหวัดระยอง</p>
+                  <p class="signoff-date">วันที่รับทราบ: ...... / ................ / .............</p>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- ท้ายกระดาษแผ่นที่ 3 -->
+            <div class="report-footer">
+              <div style="font-size: 0.72rem; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 15px; display: flex; justify-content: space-between;">
+                <span>เอกสารนี้สร้างขึ้นจากระบบงานอัตโนมัติ สถิติอาจมีการเปลี่ยนแปลงรายวัน</span>
+                <span>หน้า 3 จาก 3</span>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Vue.js 3 Global Global CDN -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+  <?!= include('Scripts'); ?>
+</body>
+</html>
