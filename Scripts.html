@@ -1059,35 +1059,37 @@
           
           const categories = thaiMonths;
           const series = [];
-          const colors = [];
-          
-          const lightPalette = [
-            '#4f46e5', // Indigo
-            '#06b6d4', // Cyan
-            '#10b981', // Emerald
-            '#f59e0b', // Amber
-            '#ec4899', // Pink
-            '#8b5cf6', // Violet
-            '#ef4444', // Red
-            '#3b82f6', // Blue
-            '#14b8a6', // Teal
-            '#f43f5e'  // Rose
-          ];
-          const darkPalette = [
-            '#818cf8', // Indigo
-            '#22d3ee', // Cyan
-            '#34d399', // Emerald
-            '#fbbf24', // Amber
-            '#f472b6', // Pink
-            '#a78bfa', // Violet
-            '#f87171', // Red
-            '#60a5fa', // Blue
-            '#2dd4bf', // Teal
-            '#fb7185'  // Rose
-          ];
           
           const isDark = document.getElementById('app-body').classList.contains('dark-mode');
-          const colorPalette = isDark ? darkPalette : lightPalette;
+          
+          // ฟังก์ชันสร้างชุดสีแบบไล่ระดับจากอ่อนไปเข้ม (Light to Dark)
+          const generateSequentialColors = (count, darkTheme) => {
+            const generatedColors = [];
+            if (count === 1) {
+              return darkTheme ? ['#60a5fa'] : ['#3b82f6']; // สีฟ้ามาตรฐานกรณีเลือกปีเดียว
+            }
+            
+            for (let i = 0; i < count; i++) {
+              const p = i / (count - 1);
+              
+              // ไล่เฉดสี (Hue) จาก ฟ้าอมเขียว (190) ไปยัง น้ำเงินเข้ม/คราม (240) เพื่อให้สีต่างกันชัดเจนขึ้น
+              const h = Math.round(190 + (p * 50));
+              const s = 85; // ความสดของสี (Saturation)
+              
+              // ความสว่าง (Lightness): ปีน้อย=อ่อน, ปีมาก=เข้ม
+              // โหมดสว่าง: 75% -> 35%
+              // โหมดมืด: 85% -> 45% (เพื่อให้ยังพอมองเห็นบนพื้นหลังสีเข้ม)
+              const startL = darkTheme ? 85 : 75;
+              const endL = darkTheme ? 45 : 35;
+              const l = Math.round(startL - (p * (startL - endL)));
+              
+              generatedColors.push(`hsl(${h}, ${s}%, ${l}%)`);
+            }
+            return generatedColors;
+          };
+          
+          const colorPalette = generateSequentialColors(yearsToPlot.length, isDark);
+          const colors = [];
           
           const section = selectedSectionFilter.value || "ทั้งหมด";
           
