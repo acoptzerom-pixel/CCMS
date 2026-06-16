@@ -2090,17 +2090,27 @@ function getInitialAppState(startDateStr, endDateStr, token) {
     return { success: false, message: "สิทธิ์เซสชันไม่ถูกต้องหรือหมดอายุ โปรดเข้าสู่ระบบอีกครั้ง" };
   }
   
+  var debugErrors = [];
+  
   var dashboardRes = null;
   try {
     dashboardRes = getDashboardData(startDateStr, endDateStr, token);
+    if (dashboardRes && !dashboardRes.success) {
+      debugErrors.push("Dashboard error: " + dashboardRes.message);
+    }
   } catch (e) {
+    debugErrors.push("Dashboard exception: " + e.toString());
     Logger.log("Error in getDashboardData: " + e.toString());
   }
 
   var selectListsRes = null;
   try {
     selectListsRes = getFormSelectLists(token);
+    if (selectListsRes && !selectListsRes.success) {
+      debugErrors.push("SelectLists error: " + selectListsRes.message);
+    }
   } catch (e) {
+    debugErrors.push("SelectLists exception: " + e.toString());
     Logger.log("Error in getFormSelectLists: " + e.toString());
   }
 
@@ -2108,8 +2118,12 @@ function getInitialAppState(startDateStr, endDateStr, token) {
   try {
     if (userSession.role !== 'user') {
       defendantsRes = getAllDefendantsWithCases(token);
+      if (defendantsRes && !defendantsRes.success) {
+        debugErrors.push("Defendants error: " + defendantsRes.message);
+      }
     }
   } catch (e) {
+    debugErrors.push("Defendants exception: " + e.toString());
     Logger.log("Error in getAllDefendantsWithCases: " + e.toString());
   }
 
@@ -2117,8 +2131,12 @@ function getInitialAppState(startDateStr, endDateStr, token) {
   try {
     if (userSession.role !== 'user') {
       appointmentsRes = getAppointments(token);
+      if (appointmentsRes && !appointmentsRes.success) {
+        debugErrors.push("Appointments error: " + appointmentsRes.message);
+      }
     }
   } catch (e) {
+    debugErrors.push("Appointments exception: " + e.toString());
     Logger.log("Error in getAppointments: " + e.toString());
   }
 
@@ -2126,8 +2144,12 @@ function getInitialAppState(startDateStr, endDateStr, token) {
   try {
     if (userSession.role === 'admin') {
       usersRes = adminGetUsers(token);
+      if (usersRes && !usersRes.success) {
+        debugErrors.push("Users error: " + usersRes.message);
+      }
     }
   } catch (e) {
+    debugErrors.push("Users exception: " + e.toString());
     Logger.log("Error in adminGetUsers: " + e.toString());
   }
 
@@ -2135,8 +2157,12 @@ function getInitialAppState(startDateStr, endDateStr, token) {
   try {
     if (userSession.role === 'admin' || userSession.role === 'psychologist') {
       counselorsRes = adminGetCounselors(token);
+      if (counselorsRes && !counselorsRes.success) {
+        debugErrors.push("Counselors error: " + counselorsRes.message);
+      }
     }
   } catch (e) {
+    debugErrors.push("Counselors exception: " + e.toString());
     Logger.log("Error in adminGetCounselors: " + e.toString());
   }
   
@@ -2148,7 +2174,8 @@ function getInitialAppState(startDateStr, endDateStr, token) {
     appointments: (appointmentsRes && appointmentsRes.success) ? appointmentsRes.appointments : [],
     users: (usersRes && usersRes.success) ? usersRes.users : [],
     counselors: (counselorsRes && counselorsRes.success) ? counselorsRes.counselors : [],
-    role: userSession.role
+    role: userSession.role,
+    debugErrors: debugErrors
   };
 }
 

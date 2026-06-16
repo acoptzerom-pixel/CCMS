@@ -485,6 +485,10 @@
                 .withSuccessHandler((res) => {
                   loading.value = false;
                   if (res.success) {
+                    console.log("Initial app state loaded successfully:", res);
+                    if (res.debugErrors && res.debugErrors.length > 0) {
+                      console.error("Server-side errors during getInitialAppState:", res.debugErrors);
+                    }
                     // เซ็ตข้อมูลและบันทึกแคช
                     localStorage.setItem('ccms_app_state', JSON.stringify(res));
                     localStorage.setItem('ccms_cache_time', new Date().toLocaleString('th-TH'));
@@ -492,6 +496,11 @@
                     isOffline.value = false;
                     
                     applyAppState(res);
+                    
+                    // เรียกโหลดวันนัดหมายล่าสุดจากเซิร์ฟเวอร์แบบเจาะจงเฉพาะผู้ใช้ที่ไม่ใช่ 'user'
+                    if (session.value && session.value.role !== 'user') {
+                      loadAppointments(showLoader);
+                    }
                   } else {
                     if (handleAuthError(res.message)) return;
                     errorMsg.value = res.message;
@@ -1384,13 +1393,14 @@
           }
         }
 
-        function loadAppointments() {
-          loading.value = true;
+        function loadAppointments(showLoader) {
+          const shouldShowLoader = showLoader !== false;
+          if (shouldShowLoader) loading.value = true;
           errorMsg.value = '';
           if (typeof google !== 'undefined' && google.script && google.script.run) {
             google.script.run
               .withSuccessHandler((res) => {
-                loading.value = false;
+                if (shouldShowLoader) loading.value = false;
                 if (res.success) {
                   appointments.value = res.appointments;
                   updateCacheField('appointments', res.appointments);
@@ -1402,7 +1412,7 @@
                 }
               })
               .withFailureHandler((err) => {
-                loading.value = false;
+                if (shouldShowLoader) loading.value = false;
                 errorMsg.value = "ขณะนี้แหล่งข้อมูลขัดข้อง: " + (err ? err.message || err.toString() : "ไม่ระบุสาเหตุ");
                 isOffline.value = true;
               })
