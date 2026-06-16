@@ -652,6 +652,20 @@
       gap: 30px;
     }
     
+    @media (min-width: 1025px) {
+      .dashboard-card-half {
+        height: 460px;
+        display: flex;
+        flex-direction: column;
+      }
+      .dashboard-card-half .chart-container,
+      .dashboard-card-half .charges-chart-wrapper,
+      .dashboard-card-half .table-responsive {
+        flex: 1;
+        min-height: 0;
+      }
+    }
+    
     .chart-container {
       margin-bottom: 25px;
     }

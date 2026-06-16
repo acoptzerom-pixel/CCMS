@@ -386,7 +386,7 @@
             
             <div class="dashboard-left-col">
               <!-- ส่วนที่ 1: เปรียบเทียบตามมาตราของคดีและประเภท -->
-              <div class="glass-card">
+              <div class="glass-card dashboard-card-half">
                 <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 25px;">
                   <i class="fa-solid fa-chart-column"></i> เปรียบเทียบปริมาณคดีเข้าใหม่และยุติแยกตามมาตรา
                 </h3>
@@ -396,7 +396,7 @@
               </div>
               
               <!-- ส่วนที่ 1.5: กราฟเส้นแสดงแนวโน้มรายเดือน (Trend Line Chart) -->
-              <div class="glass-card">
+              <div class="glass-card dashboard-card-half">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;">
                   <h3 style="font-family: var(--font-display); font-weight: 700; margin: 0;">
                     <i class="fa-solid fa-chart-line"></i> แนวโน้มคดีใหม่รายเดือน
@@ -423,29 +423,8 @@
             </div>
             
             <div class="dashboard-right-col">
-              <!-- ส่วนที่ 2: อัตราการเจาะข้อมูลข้อหาที่พบมากที่สุด (10 อันดับแรก) -->
-              <div class="glass-card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-                  <h3 style="font-family: var(--font-display); font-weight: 700; margin: 0;">
-                    <i class="fa-solid fa-chart-pie"></i> ประเภทคดีสูงสุด 10 อันดับแรก
-                  </h3>
-                </div>
-                <div class="charges-chart-wrapper">
-                  <div id="top-charges-pie-chart" class="charges-chart-left"></div>
-                  <div class="charges-legend-right">
-                    <div v-for="(item, idx) in stats.topCharges" :key="idx" class="custom-legend-item">
-                      <span class="legend-color-dot" :style="{ backgroundColor: getChartColor(idx) }"></span>
-                      <span class="legend-label-text">
-                        <span class="legend-rank">{{ idx + 1 }}.</span> {{ item.name }} 
-                        <span class="legend-count">({{ item.count }} คดี)</span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
               <!-- ส่วนที่ 2.5: ข้อมูลการนัดหมายประจำวัน -->
-              <div class="glass-card" style="height: 420px; display: flex; flex-direction: column;">
+              <div class="glass-card dashboard-card-half">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
                   <h3 style="font-family: var(--font-display); font-weight: 700; margin: 0; display: flex; align-items: center; gap: 8px;">
                     <i class="fa-solid fa-calendar-check" style="color: var(--primary);"></i> ข้อมูลการนัดหมายประจำวัน
@@ -455,7 +434,7 @@
                   </span>
                 </div>
                 
-                <div class="table-responsive" style="flex: 1; overflow-y: auto; border: 1px solid var(--card-border); border-radius: 14px; background: rgba(255, 255, 255, 0.01);">
+                <div class="table-responsive" style="overflow-y: auto; border: 1px solid var(--card-border); border-radius: 14px; background: rgba(255, 255, 255, 0.01);">
                   <table style="width: 100%; border-collapse: collapse; min-width: 100%;">
                     <thead>
                       <tr>
@@ -484,6 +463,27 @@
                       </tr>
                     </tbody>
                   </table>
+                </div>
+              </div>
+
+              <!-- ส่วนที่ 2: อัตราการเจาะข้อมูลข้อหาที่พบมากที่สุด (10 อันดับแรก) -->
+              <div class="glass-card dashboard-card-half">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                  <h3 style="font-family: var(--font-display); font-weight: 700; margin: 0;">
+                    <i class="fa-solid fa-chart-pie"></i> ประเภทคดีสูงสุด 10 อันดับแรก
+                  </h3>
+                </div>
+                <div class="charges-chart-wrapper">
+                  <div id="top-charges-pie-chart" class="charges-chart-left"></div>
+                  <div class="charges-legend-right">
+                    <div v-for="(item, idx) in stats.topCharges" :key="idx" class="custom-legend-item">
+                      <span class="legend-color-dot" :style="{ backgroundColor: getChartColor(idx) }"></span>
+                      <span class="legend-label-text">
+                        <span class="legend-rank">{{ idx + 1 }}.</span> {{ item.name }} 
+                        <span class="legend-count">({{ item.count }} คดี)</span>
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
