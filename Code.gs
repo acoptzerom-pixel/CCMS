@@ -2090,43 +2090,66 @@ function getInitialAppState(startDateStr, endDateStr, token) {
     return { success: false, message: "สิทธิ์เซสชันไม่ถูกต้องหรือหมดอายุ โปรดเข้าสู่ระบบอีกครั้ง" };
   }
   
+  var dashboardRes = null;
   try {
-    var dashboardRes = getDashboardData(startDateStr, endDateStr, token);
-    var selectListsRes = getFormSelectLists(token);
-    
-    var defendantsRes = null;
+    dashboardRes = getDashboardData(startDateStr, endDateStr, token);
+  } catch (e) {
+    Logger.log("Error in getDashboardData: " + e.toString());
+  }
+
+  var selectListsRes = null;
+  try {
+    selectListsRes = getFormSelectLists(token);
+  } catch (e) {
+    Logger.log("Error in getFormSelectLists: " + e.toString());
+  }
+
+  var defendantsRes = null;
+  try {
     if (userSession.role !== 'user') {
       defendantsRes = getAllDefendantsWithCases(token);
     }
-    
-    var appointmentsRes = null;
+  } catch (e) {
+    Logger.log("Error in getAllDefendantsWithCases: " + e.toString());
+  }
+
+  var appointmentsRes = null;
+  try {
     if (userSession.role !== 'user') {
       appointmentsRes = getAppointments(token);
     }
-    
-    var usersRes = null;
+  } catch (e) {
+    Logger.log("Error in getAppointments: " + e.toString());
+  }
+
+  var usersRes = null;
+  try {
     if (userSession.role === 'admin') {
       usersRes = adminGetUsers(token);
     }
+  } catch (e) {
+    Logger.log("Error in adminGetUsers: " + e.toString());
+  }
 
-    var counselorsRes = null;
+  var counselorsRes = null;
+  try {
     if (userSession.role === 'admin' || userSession.role === 'psychologist') {
       counselorsRes = adminGetCounselors(token);
     }
-    
-    return {
-      success: true,
-      dashboard: dashboardRes.success ? dashboardRes.data : null,
-      selectLists: selectListsRes.success ? selectListsRes : null,
-      defendants: (defendantsRes && defendantsRes.success) ? defendantsRes.data : [],
-      appointments: (appointmentsRes && appointmentsRes.success) ? appointmentsRes.appointments : [],
-      users: (usersRes && usersRes.success) ? usersRes.users : [],
-      counselors: (counselorsRes && counselorsRes.success) ? counselorsRes.counselors : [],
-      role: userSession.role
-    };
   } catch (e) {
-    return { success: false, message: "เกิดข้อผิดพลาดในการดึงข้อมูลเริ่มต้นแบบรวมศูนย์: " + e.toString() };
+    Logger.log("Error in adminGetCounselors: " + e.toString());
   }
+  
+  return {
+    success: true,
+    dashboard: (dashboardRes && dashboardRes.success) ? dashboardRes.data : null,
+    selectLists: (selectListsRes && selectListsRes.success) ? selectListsRes : null,
+    defendants: (defendantsRes && defendantsRes.success) ? defendantsRes.data : [],
+    appointments: (appointmentsRes && appointmentsRes.success) ? appointmentsRes.appointments : [],
+    users: (usersRes && usersRes.success) ? usersRes.users : [],
+    counselors: (counselorsRes && counselorsRes.success) ? counselorsRes.counselors : [],
+    role: userSession.role
+  };
 }
 
 /**

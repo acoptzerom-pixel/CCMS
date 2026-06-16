@@ -815,12 +815,18 @@
           
           applyDashboardFilters();
           
-          // อัปเดตกราฟแสดงสถิติ (nextTick เพื่อให้แน่ใจว่าแท็กของกราฟเรนเดอร์เรียบร้อย)
-          nextTick(() => {
+          // อัปเดตกราฟแสดงสถิติ (nextTick + retry เพื่อให้แน่ใจว่าแท็กของกราฟเรนเดอร์เรียบร้อย)
+          const tryRenderCharts = (retries) => {
+            const barEl = document.querySelector('#section-comparison-chart');
+            if (!barEl && retries > 0) {
+              setTimeout(() => tryRenderCharts(retries - 1), 150);
+              return;
+            }
             renderSectionComparisonChart(data.newCaseSections, data.closedCaseSections, data.pendingCaseSections);
             renderTopChargesChart(stats.topCharges);
             if (trendData.value) renderTrendLineChart();
-          });
+          };
+          nextTick(() => tryRenderCharts(10));
         }
 
         function applyDashboardFilters() {
@@ -884,6 +890,8 @@
         });
 
         function renderSectionComparisonChart(newCases, closedCases, pendingCases) {
+          const chartEl = document.querySelector("#section-comparison-chart");
+          if (!chartEl) return;
           const orderedKeys = ["มาตรา 73", "มาตรา 90", "มาตรา 132 วรรคหนึ่ง", "มาตรา 132 วรรคสอง", "คดีจากศาลอื่น", "คดีอื่นๆ"];
           const isMobile = window.innerWidth <= 768;
           
@@ -969,7 +977,7 @@
           };
 
           if (comparisonChart) comparisonChart.destroy();
-          comparisonChart = new ApexCharts(document.querySelector("#section-comparison-chart"), options);
+          comparisonChart = new ApexCharts(chartEl, options);
           comparisonChart.render();
         }
 
@@ -2880,7 +2888,7 @@
           searchDefendant, saveNewDefendant, openEditDefModal, saveEditDefendant,
           confirmDeleteDefModalActive, deleteConfirmPassword, confirmDeleteDef, cancelDeleteDef, submitDeleteDef,
           openAddCaseModal, openEditCaseModal, saveCase, handleDeleteCase, closeCaseModal,
-          handleUpdateUserByAdmin, handleUpdateCounselor, loadCounselorsList, confirmDeleteCounselor, cancelDeleteCounselor, submitDeleteCounselor, cancelEditCounselor, getPercent, loadDashboardData, updateCaseTypeAbb, formatAppointmentTime,
+          handleUpdateUserByAdmin, handleUpdateCounselor, loadCounselorsList, confirmDeleteCounselor, cancelDeleteCounselor, submitDeleteCounselor, cancelEditCounselor, getPercent, loadDashboardData, loadInitialAppState, updateCaseTypeAbb, formatAppointmentTime,
           openSettingsModal, closeSettingsModal, onProfileImageChange, saveProfile, saveNewPassword,
           printModalActive, openPrintPreview, closePrintModal, triggerPrint, dashboardRawData,
           manualZoom, adjustZoom,

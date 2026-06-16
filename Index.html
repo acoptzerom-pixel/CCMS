@@ -292,7 +292,7 @@
                   <i class="fa-regular fa-calendar-days"></i> {{ currentThaiDate }}
                 </div>
               </div>
-              <button class="btn btn-secondary" style="border-radius: 12px; padding: 10px 18px;" @click="loadDashboardData" :disabled="loading">
+              <button class="btn btn-secondary" style="border-radius: 12px; padding: 10px 18px;" @click="loadInitialAppState(true)" :disabled="loading">
                 <i class="fa-solid fa-arrows-rotate" :class="{ 'fa-spin': loading }"></i> ดึงค่าใหม่
               </button>
               <button v-if="session && (session.role === 'admin' || session.role === 'psychologist')" class="btn btn-primary" style="border-radius: 12px; padding: 10px 18px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);" @click="openPrintPreview" :disabled="loading">
