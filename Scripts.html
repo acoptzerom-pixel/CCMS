@@ -489,9 +489,13 @@
                     if (res.debugErrors && res.debugErrors.length > 0) {
                       console.error("Server-side errors during getInitialAppState:", res.debugErrors);
                     }
-                    // เซ็ตข้อมูลและบันทึกแคช
-                    localStorage.setItem('ccms_app_state', JSON.stringify(res));
-                    localStorage.setItem('ccms_cache_time', new Date().toLocaleString('th-TH'));
+                    // เซ็ตข้อมูลและบันทึกแคช (หุ้มด้วย try-catch ป้องกันโควตาพื้นที่เก็บข้อมูลเต็ม)
+                    try {
+                      localStorage.setItem('ccms_app_state', JSON.stringify(res));
+                      localStorage.setItem('ccms_cache_time', new Date().toLocaleString('th-TH'));
+                    } catch (e) {
+                      console.warn("ไม่สามารถบันทึกแคช ccms_app_state ลงใน LocalStorage ได้เนื่องจากพื้นที่จัดเก็บเต็ม:", e);
+                    }
                     cacheTime.value = '';
                     isOffline.value = false;
                     
@@ -758,9 +762,13 @@
               .withSuccessHandler((res) => {
                 loading.value = false;
                 if (res.success) {
-                  // บันทึกแคชข้อมูลล่าสุดเก็บไว้ใน LocalStorage ป้องกันระบบล่ม
-                  localStorage.setItem('ccms_cache_dashboard', JSON.stringify(res.data));
-                  localStorage.setItem('ccms_cache_time', new Date().toLocaleString('th-TH'));
+                  // บันทึกแคชข้อมูลล่าสุดเก็บไว้ใน LocalStorage ป้องกันระบบล่ม (หุ้มด้วย try-catch ป้องกันโควตาเต็ม)
+                  try {
+                    localStorage.setItem('ccms_cache_dashboard', JSON.stringify(res.data));
+                    localStorage.setItem('ccms_cache_time', new Date().toLocaleString('th-TH'));
+                  } catch (e) {
+                    console.warn("ไม่สามารถบันทึกแคช ccms_cache_dashboard ลงใน LocalStorage ได้เนื่องจากพื้นที่จัดเก็บเต็ม:", e);
+                  }
                   cacheTime.value = '';
                   isOffline.value = false;
                   
