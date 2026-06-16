@@ -233,6 +233,11 @@
           return appointments.value.filter(app => app.appointment_date === selectedDate.value);
         });
 
+        const todayAppointments = computed(() => {
+          const todayStr = formatLocalDateString(new Date());
+          return appointments.value.filter(app => app.appointment_date === todayStr);
+        });
+
         // Helper functions for date checks
 
         function isSameDate(d1, d2) {
@@ -1352,6 +1357,9 @@
           } else if (viewName === 'dashboard') {
             if (stats.totalNewCases === 0) {
               loadDashboardData();
+            }
+            if (session.value && session.value.role !== 'user' && appointments.value.length === 0) {
+              loadAppointments();
             }
           } else if (viewName === 'users') {
             if (usersList.value.length === 0) {
@@ -2886,7 +2894,7 @@
           
           // Calendar states and methods
           calendarYear, calendarMonth, appointments, selectedDate, thaiMonths,
-          calendarDays, selectedDayAppointments, loadAppointments, prevMonth,
+          calendarDays, selectedDayAppointments, todayAppointments, loadAppointments, prevMonth,
           nextMonth, goToToday, selectDay, formatThaiLongDate, formatThaiFullMonthDate, viewDefendantFromCalendar,
           calendarDetailModalActive, calendarDetailDef, calendarDetailCases, calendarDetailReason, openInCaseManager,
           

@@ -645,7 +645,8 @@
       gap: 30px;
     }
     
-    .dashboard-left-col {
+    .dashboard-left-col,
+    .dashboard-right-col {
       display: flex;
       flex-direction: column;
       gap: 30px;
@@ -758,6 +759,17 @@
     
     tr:hover td {
       background: rgba(255, 255, 255, 0.05);
+    }
+    
+    .appointment-th {
+      background: #f8fafc;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    
+    .dark-mode .appointment-th {
+      background: #1e293b;
     }
     
     /* Toggle switch CSS */
