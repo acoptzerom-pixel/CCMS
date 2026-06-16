@@ -653,14 +653,24 @@
     }
     
     @media (min-width: 1025px) {
-      .dashboard-card-half {
-        height: 460px;
+      .dashboard-card-left-half {
+        height: 440px;
         display: flex;
         flex-direction: column;
       }
-      .dashboard-card-half .chart-container,
-      .dashboard-card-half .charges-chart-wrapper,
-      .dashboard-card-half .table-responsive {
+      .dashboard-card-app {
+        height: 320px;
+        display: flex;
+        flex-direction: column;
+      }
+      .dashboard-card-pie {
+        height: 560px;
+        display: flex;
+        flex-direction: column;
+      }
+      .dashboard-card-left-half .chart-container,
+      .dashboard-card-app .table-responsive,
+      .dashboard-card-pie .charges-chart-wrapper {
         flex: 1;
         min-height: 0;
       }
