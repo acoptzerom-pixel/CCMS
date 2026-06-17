@@ -48,6 +48,7 @@
         const isDarkTheme = ref(true);
         const currentTime = ref('');
         const currentThaiDate = ref('');
+        const systemTodayDateStr = ref(formatLocalDateString(new Date()));
         
         // Form & Queries state
         const searchId = ref('');
@@ -235,13 +236,11 @@
         });
 
         const todayAppointments = computed(() => {
-          const todayStr = formatLocalDateString(new Date());
-          return appointments.value.filter(app => app.appointment_date === todayStr);
+          return appointments.value.filter(app => app.appointment_date === systemTodayDateStr.value);
         });
 
         const dashboardTodayAppointments = computed(() => {
-          const todayStr = formatLocalDateString(new Date());
-          return dashboardAllAppointments.value.filter(app => app.appointment_date === todayStr);
+          return dashboardAllAppointments.value.filter(app => app.appointment_date === systemTodayDateStr.value);
         });
 
         // Helper functions for date checks
@@ -2427,6 +2426,11 @@
           const mm = String(now.getMinutes()).padStart(2, '0');
           const ss = String(now.getSeconds()).padStart(2, '0');
           currentTime.value = hh + ":" + mm + ":" + ss;
+          
+          const todayIso = formatLocalDateString(now);
+          if (systemTodayDateStr.value !== todayIso) {
+            systemTodayDateStr.value = todayIso;
+          }
           
           const days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
           const months = [
