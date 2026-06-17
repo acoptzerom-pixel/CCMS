@@ -607,7 +607,7 @@
             <!-- การแสดงผลกริดการ์ดรายการเด็ก/เยาวชนแบ่งหน้า -->
             <div v-if="filteredDefendants.length > 0">
               <div class="card-grid">
-                <div v-for="def in paginatedDefendants" :key="def.citizen_id" class="def-card" @click="selectDefendantFromCard(def.citizen_id)">
+                <div v-for="(def, index) in paginatedDefendants" :key="def.citizen_id + '_' + index" class="def-card" @click="selectDefendantFromCard(def.citizen_id)">
                   <div>
                     <div class="def-card-header" style="margin-bottom: 8px;">
                       <div>
