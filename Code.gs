@@ -80,12 +80,16 @@ function formatDateAsIso(dateVal) {
   var d = normalizeSheetDate(dateVal);
   if (!d) return "";
   try {
-    var year = d.getFullYear();
-    var month = ("0" + (d.getMonth() + 1)).slice(-2);
-    var day = ("0" + d.getDate()).slice(-2);
-    return year + "-" + month + "-" + day;
+    return Utilities.formatDate(d, "GMT+7", "yyyy-MM-dd");
   } catch (e) {
-    return "";
+    try {
+      var year = d.getFullYear();
+      var month = ("0" + (d.getMonth() + 1)).slice(-2);
+      var day = ("0" + d.getDate()).slice(-2);
+      return year + "-" + month + "-" + day;
+    } catch (err) {
+      return "";
+    }
   }
 }
 

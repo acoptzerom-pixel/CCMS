@@ -1382,7 +1382,7 @@
             if (stats.totalNewCases === 0) {
               loadDashboardData();
             }
-            if (session.value && session.value.role !== 'user' && appointments.value.length === 0) {
+            if (session.value && (dashboardTodayAppointments.value.length === 0 || (session.value.role !== 'user' && appointments.value.length === 0))) {
               loadAppointments();
             }
           } else if (viewName === 'users') {
@@ -1404,26 +1404,55 @@
           const shouldShowLoader = showLoader !== false;
           if (shouldShowLoader) loading.value = true;
           errorMsg.value = '';
+          
+          let pendingCount = 0;
+          const checkDone = () => {
+            pendingCount--;
+            if (pendingCount <= 0 && shouldShowLoader) {
+              loading.value = false;
+            }
+          };
+
           if (typeof google !== 'undefined' && google.script && google.script.run) {
+            // 1. โหลดข้อมูลปฏิทิน (กรองตามบทบาท - ยกเว้นบทบาท 'user')
+            if (session.value && session.value.role !== 'user') {
+              pendingCount++;
+              google.script.run
+                .withSuccessHandler((res) => {
+                  if (res.success) {
+                    appointments.value = res.appointments;
+                    updateCacheField('appointments', res.appointments);
+                    isOffline.value = false;
+                  } else {
+                    if (!handleAuthError(res.message)) {
+                      errorMsg.value = res.message;
+                    }
+                  }
+                  checkDone();
+                })
+                .withFailureHandler((err) => {
+                  errorMsg.value = "ขณะนี้แหล่งข้อมูลขัดข้อง: " + (err ? err.message || err.toString() : "ไม่ระบุสาเหตุ");
+                  isOffline.value = true;
+                  checkDone();
+                })
+                .getAppointments(session.value.token);
+            }
+
+            // 2. โหลดข้อมูลแดชบอร์ดวันนี้ (ทุกบทบาทเห็นทั้งหมด)
+            pendingCount++;
             google.script.run
               .withSuccessHandler((res) => {
-                if (shouldShowLoader) loading.value = false;
                 if (res.success) {
-                  appointments.value = res.appointments;
-                  updateCacheField('appointments', res.appointments);
+                  dashboardTodayAppointments.value = res.appointments;
+                  updateCacheField('dashboardTodayAppointments', res.appointments);
                   isOffline.value = false;
-                } else {
-                  if (handleAuthError(res.message)) return;
-                  errorMsg.value = res.message;
-                  isOffline.value = true;
                 }
+                checkDone();
               })
               .withFailureHandler((err) => {
-                if (shouldShowLoader) loading.value = false;
-                errorMsg.value = "ขณะนี้แหล่งข้อมูลขัดข้อง: " + (err ? err.message || err.toString() : "ไม่ระบุสาเหตุ");
-                isOffline.value = true;
+                checkDone();
               })
-              .getAppointments(session.value.token);
+              .getTodayAppointmentsForDashboard(session.value.token);
           } else {
             isOffline.value = true;
             loading.value = false;
