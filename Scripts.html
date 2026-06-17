@@ -75,7 +75,7 @@
         const calendarYear = ref(initialYear);
         const calendarMonth = ref(new Date().getMonth());
         const appointments = ref([]);
-        const dashboardTodayAppointments = ref([]);
+        const dashboardAllAppointments = ref([]);
         const selectedDate = ref(formatLocalDateString(new Date()));
         
         // Calendar Detail Modal State
@@ -237,6 +237,11 @@
         const todayAppointments = computed(() => {
           const todayStr = formatLocalDateString(new Date());
           return appointments.value.filter(app => app.appointment_date === todayStr);
+        });
+
+        const dashboardTodayAppointments = computed(() => {
+          const todayStr = formatLocalDateString(new Date());
+          return dashboardAllAppointments.value.filter(app => app.appointment_date === todayStr);
         });
 
         // Helper functions for date checks
@@ -610,11 +615,8 @@
           if (res.appointments) {
             appointments.value = res.appointments;
           }
-          if (res.dashboardTodayAppointments) {
-            dashboardTodayAppointments.value = res.dashboardTodayAppointments;
-          }
-          if (res.dashboardTodayDebug) {
-            console.log("Dashboard Today Appointments Debug (applyAppState):", res.dashboardTodayDebug);
+          if (res.dashboardAllAppointments) {
+            dashboardAllAppointments.value = res.dashboardAllAppointments;
           }
           if (res.users) {
             usersList.value = res.users;
@@ -1387,7 +1389,7 @@
             if (stats.totalNewCases === 0) {
               loadDashboardData();
             }
-            if (session.value && (dashboardTodayAppointments.value.length === 0 || (session.value.role !== 'user' && appointments.value.length === 0))) {
+            if (session.value && (dashboardAllAppointments.value.length === 0 || (session.value.role !== 'user' && appointments.value.length === 0))) {
               loadAppointments();
             }
           } else if (viewName === 'users') {
@@ -1443,24 +1445,21 @@
                 .getAppointments(session.value.token);
             }
 
-            // 2. โหลดข้อมูลแดชบอร์ดวันนี้ (ทุกบทบาทเห็นทั้งหมด)
+            // 2. โหลดข้อมูลแดชบอร์ดทั้งหมด (ทุกบทบาทเห็นทั้งหมด)
             pendingCount++;
             google.script.run
               .withSuccessHandler((res) => {
                 if (res.success) {
-                  dashboardTodayAppointments.value = res.appointments;
-                  updateCacheField('dashboardTodayAppointments', res.appointments);
+                  dashboardAllAppointments.value = res.appointments;
+                  updateCacheField('dashboardAllAppointments', res.appointments);
                   isOffline.value = false;
-                  if (res.debugLog) {
-                    console.log("Dashboard Today Appointments Debug (loadAppointments):", res.debugLog);
-                  }
                 }
                 checkDone();
               })
               .withFailureHandler((err) => {
                 checkDone();
               })
-              .getTodayAppointmentsForDashboard(session.value.token);
+              .getAllAppointmentsForDashboard(session.value.token);
           } else {
             isOffline.value = true;
             loading.value = false;

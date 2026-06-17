@@ -2089,23 +2089,15 @@ function getAppointments(token) {
 }
 
 /**
- * ดึงข้อมูลนัดหมายวันนี้ทั้งหมดสำหรับแสดงบนแดชบอร์ด (ไม่กรองตามสิทธิ์ผู้ใช้ ทุกบทบาทเห็นได้ครบ)
+ * ดึงข้อมูลนัดหมายทั้งหมดสำหรับแสดงบนแดชบอร์ด (ไม่กรองตามสิทธิ์ผู้ใช้ ทุกบทบาทเห็นได้ครบถ้วน)
  */
-function getTodayAppointmentsForDashboard(token) {
+function getAllAppointmentsForDashboard(token) {
   var userSession = verifySessionToken(token);
   if (!userSession) return { success: false, message: "เซสชันล็อกอินหมดอายุ" };
   
   try {
     var appointments = getSheetData("tb_appointment");
     var cases = getSheetData("tb_cases");
-    
-    // วันที่วันนี้ในรูปแบบ ISO
-    var today = new Date();
-    var todayIso = formatDateAsIso(today);
-    var debugLog = [];
-    debugLog.push("todayIso: " + todayIso + " | todayRaw: " + today.toString());
-    
-    if (!todayIso) return { success: true, appointments: [], debugLog: debugLog };
     
     // สร้าง Map สำหรับค้นหาข้อมูลคดีจากเลขคดีดำ
     var caseMap = {};
@@ -2126,12 +2118,7 @@ function getTodayAppointmentsForDashboard(token) {
       if (!app.black_case || !app.appointment_date) continue;
       
       var appDateIso = formatDateAsIso(app.appointment_date);
-      
-      if (i < 20 || appDateIso === todayIso) {
-        debugLog.push("Row " + app.rowNum + " | black_case: " + app.black_case + " | date_raw: " + app.appointment_date + " | date_iso: " + appDateIso + " | match: " + (appDateIso === todayIso));
-      }
-      
-      if (appDateIso !== todayIso) continue; // เอาเฉพาะวันนี้เท่านั้น
+      if (!appDateIso) continue;
       
       var appBlackCaseKey = app.black_case.toString().replace(/\s+/g, "").toLowerCase();
       var caseInfo = caseMap[appBlackCaseKey];
@@ -2150,9 +2137,9 @@ function getTodayAppointmentsForDashboard(token) {
       });
     }
     
-    return { success: true, appointments: list, debugLog: debugLog };
+    return { success: true, appointments: list };
   } catch (e) {
-    return { success: false, message: "เกิดข้อผิดพลาดในการดึงข้อมูลนัดหมายวันนี้: " + e.toString() };
+    return { success: false, message: "เกิดข้อผิดพลาดในการดึงข้อมูลนัดหมายทั้งหมดสำหรับแดชบอร์ด: " + e.toString() };
   }
 }
 
@@ -2238,16 +2225,16 @@ function getInitialAppState(startDateStr, endDateStr, token) {
     Logger.log("Error in adminGetCounselors: " + e.toString());
   }
 
-  // ดึงข้อมูลนัดหมายวันนี้สำหรับแดชบอร์ด (ทุกบทบาทเห็นได้ ไม่กรองตามสิทธิ์)
-  var dashboardTodayRes = null;
+  // ดึงข้อมูลนัดหมายทั้งหมดสำหรับแดชบอร์ด (ทุกบทบาทเห็นได้ ไม่กรองตามสิทธิ์)
+  var dashboardAllRes = null;
   try {
-    dashboardTodayRes = getTodayAppointmentsForDashboard(token);
-    if (dashboardTodayRes && !dashboardTodayRes.success) {
-      debugErrors.push("DashboardTodayAppointments error: " + dashboardTodayRes.message);
+    dashboardAllRes = getAllAppointmentsForDashboard(token);
+    if (dashboardAllRes && !dashboardAllRes.success) {
+      debugErrors.push("DashboardAllAppointments error: " + dashboardAllRes.message);
     }
   } catch (e) {
-    debugErrors.push("DashboardTodayAppointments exception: " + e.toString());
-    Logger.log("Error in getTodayAppointmentsForDashboard: " + e.toString());
+    debugErrors.push("DashboardAllAppointments exception: " + e.toString());
+    Logger.log("Error in getAllAppointmentsForDashboard: " + e.toString());
   }
   
   return {
@@ -2256,8 +2243,7 @@ function getInitialAppState(startDateStr, endDateStr, token) {
     selectLists: (selectListsRes && selectListsRes.success) ? selectListsRes : null,
     defendants: (defendantsRes && defendantsRes.success) ? defendantsRes.data : [],
     appointments: (appointmentsRes && appointmentsRes.success) ? appointmentsRes.appointments : [],
-    dashboardTodayAppointments: (dashboardTodayRes && dashboardTodayRes.success) ? dashboardTodayRes.appointments : [],
-    dashboardTodayDebug: (dashboardTodayRes && dashboardTodayRes.success) ? dashboardTodayRes.debugLog : [],
+    dashboardAllAppointments: (dashboardAllRes && dashboardAllRes.success) ? dashboardAllRes.appointments : [],
     users: (usersRes && usersRes.success) ? usersRes.users : [],
     counselors: (counselorsRes && counselorsRes.success) ? counselorsRes.counselors : [],
     role: userSession.role,
