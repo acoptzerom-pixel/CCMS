@@ -75,6 +75,7 @@
         const calendarYear = ref(initialYear);
         const calendarMonth = ref(new Date().getMonth());
         const appointments = ref([]);
+        const dashboardTodayAppointments = ref([]);
         const selectedDate = ref(formatLocalDateString(new Date()));
         
         // Calendar Detail Modal State
@@ -500,11 +501,6 @@
                     isOffline.value = false;
                     
                     applyAppState(res);
-                    
-                    // เรียกโหลดวันนัดหมายล่าสุดจากเซิร์ฟเวอร์แบบเจาะจงเฉพาะผู้ใช้ที่ไม่ใช่ 'user'
-                    if (session.value && session.value.role !== 'user') {
-                      loadAppointments(showLoader);
-                    }
                   } else {
                     if (handleAuthError(res.message)) return;
                     errorMsg.value = res.message;
@@ -613,6 +609,9 @@
           }
           if (res.appointments) {
             appointments.value = res.appointments;
+          }
+          if (res.dashboardTodayAppointments) {
+            dashboardTodayAppointments.value = res.dashboardTodayAppointments;
           }
           if (res.users) {
             usersList.value = res.users;
@@ -2920,7 +2919,7 @@
           
           // Calendar states and methods
           calendarYear, calendarMonth, appointments, selectedDate, thaiMonths,
-          calendarDays, selectedDayAppointments, todayAppointments, loadAppointments, prevMonth,
+          calendarDays, selectedDayAppointments, todayAppointments, dashboardTodayAppointments, loadAppointments, prevMonth,
           nextMonth, goToToday, selectDay, formatThaiLongDate, formatThaiFullMonthDate, viewDefendantFromCalendar,
           calendarDetailModalActive, calendarDetailDef, calendarDetailCases, calendarDetailReason, openInCaseManager,
           

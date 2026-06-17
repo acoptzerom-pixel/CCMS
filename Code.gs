@@ -2084,6 +2084,66 @@ function getAppointments(token) {
   }
 }
 
+/**
+ * ดึงข้อมูลนัดหมายวันนี้ทั้งหมดสำหรับแสดงบนแดชบอร์ด (ไม่กรองตามสิทธิ์ผู้ใช้ ทุกบทบาทเห็นได้ครบ)
+ */
+function getTodayAppointmentsForDashboard(token) {
+  var userSession = verifySessionToken(token);
+  if (!userSession) return { success: false, message: "เซสชันล็อกอินหมดอายุ" };
+  
+  try {
+    var appointments = getSheetData("tb_appointment");
+    var cases = getSheetData("tb_cases");
+    
+    // วันที่วันนี้ในรูปแบบ ISO
+    var today = new Date();
+    var todayIso = formatDateAsIso(today);
+    if (!todayIso) return { success: true, appointments: [] };
+    
+    // สร้าง Map สำหรับค้นหาข้อมูลคดีจากเลขคดีดำ
+    var caseMap = {};
+    for (var i = 0; i < cases.length; i++) {
+      var c = cases[i];
+      if (c.black_case) {
+        var key = c.black_case.toString().replace(/\s+/g, "").toLowerCase();
+        caseMap[key] = {
+          counselor: c.counselor ? c.counselor.toString().trim() : "",
+          black_case: c.black_case
+        };
+      }
+    }
+    
+    var list = [];
+    for (var i = 0; i < appointments.length; i++) {
+      var app = appointments[i];
+      if (!app.black_case || !app.appointment_date) continue;
+      
+      var appDateIso = formatDateAsIso(app.appointment_date);
+      if (appDateIso !== todayIso) continue; // เอาเฉพาะวันนี้เท่านั้น
+      
+      var appBlackCaseKey = app.black_case.toString().replace(/\s+/g, "").toLowerCase();
+      var caseInfo = caseMap[appBlackCaseKey];
+      var caseCounselor = caseInfo ? caseInfo.counselor : "";
+      var realBlackCase = caseInfo ? caseInfo.black_case : app.black_case;
+      
+      var appCounselor = app.appointment_counselor ? app.appointment_counselor.toString().trim() : "";
+      var finalCounselor = appCounselor || caseCounselor || "ไม่ระบุ";
+      
+      list.push({
+        rowNum: app.rowNum,
+        black_case: realBlackCase,
+        appointment_date: appDateIso,
+        appointment_reason: app.appointment_reason ? app.appointment_reason.toString().trim() : "",
+        counselor: finalCounselor
+      });
+    }
+    
+    return { success: true, appointments: list };
+  } catch (e) {
+    return { success: false, message: "เกิดข้อผิดพลาดในการดึงข้อมูลนัดหมายวันนี้: " + e.toString() };
+  }
+}
+
 function getInitialAppState(startDateStr, endDateStr, token) {
   var userSession = verifySessionToken(token);
   if (!userSession) {
@@ -2165,6 +2225,18 @@ function getInitialAppState(startDateStr, endDateStr, token) {
     debugErrors.push("Counselors exception: " + e.toString());
     Logger.log("Error in adminGetCounselors: " + e.toString());
   }
+
+  // ดึงข้อมูลนัดหมายวันนี้สำหรับแดชบอร์ด (ทุกบทบาทเห็นได้ ไม่กรองตามสิทธิ์)
+  var dashboardTodayRes = null;
+  try {
+    dashboardTodayRes = getTodayAppointmentsForDashboard(token);
+    if (dashboardTodayRes && !dashboardTodayRes.success) {
+      debugErrors.push("DashboardTodayAppointments error: " + dashboardTodayRes.message);
+    }
+  } catch (e) {
+    debugErrors.push("DashboardTodayAppointments exception: " + e.toString());
+    Logger.log("Error in getTodayAppointmentsForDashboard: " + e.toString());
+  }
   
   return {
     success: true,
@@ -2172,6 +2244,7 @@ function getInitialAppState(startDateStr, endDateStr, token) {
     selectLists: (selectListsRes && selectListsRes.success) ? selectListsRes : null,
     defendants: (defendantsRes && defendantsRes.success) ? defendantsRes.data : [],
     appointments: (appointmentsRes && appointmentsRes.success) ? appointmentsRes.appointments : [],
+    dashboardTodayAppointments: (dashboardTodayRes && dashboardTodayRes.success) ? dashboardTodayRes.appointments : [],
     users: (usersRes && usersRes.success) ? usersRes.users : [],
     counselors: (counselorsRes && counselorsRes.success) ? counselorsRes.counselors : [],
     role: userSession.role,

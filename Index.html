@@ -430,7 +430,7 @@
                     <i class="fa-solid fa-calendar-check" style="color: var(--primary);"></i> ข้อมูลการนัดหมายประจำวัน
                   </h3>
                   <span style="background: rgba(59, 130, 246, 0.1); color: var(--primary); font-weight: 600; font-size: 0.8rem; padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(59, 130, 246, 0.2);">
-                    {{ todayAppointments.length }} รายการ
+                    {{ dashboardTodayAppointments.length }} รายการ
                   </span>
                 </div>
                 
@@ -444,7 +444,7 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="app in todayAppointments" :key="app.rowNum" style="transition: background 0.2s;">
+                      <tr v-for="app in dashboardTodayAppointments" :key="app.rowNum" style="transition: background 0.2s;">
                         <td style="padding: 12px 16px; font-size: 0.85rem; font-weight: 600; color: var(--accent); border-bottom: 1px solid var(--card-border);">
                           {{ app.black_case }}
                         </td>
@@ -455,7 +455,7 @@
                           {{ app.appointment_reason }}
                         </td>
                       </tr>
-                      <tr v-if="todayAppointments.length === 0">
+                      <tr v-if="dashboardTodayAppointments.length === 0">
                         <td colspan="3" style="text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: 0.85rem; border-bottom: none;">
                           <i class="fa-solid fa-calendar-xmark" style="font-size: 2.2rem; margin-bottom: 12px; display: block; opacity: 0.5; color: var(--text-muted);"></i>
                           ไม่มีข้อมูลการนัดหมายในวันนี้
