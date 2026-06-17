@@ -2102,7 +2102,10 @@ function getTodayAppointmentsForDashboard(token) {
     // วันที่วันนี้ในรูปแบบ ISO
     var today = new Date();
     var todayIso = formatDateAsIso(today);
-    if (!todayIso) return { success: true, appointments: [] };
+    var debugLog = [];
+    debugLog.push("todayIso: " + todayIso + " | todayRaw: " + today.toString());
+    
+    if (!todayIso) return { success: true, appointments: [], debugLog: debugLog };
     
     // สร้าง Map สำหรับค้นหาข้อมูลคดีจากเลขคดีดำ
     var caseMap = {};
@@ -2123,6 +2126,11 @@ function getTodayAppointmentsForDashboard(token) {
       if (!app.black_case || !app.appointment_date) continue;
       
       var appDateIso = formatDateAsIso(app.appointment_date);
+      
+      if (i < 20 || appDateIso === todayIso) {
+        debugLog.push("Row " + app.rowNum + " | black_case: " + app.black_case + " | date_raw: " + app.appointment_date + " | date_iso: " + appDateIso + " | match: " + (appDateIso === todayIso));
+      }
+      
       if (appDateIso !== todayIso) continue; // เอาเฉพาะวันนี้เท่านั้น
       
       var appBlackCaseKey = app.black_case.toString().replace(/\s+/g, "").toLowerCase();
@@ -2142,7 +2150,7 @@ function getTodayAppointmentsForDashboard(token) {
       });
     }
     
-    return { success: true, appointments: list };
+    return { success: true, appointments: list, debugLog: debugLog };
   } catch (e) {
     return { success: false, message: "เกิดข้อผิดพลาดในการดึงข้อมูลนัดหมายวันนี้: " + e.toString() };
   }
@@ -2249,6 +2257,7 @@ function getInitialAppState(startDateStr, endDateStr, token) {
     defendants: (defendantsRes && defendantsRes.success) ? defendantsRes.data : [],
     appointments: (appointmentsRes && appointmentsRes.success) ? appointmentsRes.appointments : [],
     dashboardTodayAppointments: (dashboardTodayRes && dashboardTodayRes.success) ? dashboardTodayRes.appointments : [],
+    dashboardTodayDebug: (dashboardTodayRes && dashboardTodayRes.success) ? dashboardTodayRes.debugLog : [],
     users: (usersRes && usersRes.success) ? usersRes.users : [],
     counselors: (counselorsRes && counselorsRes.success) ? counselorsRes.counselors : [],
     role: userSession.role,

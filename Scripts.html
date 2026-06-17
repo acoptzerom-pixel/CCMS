@@ -613,6 +613,9 @@
           if (res.dashboardTodayAppointments) {
             dashboardTodayAppointments.value = res.dashboardTodayAppointments;
           }
+          if (res.dashboardTodayDebug) {
+            console.log("Dashboard Today Appointments Debug (applyAppState):", res.dashboardTodayDebug);
+          }
           if (res.users) {
             usersList.value = res.users;
           }
@@ -741,6 +744,8 @@
           session.value = null;
           localStorage.removeItem('ccms_session_token');
           localStorage.removeItem('ccms_user_profile');
+          localStorage.removeItem('ccms_app_state');
+          localStorage.removeItem('ccms_cache_dashboard');
           currentView.value = 'dashboard';
           searchDone.value = false;
           searchId.value = '';
@@ -1446,6 +1451,9 @@
                   dashboardTodayAppointments.value = res.appointments;
                   updateCacheField('dashboardTodayAppointments', res.appointments);
                   isOffline.value = false;
+                  if (res.debugLog) {
+                    console.log("Dashboard Today Appointments Debug (loadAppointments):", res.debugLog);
+                  }
                 }
                 checkDone();
               })
