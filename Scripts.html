@@ -96,6 +96,13 @@
         const cardCurrentPage = ref(1);
         const cardPageSize = 12;
 
+        // Demographic modal states
+        const demographicModalActive = ref(false);
+        const demographicModalLoading = ref(false);
+        const demographicModalTitle = ref('');
+        const demographicModalCategory = ref('');
+        const demographicModalData = ref({ cases: [], chargeBreakdown: [], totalCount: 0 });
+
         // Computed properties for filtering cards list
         const filteredDefendants = computed(() => {
           try {
@@ -298,6 +305,90 @@
         function countCourtCases(cases) {
           if (!cases || !Array.isArray(cases)) return 0;
           return cases.filter(c => c.court_black_case && c.court_black_case.toString().trim() !== '').length;
+        }
+
+        function showDemographicDetails(type, value) {
+          demographicModalCategory.value = value;
+          let typeLabel = "";
+          if (type === "gender") {
+            typeLabel = "สถิติจำแนกตามเพศ";
+          } else if (type === "age") {
+            typeLabel = "สถิติจำแนกตามช่วงอายุ";
+          } else if (type === "district") {
+            typeLabel = "สถิติจำแนกตามอำเภอ (จ.ระยอง)";
+          }
+          
+          let displayValue = value;
+          if (type === "district" && value !== "จังหวัดอื่นๆ" && value !== "ไม่มีข้อมูล") {
+            displayValue = "อำเภอ" + value;
+          }
+          
+          demographicModalTitle.value = typeLabel + " - " + displayValue;
+          demographicModalActive.value = true;
+          demographicModalLoading.value = true;
+          
+          const cleanStart = sanitizeGregorianDateString(dashboardFilter.start);
+          const cleanEnd = sanitizeGregorianDateString(dashboardFilter.end);
+          const sectionFilter = selectedSectionFilter.value;
+          
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                demographicModalLoading.value = false;
+                if (res.success) {
+                  demographicModalData.value = res.data;
+                } else {
+                  errorMsg.value = res.message;
+                  demographicModalActive.value = false;
+                }
+              })
+              .withFailureHandler((err) => {
+                demographicModalLoading.value = false;
+                errorMsg.value = "เกิดข้อผิดพลาดในการดึงข้อมูลรายละเอียดคดี: " + (err ? err.message || err.toString() : "ไม่ระบุสาเหตุ");
+                demographicModalActive.value = false;
+              })
+              .getDemographicCasesDetail(cleanStart, cleanEnd, sectionFilter, type, value, session.value.token);
+          } else {
+            // โหมดจำลองออฟไลน์
+            setTimeout(() => {
+              demographicModalLoading.value = false;
+              
+              // จำลองข้อมูลข้อหากับเคส
+              const dummyBreakdown = [
+                { chargeName: "พ.ร.บ.ยาเสพติดให้โทษ (เมทแอมเฟตามีน)", count: 12 },
+                { chargeName: "ลักทรัพย์ในเคหสถาน", count: 5 },
+                { chargeName: "ทำร้ายร่างกายผู้อื่นจนเป็นเหตุให้ได้รับอันตรายแก่กาย", count: 3 }
+              ];
+              const dummyCases = [
+                {
+                  black_case: "อ.28/69",
+                  court_black_case: "พม12/2569",
+                  defendant_name: "นายสมเกียรติ ดีเลิศ",
+                  charge_name: "พ.ร.บ.ยาเสพติดให้โทษ (เมทแอมเฟตามีน)",
+                  gender: "ชาย",
+                  age: "16 ปี",
+                  district: "อ.เมืองระยอง",
+                  counselor: "นายสมชาย ใจดี"
+                },
+                {
+                  black_case: "อ.45/69",
+                  court_black_case: "-",
+                  defendant_name: "นายวันชัย รักดี",
+                  charge_name: "ลักทรัพย์ในเคหสถาน",
+                  gender: "ชาย",
+                  age: "17 ปี",
+                  district: "อ.แกลง",
+                  counselor: "นางสาวมณี เรียนดี"
+                }
+              ];
+              
+              demographicModalData.value = {
+                cases: dummyCases,
+                chargeBreakdown: dummyBreakdown,
+                totalCount: 20
+              };
+            }, 800);
+          }
         }
         
         // Modals toggle
@@ -2956,6 +3047,10 @@
           loadDefendantsList, selectDefendantFromCard, goBackToMainList,
           triggerNewDefendantRegistration, switchView, getRoleLabel,
           onPageInputChange, countCourtCases,
+          
+          // Demographic stats modal states & functions
+          demographicModalActive, demographicModalLoading, demographicModalTitle, demographicModalCategory, demographicModalData,
+          showDemographicDetails,
           
           // Calendar states and methods
           calendarYear, calendarMonth, appointments, selectedDate, thaiMonths,

@@ -1007,6 +1007,207 @@ function getDashboardData(startDateStr, endDateStr, token) {
 }
 
 /**
+ * ดึงรายละเอียดของคดี/ข้อหา สำหรับสถิติประชากรศาสตร์ที่กดเลือก (เพศ, ช่วงอายุ, รายอำเภอ)
+ */
+function getDemographicCasesDetail(startDateStr, endDateStr, sectionFilter, type, value, token) {
+  var userSession = verifySessionToken(token);
+  if (!userSession) {
+    return { success: false, message: "สิทธิ์การทำงานหมดอายุหรือเซสชันไม่ถูกต้อง โปรดล็อกอินใหม่อีกครั้ง" };
+  }
+  
+  try {
+    var cases = getSheetData("tb_cases");
+    var defendants = getSheetData("tb_defendants");
+    var charges = getSheetData("tb_charge");
+    
+    // แปลงช่วงข้อมูลวันที่
+    var start = startDateStr ? new Date(startDateStr) : new Date(new Date().getFullYear() + "-01-01T00:00:00");
+    var end = endDateStr ? new Date(endDateStr) : new Date();
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+    
+    var chargeMap = {};
+    for (var i = 0; i < charges.length; i++) {
+      chargeMap[charges[i].charge_no] = charges[i].charge_statistics;
+    }
+    
+    var defendantMap = {};
+    for (var i = 0; i < defendants.length; i++) {
+      var dCid = cleanCitizenId(defendants[i].citizen_id);
+      if (dCid) {
+        defendantMap[dCid] = defendants[i];
+      }
+    }
+    
+    var matchingCases = [];
+    var chargeCounts = {};
+    
+    for (var i = 0; i < cases.length; i++) {
+      var c = cases[i];
+      
+      // กรองวันที่ (เฉพาะรับเข้าใหม่ในช่วงเวลา)
+      var blackDate = c.black_date ? normalizeSheetDate(c.black_date) : null;
+      var isNewInPeriod = blackDate && (blackDate >= start && blackDate <= end);
+      if (!isNewInPeriod) continue;
+      
+      // กรองมาตรา
+      var sectionLabel = "คดีอื่นๆ";
+      var ctId = parseFloat(c.case_type_id);
+      var subCtId = parseFloat(c.sub_case_type_id);
+      
+      if (ctId === 1) {
+        sectionLabel = "มาตรา 73";
+      } else if (ctId === 2) {
+        sectionLabel = "มาตรา 90";
+      } else if (ctId === 3) {
+        if (subCtId === 2) {
+          sectionLabel = "มาตรา 132 วรรคสอง";
+        } else {
+          sectionLabel = "มาตรา 132 วรรคหนึ่ง";
+        }
+      } else if (ctId === 5 || ctId === 6 || ctId === 7) {
+        sectionLabel = "คดีจากศาลอื่น";
+      } else {
+        sectionLabel = "คดีอื่นๆ";
+      }
+      
+      if (sectionFilter !== "ทั้งหมด" && sectionLabel !== sectionFilter) continue;
+      
+      var caseCid = cleanCitizenId(c.citizen_id);
+      var def = caseCid ? defendantMap[caseCid] : null;
+      
+      // ดึงเพศ
+      var gender = "ไม่มีข้อมูล";
+      if (def) {
+        var g = def.gender || "";
+        if (g === "ชาย") gender = "ชาย";
+        else if (g === "หญิง") gender = "หญิง";
+      }
+      
+      // ดึงอายุและช่วงอายุ
+      var age = parseFloat(c.age_at_offense);
+      var ageGroup = "ไม่มีข้อมูล";
+      if (!isNaN(age)) {
+        if (age >= 18) ageGroup = "18 ปีขึ้นไป";
+        else if (age >= 15) ageGroup = "15 ปี แต่ไม่ถึง 18 ปี";
+        else if (age >= 12) ageGroup = "12 ปี แต่ไม่ถึง 15 ปี";
+        else ageGroup = "ต่ำกว่า 12 ปี";
+      }
+      
+      // ดึงอำเภอ
+      var distLabel = "ไม่มีข้อมูล";
+      if (def) {
+        var prov = def.province_address ? def.province_address.toString().trim() : "";
+        var dist = def.district_address ? def.district_address.toString().trim() : "";
+        
+        if (prov === "" && dist === "") {
+          var fullAddrParts = [];
+          for (var key in def) {
+            if (def.hasOwnProperty(key) && key.indexOf("_address") !== -1 && def[key]) {
+              fullAddrParts.push(def[key].toString().trim());
+            }
+          }
+          var fullAddr = fullAddrParts.join(" ");
+          
+          if (fullAddr !== "") {
+            if (fullAddr.indexOf("ระยอง") !== -1) {
+              var parsedDist = parseRayongDistrict(fullAddr);
+              if (parsedDist === "อื่นๆ" || parsedDist === "ไม่ระบุ") {
+                distLabel = "เมืองระยอง";
+              } else if (parsedDist.indexOf("(ชลบุรี)") !== -1) {
+                distLabel = "จังหวัดอื่นๆ";
+              } else {
+                distLabel = parsedDist;
+              }
+            } else {
+              var parsedDist = parseRayongDistrict(fullAddr);
+              if (parsedDist !== "อื่นๆ" && parsedDist !== "ไม่ระบุ" && parsedDist.indexOf("(ชลบุรี)") === -1) {
+                distLabel = parsedDist;
+              } else {
+                distLabel = "จังหวัดอื่นๆ";
+              }
+            }
+          } else {
+            distLabel = "ไม่มีข้อมูล";
+          }
+        } else if (prov.indexOf("ระยอง") !== -1 || dist === "แกลง" || dist === "ปลวกแดง" || dist === "บ้านค่าย" || dist === "นิคมพัฒนา" || dist === "บ้านฉาง" || dist === "เขาชะเมา" || dist === "วังจันทร์" || dist === "เมือง" || dist === "เมืองระยอง") {
+          var cleanDist = dist !== "" ? dist.replace(/^(อำเภอ|อ\.)/, "").trim() : "";
+          if (cleanDist === "") {
+            var fullAddrParts = [];
+            for (var key in def) {
+              if (def.hasOwnProperty(key) && key.indexOf("_address") !== -1 && def[key]) {
+                fullAddrParts.push(def[key].toString().trim());
+              }
+            }
+            var fullAddr = fullAddrParts.join(" ");
+            var parsedDist = parseRayongDistrict(fullAddr);
+            if (parsedDist === "อื่นๆ" || parsedDist === "ไม่ระบุ") {
+              distLabel = "เมืองระยอง";
+            } else if (parsedDist.indexOf("(ชลบุรี)") !== -1) {
+              distLabel = "จังหวัดอื่นๆ";
+            } else {
+              distLabel = parsedDist;
+            }
+          } else if (cleanDist === "เมือง" || cleanDist === "เมืองระยอง") {
+            distLabel = "เมืองระยอง";
+          } else {
+            distLabel = cleanDist;
+          }
+        } else {
+          distLabel = "จังหวัดอื่นๆ";
+        }
+      }
+      
+      // ตรวจสอบเงื่อนไขตามประเภทข้อมูลประชากรศาสตร์ที่กดเลือก
+      var match = false;
+      if (type === "gender" && gender === value) {
+        match = true;
+      } else if (type === "age" && ageGroup === value) {
+        match = true;
+      } else if (type === "district" && distLabel === value) {
+        match = true;
+      }
+      
+      if (!match) continue;
+      
+      var chName = c.charge_no ? (chargeMap[c.charge_no] || "ไม่ระบุข้อหา (" + c.charge_no + ")") : "ไม่ระบุข้อหา";
+      chargeCounts[chName] = (chargeCounts[chName] || 0) + 1;
+      
+      var defName = def ? ((def.title_name || "") + (def.first_name || "") + " " + (def.last_name || "")) : "ไม่ระบุชื่อเยาวชน";
+      
+      matchingCases.push({
+        black_case: c.black_case || "ไม่มีเลขคดีดำ",
+        court_black_case: c.court_black_case || "-",
+        defendant_name: defName,
+        charge_name: chName,
+        gender: gender,
+        age: !isNaN(age) ? age + " ปี" : "-",
+        district: distLabel === "จังหวัดอื่นๆ" || distLabel === "ไม่มีข้อมูล" ? distLabel : "อ." + distLabel,
+        counselor: c.counselor || "-"
+      });
+    }
+    
+    // แปลง chargeCounts เป็นอาเรย์จัดเรียง
+    var breakdown = [];
+    for (var ch in chargeCounts) {
+      breakdown.push({ chargeName: ch, count: chargeCounts[ch] });
+    }
+    breakdown.sort(function(a, b) { return b.count - a.count; });
+    
+    return {
+      success: true,
+      data: {
+        cases: matchingCases,
+        chargeBreakdown: breakdown,
+        totalCount: matchingCases.length
+      }
+    };
+  } catch (e) {
+    return { success: false, message: "เกิดข้อผิดพลาดในการดึงข้อมูลคดีตามสถิติ: " + e.toString() };
+  }
+}
+
+/**
  * ดึงข้อมูลเด็กและเยาวชนทั้งหมดพร้อมคดีที่เชื่อมโยง สำหรับแสดงผลเป็นรายการการ์ดและค้นหาแบบครอบคลุม
  */
 function getAllDefendantsWithCases(token) {
