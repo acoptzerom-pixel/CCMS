@@ -505,8 +505,8 @@
                 </h4>
                 <div class="metric-item" v-for="(val, key) in stats.genderCounts">
                   <div class="metric-header" style="cursor: pointer; transition: all 0.2s;" @click="showDemographicDetails('gender', key)" onmouseover="this.style.transform='translateX(4px)'" onmouseout="this.style.transform='none'">
-                    <span style="font-weight: 600; color: var(--primary); text-decoration: underline; text-underline-offset: 4px; display: inline-flex; align-items: center; gap: 4px;">
-                      {{ key }} <i class="fa-solid fa-circle-info" style="font-size: 0.75rem; opacity: 0.6;"></i>
+                    <span style="font-weight: 600; color: var(--primary); text-decoration: underline; text-underline-offset: 4px;">
+                      {{ key }}
                     </span>
                     <span>{{ val }} คน ({{ getPercent(val, Object.values(stats.genderCounts).reduce((a, b) => a + b, 0)) }}%)</span>
                   </div>
@@ -523,8 +523,8 @@
                 </h4>
                 <div class="metric-item" v-for="key in ['18 ปีขึ้นไป', '15 ปี แต่ไม่ถึง 18 ปี', '12 ปี แต่ไม่ถึง 15 ปี', 'ต่ำกว่า 12 ปี', 'ไม่มีข้อมูล']" :key="key">
                   <div class="metric-header" style="cursor: pointer; transition: all 0.2s;" @click="showDemographicDetails('age', key)" onmouseover="this.style.transform='translateX(4px)'" onmouseout="this.style.transform='none'">
-                    <span style="font-weight: 600; color: var(--primary); text-decoration: underline; text-underline-offset: 4px; display: inline-flex; align-items: center; gap: 4px;">
-                      {{ key }} <i class="fa-solid fa-circle-info" style="font-size: 0.75rem; opacity: 0.6;"></i>
+                    <span style="font-weight: 600; color: var(--primary); text-decoration: underline; text-underline-offset: 4px;">
+                      {{ key }}
                     </span>
                     <span>{{ stats.ageCounts[key] || 0 }} คน ({{ getPercent(stats.ageCounts[key] || 0, Object.values(stats.ageCounts).reduce((a, b) => a + b, 0)) }}%)</span>
                   </div>
@@ -541,8 +541,8 @@
                 </h4>
                 <div class="metric-item" v-for="key in ['เมืองระยอง', 'แกลง', 'บ้านฉาง', 'บ้านค่าย', 'ปลวกแดง', 'นิคมพัฒนา', 'วังจันทร์', 'เขาชะเมา', 'จังหวัดอื่นๆ', 'ไม่มีข้อมูล']" :key="key">
                   <div class="metric-header" style="cursor: pointer; transition: all 0.2s;" @click="showDemographicDetails('district', key)" onmouseover="this.style.transform='translateX(4px)'" onmouseout="this.style.transform='none'">
-                    <span style="font-weight: 600; color: var(--primary); text-decoration: underline; text-underline-offset: 4px; display: inline-flex; align-items: center; gap: 4px;">
-                      {{ key === 'จังหวัดอื่นๆ' || key === 'ไม่มีข้อมูล' ? key : 'อำเภอ' + key }} <i class="fa-solid fa-circle-info" style="font-size: 0.75rem; opacity: 0.6;"></i>
+                    <span style="font-weight: 600; color: var(--primary); text-decoration: underline; text-underline-offset: 4px;">
+                      {{ key === 'จังหวัดอื่นๆ' || key === 'ไม่มีข้อมูล' ? key : 'อำเภอ' + key }}
                     </span>
                     <span>{{ stats.districtCounts[key] || 0 }} คน ({{ getPercent(stats.districtCounts[key] || 0, Object.values(stats.districtCounts).reduce((a, b) => a + b, 0)) }}%)</span>
                   </div>
