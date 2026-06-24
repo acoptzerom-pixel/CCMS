@@ -1768,47 +1768,7 @@
             </div>
           </div>
           
-          <!-- รายละเอียดรายการคดีความทั้งหมด -->
-          <div class="glass-card" style="padding: 20px; background: var(--bg-main); border: 1px solid var(--card-border);">
-            <h4 style="margin-top: 0; margin-bottom: 15px; color: var(--primary); font-weight: 700; font-size: 1rem; border-bottom: 2px solid rgba(59, 130, 246, 0.15); padding-bottom: 6px; display: inline-block;">
-              <i class="fa-solid fa-folder-open"></i> รายการคดีเยาวชนในระบบ ({{ demographicModalData.cases.length }} คดี)
-            </h4>
-            
-            <div v-if="demographicModalData.cases.length === 0" style="color: var(--text-muted); font-style: italic; padding: 20px; text-align: center;">
-              ไม่พบคดีความตามเงื่อนไขที่เลือก
-            </div>
-            
-            <div v-else class="table-responsive" style="border-radius: 12px; border: 1px solid var(--card-border); max-height: 400px; overflow-y: auto;">
-              <table class="table" style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
-                <thead>
-                  <tr style="background: var(--card-bg); text-align: left;">
-                    <th style="padding: 12px; border-bottom: 1px solid var(--card-border); color: var(--text-muted); width: 110px;">เลขคดีดำ</th>
-                    <th style="padding: 12px; border-bottom: 1px solid var(--card-border); color: var(--text-muted); width: 110px;">คดีศาล</th>
-                    <th style="padding: 12px; border-bottom: 1px solid var(--card-border); color: var(--text-muted); width: 150px;">ชื่อ-สกุลเด็ก/เยาวชน</th>
-                    <th style="padding: 12px; border-bottom: 1px solid var(--card-border); color: var(--text-muted);">ข้อหาหลัก</th>
-                    <th style="padding: 12px; border-bottom: 1px solid var(--card-border); color: var(--text-muted); width: 80px; text-align: center;">เพศ</th>
-                    <th style="padding: 12px; border-bottom: 1px solid var(--card-border); color: var(--text-muted); width: 80px; text-align: center;">อายุ</th>
-                    <th style="padding: 12px; border-bottom: 1px solid var(--card-border); color: var(--text-muted); width: 100px;">อำเภอที่อยู่</th>
-                    <th style="padding: 12px; border-bottom: 1px solid var(--card-border); color: var(--text-muted); width: 140px;">ผู้ให้คำปรึกษา</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(c, idx) in demographicModalData.cases" :key="idx" style="border-bottom: 1px solid var(--card-border); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
-                    <td style="padding: 12px; font-weight: 700; color: var(--accent);">{{ c.black_case }}</td>
-                    <td style="padding: 12px; color: var(--text-main);">{{ c.court_black_case }}</td>
-                    <td style="padding: 12px; font-weight: 600; color: var(--text-main);">{{ c.defendant_name }}</td>
-                    <td style="padding: 12px; color: var(--text-muted); line-height: 1.4;">{{ c.charge_name }}</td>
-                    <td style="padding: 12px; text-align: center;" :style="{ color: c.gender === 'ชาย' ? '#3b82f6' : c.gender === 'หญิง' ? '#ec4899' : 'var(--text-muted)' }">
-                      <strong>{{ c.gender }}</strong>
-                    </td>
-                    <td style="padding: 12px; text-align: center; color: var(--text-main);">{{ c.age }}</td>
-                    <td style="padding: 12px; color: var(--text-main);">{{ c.district }}</td>
-                    <td style="padding: 12px; color: var(--text-main); font-size: 0.85rem;">{{ c.counselor }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+
           
         </div>
         

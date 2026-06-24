@@ -1039,7 +1039,7 @@ function getDemographicCasesDetail(startDateStr, endDateStr, sectionFilter, type
       }
     }
     
-    var matchingCases = [];
+    var totalMatchingCases = 0;
     var chargeCounts = {};
     
     for (var i = 0; i < cases.length; i++) {
@@ -1173,18 +1173,7 @@ function getDemographicCasesDetail(startDateStr, endDateStr, sectionFilter, type
       var chName = c.charge_no ? (chargeMap[c.charge_no] || "ไม่ระบุข้อหา (" + c.charge_no + ")") : "ไม่ระบุข้อหา";
       chargeCounts[chName] = (chargeCounts[chName] || 0) + 1;
       
-      var defName = def ? ((def.title_name || "") + (def.first_name || "") + " " + (def.last_name || "")) : "ไม่ระบุชื่อเยาวชน";
-      
-      matchingCases.push({
-        black_case: c.black_case || "ไม่มีเลขคดีดำ",
-        court_black_case: c.court_black_case || "-",
-        defendant_name: defName,
-        charge_name: chName,
-        gender: gender,
-        age: !isNaN(age) ? age + " ปี" : "-",
-        district: distLabel === "จังหวัดอื่นๆ" || distLabel === "ไม่มีข้อมูล" ? distLabel : "อ." + distLabel,
-        counselor: c.counselor || "-"
-      });
+      totalMatchingCases++;
     }
     
     // แปลง chargeCounts เป็นอาเรย์จัดเรียง
@@ -1197,9 +1186,9 @@ function getDemographicCasesDetail(startDateStr, endDateStr, sectionFilter, type
     return {
       success: true,
       data: {
-        cases: matchingCases,
+        cases: [], // ไม่ส่งข้อมูลส่วนตัวรายบุคคลเพื่อความปลอดภัย (PDPA)
         chargeBreakdown: breakdown,
-        totalCount: matchingCases.length
+        totalCount: totalMatchingCases
       }
     };
   } catch (e) {

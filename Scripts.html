@@ -353,37 +353,15 @@
             setTimeout(() => {
               demographicModalLoading.value = false;
               
-              // จำลองข้อมูลข้อหากับเคส
+              // จำลองข้อมูลข้อหา
               const dummyBreakdown = [
                 { chargeName: "พ.ร.บ.ยาเสพติดให้โทษ (เมทแอมเฟตามีน)", count: 12 },
                 { chargeName: "ลักทรัพย์ในเคหสถาน", count: 5 },
                 { chargeName: "ทำร้ายร่างกายผู้อื่นจนเป็นเหตุให้ได้รับอันตรายแก่กาย", count: 3 }
               ];
-              const dummyCases = [
-                {
-                  black_case: "อ.28/69",
-                  court_black_case: "พม12/2569",
-                  defendant_name: "นายสมเกียรติ ดีเลิศ",
-                  charge_name: "พ.ร.บ.ยาเสพติดให้โทษ (เมทแอมเฟตามีน)",
-                  gender: "ชาย",
-                  age: "16 ปี",
-                  district: "อ.เมืองระยอง",
-                  counselor: "นายสมชาย ใจดี"
-                },
-                {
-                  black_case: "อ.45/69",
-                  court_black_case: "-",
-                  defendant_name: "นายวันชัย รักดี",
-                  charge_name: "ลักทรัพย์ในเคหสถาน",
-                  gender: "ชาย",
-                  age: "17 ปี",
-                  district: "อ.แกลง",
-                  counselor: "นางสาวมณี เรียนดี"
-                }
-              ];
               
               demographicModalData.value = {
-                cases: dummyCases,
+                cases: [],
                 chargeBreakdown: dummyBreakdown,
                 totalCount: 20
               };
