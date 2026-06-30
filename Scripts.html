@@ -1783,6 +1783,7 @@
           searchDone.value = false;
           newDefFormActive.value = false;
           errorMsg.value = '';
+          isEditingCounselorNote.value = false;
           
           if (!searchId.value) return;
           const cleanId = searchId.value.replace(/\D/g, "");
@@ -3007,6 +3008,19 @@
           printModalActive.value = false;
         }
 
+        const isEditingCounselorNote = ref(false);
+        const tempCounselorNote = ref('');
+
+        function startEditCounselorNote() {
+          tempCounselorNote.value = currentDef.value.counselor_note || '';
+          isEditingCounselorNote.value = true;
+        }
+
+        function cancelEditCounselorNote() {
+          isEditingCounselorNote.value = false;
+          tempCounselorNote.value = '';
+        }
+
         const savingCounselorComments = ref(false);
         function saveCounselorComments() {
           if (!currentDef.value || !currentDef.value.citizen_id) return;
@@ -3016,6 +3030,7 @@
               savingCounselorComments.value = false;
               if (res.success) {
                 currentDef.value.counselor_note = res.counselor_note;
+                isEditingCounselorNote.value = false;
                 Swal.fire({
                   icon: 'success',
                   title: 'บันทึกสำเร็จ',
@@ -3041,7 +3056,7 @@
                 confirmButtonColor: '#7c3aed'
               });
             })
-            .updateCounselorComments(currentDef.value.citizen_id, currentDef.value.counselor_note || '');
+            .updateCounselorComments(currentDef.value.citizen_id, tempCounselorNote.value || '', session.value.token);
         }
 
         function triggerPrint() {
@@ -3095,7 +3110,8 @@
            unfilteredStats,
            
            // Counselor comments saving state & action
-           savingCounselorComments, saveCounselorComments
+           savingCounselorComments, saveCounselorComments,
+           isEditingCounselorNote, tempCounselorNote, startEditCounselorNote, cancelEditCounselorNote
          };
       }
     }).mount('#app');
