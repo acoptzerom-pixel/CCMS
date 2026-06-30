@@ -3076,6 +3076,45 @@
           window.print();
         }
 
+        function sortYouthActiveCases(youthList) {
+          const now = new Date();
+          now.setHours(0, 0, 0, 0);
+          const nowTime = now.getTime();
+
+          // Helper to get time value for sorting
+          function getCaseTimeValue(cCase) {
+            if (!cCase.nextAppointmentDate || cCase.nextAppointmentDate === 'ไม่มีนัดหมายในอนาคต') {
+              return Infinity;
+            }
+            const dateVal = new Date(cCase.nextAppointmentDate);
+            if (isNaN(dateVal.getTime())) {
+              return Infinity;
+            }
+            dateVal.setHours(0, 0, 0, 0);
+            return dateVal.getTime();
+          }
+
+          // 1. Sort cases within each youth
+          youthList.forEach(youth => {
+            if (youth.cases && Array.isArray(youth.cases)) {
+              youth.cases.sort((a, b) => {
+                const tA = getCaseTimeValue(a);
+                const tB = getCaseTimeValue(b);
+                return tA - tB;
+              });
+            }
+          });
+
+          // 2. Sort the youthList itself based on the closest appointment of each youth
+          youthList.sort((a, b) => {
+            const minA = a.cases && a.cases.length > 0 ? getCaseTimeValue(a.cases[0]) : Infinity;
+            const minB = b.cases && b.cases.length > 0 ? getCaseTimeValue(b.cases[0]) : Infinity;
+            return minA - minB;
+          });
+
+          return youthList;
+        }
+
         function openCounselorActiveCasesDetail(counselorName) {
           activeCounselorDetail.value = { name: counselorName, youthList: [] };
           showCounselorDetailModal.value = true;
@@ -3086,9 +3125,10 @@
               .withSuccessHandler((res) => {
                 loadingCounselorDetail.value = false;
                 if (res.success) {
+                  const sortedYouthList = sortYouthActiveCases(res.youthList);
                   activeCounselorDetail.value = {
                     name: res.counselorName,
-                    youthList: res.youthList
+                    youthList: sortedYouthList
                   };
                 } else {
                   Swal.fire({
@@ -3113,25 +3153,26 @@
             // Mock for offline mode
             setTimeout(() => {
               loadingCounselorDetail.value = false;
+              const mockList = [
+                {
+                  citizenId: '1234567890123',
+                  nickName: 'สมชาย',
+                  cases: [
+                    { blackCase: 'ม.73/2566', charge: 'ความผิดฐานลักทรัพย์ ม.334', nextAppointmentDate: '2026-07-15', nextAppointmentReason: 'พบแพทย์ติดตามอาการ', nextAppointmentTime: '09:00' }
+                  ]
+                },
+                {
+                  citizenId: '9876543210987',
+                  nickName: 'สมศรี',
+                  cases: [
+                    { blackCase: 'ม.90/2566', charge: 'พ.ร.บ. ยาเสพติดให้โทษ', nextAppointmentDate: 'ไม่มีนัดหมายในอนาคต', nextAppointmentReason: '', nextAppointmentTime: '' },
+                    { blackCase: 'ม.132/2566', charge: 'ความผิดต่อร่างกาย ม.295', nextAppointmentDate: '2026-08-01', nextAppointmentReason: 'ทำกิจกรรมกลุ่มบำบัด', nextAppointmentTime: '13:30' }
+                  ]
+                }
+              ];
               activeCounselorDetail.value = {
                 name: counselorName,
-                youthList: [
-                  {
-                    citizenId: '1234567890123',
-                    nickName: 'สมชาย',
-                    cases: [
-                      { blackCase: 'ม.73/2566', charge: 'ความผิดฐานลักทรัพย์ ม.334', nextAppointmentDate: '2026-07-15', nextAppointmentReason: 'พบแพทย์ติดตามอาการ', nextAppointmentTime: '09:00' }
-                    ]
-                  },
-                  {
-                    citizenId: '9876543210987',
-                    nickName: 'สมศรี',
-                    cases: [
-                      { blackCase: 'ม.90/2566', charge: 'พ.ร.บ. ยาเสพติดให้โทษ', nextAppointmentDate: 'ไม่มีนัดหมายในอนาคต', nextAppointmentReason: '', nextAppointmentTime: '' },
-                      { blackCase: 'ม.132/2566', charge: 'ความผิดต่อร่างกาย ม.295', nextAppointmentDate: '2026-08-01', nextAppointmentReason: 'ทำกิจกรรมกลุ่มบำบัด', nextAppointmentTime: '13:30' }
-                    ]
-                  }
-                ]
+                youthList: sortYouthActiveCases(mockList)
               };
             }, 500);
           }
