@@ -989,14 +989,14 @@ function getDashboardData(startDateStr, endDateStr, token) {
 
     // === Counselor Active Cases Calculation ===
     var counselors = getSheetData("tb_counselor");
-    var counselorActiveCases = {};
+    var counselorActiveYouthIds = {};
     for (var i = 0; i < counselors.length; i++) {
       var c = counselors[i];
       var pos = c.counselor_position ? c.counselor_position.toString().trim() : "";
       if (pos === "ผู้ให้คำปรึกษา") {
         var name = c.counselor_name ? c.counselor_name.toString().trim() : "";
         if (name) {
-          counselorActiveCases[name] = 0;
+          counselorActiveYouthIds[name] = {};
         }
       }
     }
@@ -1006,15 +1006,19 @@ function getDashboardData(startDateStr, endDateStr, token) {
       var hasRedNo = cs.red_case_no && cs.red_case_no.toString().trim() !== "";
       if (!hasRedNo) {
         var csCounselor = cs.counselor ? cs.counselor.toString().trim() : "";
-        if (csCounselor && counselorActiveCases.hasOwnProperty(csCounselor)) {
-          counselorActiveCases[csCounselor]++;
+        if (csCounselor && counselorActiveYouthIds.hasOwnProperty(csCounselor)) {
+          var cleanId = cs.citizen_id ? cleanCitizenId(cs.citizen_id) : "";
+          if (cleanId) {
+            counselorActiveYouthIds[csCounselor][cleanId] = true;
+          }
         }
       }
     }
 
     var counselorActiveCasesList = [];
-    for (var name in counselorActiveCases) {
-      var count = counselorActiveCases[name];
+    for (var name in counselorActiveYouthIds) {
+      var uniqueIds = Object.keys(counselorActiveYouthIds[name]);
+      var count = uniqueIds.length;
       if (count > 0) {
         counselorActiveCasesList.push({ name: name, count: count });
       }
@@ -2600,6 +2604,116 @@ function adminGetCounselors(token) {
     return { success: true, counselors: sanitized };
   } catch (e) {
     return { success: false, message: "ดึงข้อมูลผู้ให้คำปรึกษาไม่สำเร็จ: " + e.toString() };
+  }
+}
+
+/**
+ * ดึงข้อมูลรายชื่อเยาวชนและคดีคงค้างสะสมทั้งหมดในความดูแลของผู้ให้คำปรึกษาที่เจาะจง
+ */
+function getCounselorActiveCasesDetail(counselorName, token) {
+  var userSession = verifySessionToken(token);
+  if (!userSession) {
+    return { success: false, message: "สิทธิ์การเข้าใช้งานหมดอายุหรือเซสชันไม่ถูกต้อง" };
+  }
+  
+  try {
+    var cases = getSheetData("tb_cases");
+    var defendants = getSheetData("tb_defendants");
+    var appointments = getSheetData("tb_appointment");
+    var charges = getSheetData("tb_charge");
+    
+    // Map charge code to charge description
+    var chargeMap = {};
+    for (var i = 0; i < charges.length; i++) {
+      chargeMap[charges[i].charge_no] = charges[i].charge_statistics || charges[i].charge_name;
+    }
+    
+    // Map citizen_id to defendant info
+    var defMap = {};
+    for (var i = 0; i < defendants.length; i++) {
+      var cid = cleanCitizenId(defendants[i].citizen_id);
+      if (cid) {
+        defMap[cid] = defendants[i];
+      }
+    }
+    
+    // Group active cases of counselor by citizen_id
+    var targetCounselor = counselorName ? counselorName.toString().trim().toLowerCase() : "";
+    var youthMap = {};
+    var todayStr = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
+    
+    for (var i = 0; i < cases.length; i++) {
+      var cs = cases[i];
+      var hasRedNo = cs.red_case_no && cs.red_case_no.toString().trim() !== "";
+      if (hasRedNo) continue; // Skip finished cases
+      
+      var csCounselor = cs.counselor ? cs.counselor.toString().trim() : "";
+      if (csCounselor.toLowerCase() !== targetCounselor) continue; // Skip other counselors
+      
+      var cid = cs.citizen_id ? cleanCitizenId(cs.citizen_id) : "";
+      if (!cid) continue;
+      
+      if (!youthMap[cid]) {
+        var def = defMap[cid];
+        var titleName = def ? (def.title || "") : "";
+        var firstName = def ? (def.first_name || "") : "";
+        var lastName = def ? (def.last_name || "") : "";
+        var fullName = (titleName + " " + firstName + " " + lastName).trim() || cs.full_name || "ไม่ทราบชื่อ";
+        
+        youthMap[cid] = {
+          citizenId: cid,
+          fullName: fullName,
+          cases: []
+        };
+      }
+      
+      // Find appointments for this black case
+      var csBlackCase = cs.black_case ? cs.black_case.toString().trim() : "";
+      var nextAppDate = "";
+      var minFutureDiff = Infinity;
+      var nowTime = new Date().setHours(0, 0, 0, 0);
+      
+      if (csBlackCase) {
+        var cleanCsBlack = csBlackCase.replace(/\s+/g, "").toLowerCase();
+        for (var j = 0; j < appointments.length; j++) {
+          var app = appointments[j];
+          if (!app.black_case || !app.appointment_date) continue;
+          
+          var cleanAppBlack = app.black_case.toString().replace(/\s+/g, "").toLowerCase();
+          if (cleanCsBlack === cleanAppBlack) {
+            var appDateIso = formatDateAsIso(app.appointment_date);
+            if (appDateIso) {
+              var appTime = new Date(appDateIso).setHours(0, 0, 0, 0);
+              if (appTime >= nowTime) { // Current or future date
+                var diff = appTime - nowTime;
+                if (diff < minFutureDiff) {
+                  minFutureDiff = diff;
+                  nextAppDate = appDateIso;
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      var chargeText = cs.charge_no ? (chargeMap[cs.charge_no] || cs.charge_name || cs.charge_no) : (cs.charge_name || "ไม่ระบุข้อหา");
+      
+      youthMap[cid].cases.push({
+        blackCase: csBlackCase,
+        charge: chargeText,
+        nextAppointmentDate: nextAppDate || "ไม่มีนัดหมายในอนาคต"
+      });
+    }
+    
+    // Convert map to array
+    var youthList = [];
+    for (var cid in youthMap) {
+      youthList.push(youthMap[cid]);
+    }
+    
+    return { success: true, counselorName: counselorName, youthList: youthList };
+  } catch (e) {
+    return { success: false, message: "เกิดข้อผิดพลาดในการดึงข้อมูลคดีคงค้าง: " + e.toString() };
   }
 }
 

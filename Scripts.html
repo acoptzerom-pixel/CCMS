@@ -383,6 +383,9 @@
 
         // Date Filter State
         const selectedSectionFilter = ref("ทั้งหมด");
+        const activeCounselorDetail = ref(null);
+        const showCounselorDetailModal = ref(false);
+        const loadingCounselorDetail = ref(false);
         const dashboardRawData = ref(null);
         const printModalActive = ref(false);
         const dashboardZoom = ref(1.0);
@@ -3073,6 +3076,67 @@
           window.print();
         }
 
+        function openCounselorActiveCasesDetail(counselorName) {
+          activeCounselorDetail.value = { name: counselorName, youthList: [] };
+          showCounselorDetailModal.value = true;
+          loadingCounselorDetail.value = true;
+          
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loadingCounselorDetail.value = false;
+                if (res.success) {
+                  activeCounselorDetail.value = {
+                    name: res.counselorName,
+                    youthList: res.youthList
+                  };
+                } else {
+                  Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาด',
+                    text: res.message,
+                    confirmButtonColor: '#7c3aed'
+                  });
+                }
+              })
+              .withFailureHandler((err) => {
+                loadingCounselorDetail.value = false;
+                Swal.fire({
+                  icon: 'error',
+                  title: 'เกิดข้อผิดพลาด',
+                  text: 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ในขณะนี้: ' + err.toString(),
+                  confirmButtonColor: '#7c3aed'
+                });
+              })
+              .getCounselorActiveCasesDetail(counselorName, session.value.token);
+          } else {
+            // Mock for offline mode
+            setTimeout(() => {
+              loadingCounselorDetail.value = false;
+              activeCounselorDetail.value = {
+                name: counselorName,
+                youthList: [
+                  {
+                    citizenId: '1234567890123',
+                    fullName: 'นายสมชาย ใจดี (จำลอง)',
+                    cases: [
+                      { blackCase: 'ม.73/2566', charge: 'ความผิดฐานลักทรัพย์ ม.334', nextAppointmentDate: '2026-07-15' }
+                    ]
+                  },
+                  {
+                    citizenId: '9876543210987',
+                    fullName: 'นางสาวสมศรี รักเรียน (จำลอง)',
+                    cases: [
+                      { blackCase: 'ม.90/2566', charge: 'พ.ร.บ. ยาเสพติดให้โทษ', nextAppointmentDate: 'ไม่มีนัดหมายในอนาคต' },
+                      { blackCase: 'ม.132/2566', charge: 'ความผิดต่อร่างกาย ม.295', nextAppointmentDate: '2026-08-01' }
+                    ]
+                  }
+                ]
+              };
+            }, 500);
+          }
+        }
+
         return {
           session, currentView, authView, loading, errorMsg, cacheTime, isOffline, authAlert, adminProfileImage, isEditingProfile, cancelEditingProfile,
           searchId, searchDone, currentDef, linkedCases, newDefFormActive, usersList, counselorsList,
@@ -3112,6 +3176,7 @@
            // Section filter states
            selectedSectionFilter, onSectionFilterChange,
            dashboardZoom, adjustDashboardZoom,
+          activeCounselorDetail, showCounselorDetailModal, loadingCounselorDetail, openCounselorActiveCasesDetail,
            
            // Trend chart states & functions
            selectedStartTrendYear, selectedEndTrendYear, availableYears, trendData, onTrendStartYearChange, onTrendEndYearChange,

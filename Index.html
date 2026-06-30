@@ -570,8 +570,8 @@
                   ไม่มีข้อมูลเด็กและเยาวชนคงค้างในความดูแล
                 </div>
                 <div v-else class="metric-item" v-for="(item, idx) in stats.counselorActiveCases" :key="item.name">
-                  <div class="metric-header">
-                    <span style="font-weight: 600; color: var(--text-main);">
+                  <div class="metric-header" style="cursor: pointer; transition: all 0.2s;" @click="openCounselorActiveCasesDetail(item.name)" onmouseover="this.style.transform='translateX(4px)'" onmouseout="this.style.transform='none'">
+                    <span style="font-weight: 600; color: var(--primary); text-decoration: underline; text-underline-offset: 4px;">
                       {{ item.name }}
                     </span>
                     <span>{{ item.count }} คน</span>
@@ -2108,6 +2108,83 @@
         <!-- ส่วนท้ายปุ่มปิด -->
         <div style="display: flex; justify-content: flex-end; border-top: 1px solid var(--card-border); padding-top: 20px; margin-top: 15px;">
           <button type="button" class="btn btn-secondary" style="border-radius: 10px; padding: 8px 20px;" @click="demographicModalActive = false">ปิดหน้าต่าง</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         4.7 MODAL ป๊อปอัปรายละเอียดคดีความสะสมของผู้ให้คำปรึกษา
+         ========================================== -->
+    <div v-if="showCounselorDetailModal" class="modal-overlay animate-in" style="z-index: 1200;">
+      <div class="glass-card modal-card animate-in shadow" style="max-width: 900px; width: 95%;">
+        <button class="modal-close-btn" @click="showCounselorDetailModal = false"><i class="fa-solid fa-xmark"></i></button>
+        
+        <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 20px; border-bottom: 1px solid var(--card-border); padding-bottom: 15px; color: var(--text-main); display: flex; align-items: center; gap: 10px;">
+          <i class="fa-solid fa-user-doctor" style="color: var(--primary);"></i> รายละเอียดเยาวชนในการดูแลของ: {{ activeCounselorDetail?.name }}
+        </h3>
+        
+        <!-- Loading -->
+        <div v-if="loadingCounselorDetail" style="padding: 50px; text-align: center;">
+          <span class="loader" style="margin: 0 auto 20px auto;"></span>
+          <p style="font-weight: 500; color: var(--text-muted);">กำลังค้นหารายชื่อเด็กและเยาวชนคงค้าง...</p>
+        </div>
+        
+        <!-- Content -->
+        <div v-else style="max-height: 70vh; overflow-y: auto; padding-right: 5px;">
+          
+          <div style="margin-bottom: 20px; padding: 12px 16px; background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.1); border-radius: 12px; font-weight: 600; font-size: 0.95rem; color: var(--primary); display: flex; justify-content: space-between; align-items: center;">
+            <span>รวมเยาวชนในการดูแลทั้งหมด (ไม่นับซ้ำรายชื่อ):</span>
+            <strong style="font-size: 1.3rem; color: var(--primary);">{{ activeCounselorDetail?.youthList?.length || 0 }} คน</strong>
+          </div>
+          
+          <div v-if="!activeCounselorDetail || activeCounselorDetail.youthList.length === 0" style="text-align: center; padding: 40px; color: var(--text-muted);">
+            ไม่มีรายชื่อเด็กและเยาวชนคงค้างในการดูแล
+          </div>
+          
+          <div v-else style="display: flex; flex-direction: column; gap: 20px;">
+            <div v-for="(youth, yIdx) in activeCounselorDetail.youthList" :key="youth.citizenId" class="glass-card" style="padding: 20px; border: 1px solid var(--card-border); border-radius: 16px; background: rgba(255, 255, 255, 0.02);">
+              
+              <!-- Header: Child Info -->
+              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed var(--card-border); padding-bottom: 10px; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                  <i class="fa-solid fa-child" style="color: var(--accent);"></i>
+                  {{ yIdx + 1 }}. {{ youth.fullName }}
+                </div>
+                <div style="font-size: 0.82rem; color: var(--text-muted); background: var(--bg-main); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--card-border);">
+                  เลขบัตร: {{ youth.citizenId }}
+                </div>
+              </div>
+              
+              <!-- List of active cases for this child -->
+              <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div v-for="(cCase, cIdx) in youth.cases" :key="cIdx" style="padding: 12px 16px; background: rgba(255, 255, 255, 0.01); border: 1px solid var(--card-border); border-radius: 10px; display: flex; flex-direction: column; gap: 10px;" class="case-row-popup">
+                  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div style="font-size: 0.9rem; font-weight: 700; color: var(--accent);">
+                      <i class="fa-solid fa-folder-open" style="font-size: 0.8rem; margin-right: 5px; opacity: 0.7;"></i>
+                      {{ cCase.blackCase }}
+                    </div>
+                    <div style="font-size: 0.85rem;">
+                      <span :style="{ color: cCase.nextAppointmentDate === 'ไม่มีนัดหมายในอนาคต' ? 'var(--text-muted)' : 'var(--success)', fontWeight: cCase.nextAppointmentDate === 'ไม่มีนัดหมายในอนาคต' ? '500' : '700' }">
+                        <i class="fa-regular fa-clock" style="font-size: 0.8rem; margin-right: 4px;"></i>
+                        วันนัด: {{ cCase.nextAppointmentDate === 'ไม่มีนัดหมายในอนาคต' ? cCase.nextAppointmentDate : formatThaiDate(cCase.nextAppointmentDate) }}
+                      </span>
+                    </div>
+                  </div>
+                  <div style="font-size: 0.88rem; color: var(--text-main); border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 8px;">
+                    <span style="color: var(--text-muted); font-weight: 600; font-size: 0.8rem; margin-right: 5px;">ข้อหา:</span>
+                    {{ cCase.charge }}
+                  </div>
+                </div>
+              </div>
+              
+            </div>
+          </div>
+          
+        </div>
+        
+        <!-- Footer button -->
+        <div style="display: flex; justify-content: flex-end; border-top: 1px solid var(--card-border); padding-top: 20px; margin-top: 15px;">
+          <button type="button" class="btn btn-secondary" style="border-radius: 10px; padding: 8px 20px;" @click="showCounselorDetailModal = false">ปิดหน้าต่าง</button>
         </div>
       </div>
     </div>
