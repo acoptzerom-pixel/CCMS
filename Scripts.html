@@ -3007,18 +3007,6 @@
           printModalActive.value = false;
         }
 
-        const isEditingCounselorNote = ref(false);
-        const tempCounselorNote = ref('');
-
-        function startEditCounselorNote() {
-          tempCounselorNote.value = currentDef.value.counselor_note || '';
-          isEditingCounselorNote.value = true;
-        }
-
-        function cancelEditCounselorNote() {
-          isEditingCounselorNote.value = false;
-        }
-
         const savingCounselorComments = ref(false);
         const isEditingCounselorNote = ref(false);
         const tempCounselorNote = ref('');
