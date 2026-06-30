@@ -2655,14 +2655,11 @@ function getCounselorActiveCasesDetail(counselorName, token) {
       
       if (!youthMap[cid]) {
         var def = defMap[cid];
-        var titleName = def ? (def.title || "") : "";
-        var firstName = def ? (def.first_name || "") : "";
-        var lastName = def ? (def.last_name || "") : "";
-        var fullName = (titleName + " " + firstName + " " + lastName).trim() || cs.full_name || "ไม่ทราบชื่อ";
+        var nickName = def && def.nick_name ? def.nick_name.toString().trim() : "";
         
         youthMap[cid] = {
           citizenId: cid,
-          fullName: fullName,
+          nickName: nickName,
           cases: []
         };
       }
