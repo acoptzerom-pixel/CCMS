@@ -2667,6 +2667,8 @@ function getCounselorActiveCasesDetail(counselorName, token) {
       // Find appointments for this black case
       var csBlackCase = cs.black_case ? cs.black_case.toString().trim() : "";
       var nextAppDate = "";
+      var nextAppReason = "";
+      var nextAppTime = "";
       var minFutureDiff = Infinity;
       var nowTime = new Date().setHours(0, 0, 0, 0);
       
@@ -2686,6 +2688,8 @@ function getCounselorActiveCasesDetail(counselorName, token) {
                 if (diff < minFutureDiff) {
                   minFutureDiff = diff;
                   nextAppDate = appDateIso;
+                  nextAppReason = app.appointment_reason ? app.appointment_reason.toString().trim() : "";
+                  nextAppTime = app.appointment_time ? app.appointment_time.toString().trim() : "";
                 }
               }
             }
@@ -2698,7 +2702,9 @@ function getCounselorActiveCasesDetail(counselorName, token) {
       youthMap[cid].cases.push({
         blackCase: csBlackCase,
         charge: chargeText,
-        nextAppointmentDate: nextAppDate || "ไม่มีนัดหมายในอนาคต"
+        nextAppointmentDate: nextAppDate || "ไม่มีนัดหมายในอนาคต",
+        nextAppointmentReason: nextAppReason,
+        nextAppointmentTime: nextAppTime
       });
     }
     

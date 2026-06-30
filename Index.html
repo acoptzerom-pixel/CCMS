@@ -2164,9 +2164,19 @@
                       <span :style="{ color: cCase.nextAppointmentDate === 'ไม่มีนัดหมายในอนาคต' ? 'var(--text-muted)' : 'var(--success)', fontWeight: cCase.nextAppointmentDate === 'ไม่มีนัดหมายในอนาคต' ? '500' : '700' }">
                         <i class="fa-regular fa-clock" style="font-size: 0.8rem; margin-right: 4px;"></i>
                         วันนัด: {{ cCase.nextAppointmentDate === 'ไม่มีนัดหมายในอนาคต' ? cCase.nextAppointmentDate : formatThaiDate(cCase.nextAppointmentDate) }}
+                        <span v-if="cCase.nextAppointmentDate !== 'ไม่มีนัดหมายในอนาคต' && cCase.nextAppointmentTime">
+                          เวลา {{ formatAppointmentTime(cCase.nextAppointmentTime) }}
+                        </span>
                       </span>
                     </div>
                   </div>
+                  
+                  <!-- Appointment Reason -->
+                  <div v-if="cCase.nextAppointmentDate !== 'ไม่มีนัดหมายในอนาคต'" style="font-size: 0.82rem; color: var(--text-muted); margin-top: -4px; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-circle-info" style="font-size: 0.75rem; opacity: 0.8; color: var(--primary);"></i>
+                    <span>สาเหตุที่นัด: {{ cCase.nextAppointmentReason || 'ไม่ระบุ' }}</span>
+                  </div>
+
                   <div style="font-size: 0.88rem; color: var(--text-main); border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 8px;">
                     <span style="color: var(--text-muted); font-weight: 600; font-size: 0.8rem; margin-right: 5px;">ข้อหา:</span>
                     {{ cCase.charge }}
