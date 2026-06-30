@@ -203,7 +203,7 @@
               <a href="#" @click.prevent="switchView('dashboard')"><i class="fa-solid fa-gauge-high"></i> แดชบอร์ด</a>
             </li>
             <li v-if="session.role !== 'user'" class="nav-item" :class="{ active: currentView === 'search' }">
-              <a href="#" @click.prevent="switchView('search')"><i class="fa-solid fa-folder-open"></i> จัดการข้อมูลเด็กและเยาวชน</a>
+              <a href="#" @click.prevent="switchView('search')"><i class="fa-solid fa-folder-open"></i> ข้อมูลเด็กและเยาวชน</a>
             </li>
             <li v-if="session.role !== 'user'" class="nav-item" :class="{ active: currentView === 'calendar' }">
               <a href="#" @click.prevent="switchView('calendar')"><i class="fa-solid fa-calendar-days"></i> ปฏิทินวันนัด</a>
@@ -238,7 +238,7 @@
           <i class="fa-solid fa-chart-line"></i><span>สถิติ</span>
         </a>
         <a v-if="session.role !== 'user'" href="#" class="bottom-nav-item" :class="{ active: currentView === 'search' }" @click.prevent="switchView('search')">
-          <i class="fa-solid fa-folder-open"></i><span>จัดการคดี</span>
+          <i class="fa-solid fa-folder-open"></i><span>ข้อมูลเยาวชน</span>
         </a>
         <a v-if="session.role !== 'user'" href="#" class="bottom-nav-item" :class="{ active: currentView === 'calendar' }" @click.prevent="switchView('calendar')">
           <i class="fa-solid fa-calendar-days"></i><span>ปฏิทิน</span>
@@ -572,7 +572,7 @@
                 <i class="fa-solid fa-folder-open"></i>
               </div>
               <div>
-                <h1 class="page-title search-title">จัดการข้อมูลเด็ก เยาวชน และคดี</h1>
+                <h1 class="page-title search-title">ข้อมูลเด็กและเยาวชน</h1>
                 <p class="page-title-desc">ค้นหาประวัติเยาวชน ติดตามรายละเอียด และการประเมินผลการตรวจจิตวิทยา</p>
               </div>
             </div>
