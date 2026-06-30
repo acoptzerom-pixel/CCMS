@@ -746,14 +746,11 @@
                   <div><strong style="color: var(--text-muted);">อาชีพเยาวชน:</strong></div>
                   <div>{{ currentDef.occupation || '-' }}</div>
 
-                  <div><strong style="color: var(--text-muted);">ชื่อผู้ปกครอง:</strong></div>
-                  <div>{{ currentDef.guardian_name ? currentDef.guardian_name + (currentDef.relationship ? ' (' + currentDef.relationship + ')' : '') : '-' }}</div>
+                  <div><strong style="color: var(--text-muted);">ระดับการศึกษา:</strong></div>
+                  <div>{{ currentDef.education_level || '-' }}</div>
 
-                  <div><strong style="color: var(--text-muted);">เบอร์โทรศัพท์ผู้ปกครอง:</strong></div>
-                  <div>{{ currentDef.phone_number_guardian || '-' }}</div>
-
-                  <div><strong style="color: var(--text-muted);">อาชีพผู้ปกครอง:</strong></div>
-                  <div>{{ currentDef.occupation_guardian || '-' }}</div>
+                  <div><strong style="color: var(--text-muted);">โรงเรียน/วิทยาลัย:</strong></div>
+                  <div>{{ currentDef.school || '-' }}</div>
 
                   <div><strong style="color: var(--text-muted);">ประวัติการรักษา:</strong></div>
                   <div>{{ currentDef.medical_history || 'ไม่มีประวัติ' }}</div>
@@ -763,6 +760,16 @@
 
                   <div><strong style="color: var(--text-muted);">ความสนใจ/ความสามารถพิเศษ:</strong></div>
                   <div>{{ currentDef.interested || 'ไม่มีข้อมูล' }}</div>
+
+                  <!-- ข้อมูลผู้ปกครองแสดงด้านล่างท้ายสุด -->
+                  <div><strong style="color: var(--text-muted);">ชื่อผู้ปกครอง:</strong></div>
+                  <div>{{ currentDef.guardian_name ? currentDef.guardian_name + (currentDef.relationship ? ' (' + currentDef.relationship + ')' : '') : '-' }}</div>
+
+                  <div><strong style="color: var(--text-muted);">เบอร์โทรศัพท์ผู้ปกครอง:</strong></div>
+                  <div>{{ currentDef.phone_number_guardian || '-' }}</div>
+
+                  <div><strong style="color: var(--text-muted);">อาชีพผู้ปกครอง:</strong></div>
+                  <div>{{ currentDef.occupation_guardian || '-' }}</div>
                 </div>
 
                 <!-- ผลตรวจประเมินจิตวิทยาเบื้องต้นเด่นชัดเจน -->
@@ -890,30 +897,20 @@
                 </div>
 
                 <div class="form-group">
-                  <label class="form-label">ชื่อผู้ปกครอง</label>
-                  <input type="text" class="form-control" v-model="defForm.guardian_name" placeholder="ระบุชื่อ-สกุลผู้ปกครอง">
+                  <label class="form-label">ระดับการศึกษา</label>
+                  <input type="text" class="form-control" v-model="defForm.education_level" placeholder="เช่น ม.3, ปวช.1">
                 </div>
 
                 <div class="form-group">
-                  <label class="form-label">เกี่ยวข้องเป็น</label>
-                  <input type="text" class="form-control" v-model="defForm.relationship" placeholder="เช่น บิดา, มารดา, ยาย">
-                </div>
-
-                <div class="form-group">
-                  <label class="form-label">เบอร์โทรศัพท์ผู้ปกครอง</label>
-                  <input type="text" class="form-control" v-model="defForm.phone_number_guardian" placeholder="ระบุเบอร์โทรศัพท์ผู้ปกครอง">
-                </div>
-
-                <div class="form-group">
-                  <label class="form-label">อาชีพผู้ปกครอง</label>
-                  <input type="text" class="form-control" v-model="defForm.occupation_guardian" placeholder="ระบุอาชีพของผู้ปกครอง">
+                  <label class="form-label">โรงเรียน/วิทยาลัย</label>
+                  <input type="text" class="form-control" v-model="defForm.school" placeholder="ระบุชื่อสถานศึกษา">
                 </div>
               </div>
 
-              <!-- ส่วนกรอกที่อยู่ภูมิลำเนาแบบแยกช่อง -->
+              <!-- ส่วนกรอกที่อยู่ปัจจุบันแบบแยกช่อง -->
               <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid var(--card-border); padding: 20px; border-radius: 16px; margin-bottom: 20px;">
                 <label class="form-label" style="font-weight: 700; color: var(--primary); font-size: 0.95rem; margin-bottom: 15px; display: block;">
-                  <i class="fa-solid fa-map-location-dot"></i> ที่อยู่ภูมิลำเนา (เพื่อประมวลผลคำนวณสถิติอำเภอ)
+                  <i class="fa-solid fa-map-location-dot"></i> ที่อยู่ปัจจุบันของเด็ก/เยาวชน
                 </label>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                   <div class="form-group">
@@ -966,6 +963,34 @@
                 <div class="form-group">
                   <label class="form-label">ความสนใจ/ความสามารถพิเศษ</label>
                   <textarea class="form-control" v-model="defForm.interested" placeholder="ระบุความสนใจ ทักษะพิเศษ หรือความถนัด หรือใส่ 'ไม่มีข้อมูล'" rows="2"></textarea>
+                </div>
+              </div>
+
+              <!-- ข้อมูลผู้ปกครองแสดงด้านล่างท้ายสุด -->
+              <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid var(--card-border); padding: 20px; border-radius: 16px; margin-bottom: 20px;">
+                <label class="form-label" style="font-weight: 700; color: var(--accent); font-size: 0.95rem; margin-bottom: 15px; display: block;">
+                  <i class="fa-solid fa-people-roof"></i> ข้อมูลผู้ปกครอง (Parent / Guardian)
+                </label>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
+                  <div class="form-group">
+                    <label class="form-label">ชื่อผู้ปกครอง</label>
+                    <input type="text" class="form-control" v-model="defForm.guardian_name" placeholder="ระบุชื่อ-สกุลผู้ปกครอง">
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">เกี่ยวข้องเป็น</label>
+                    <input type="text" class="form-control" v-model="defForm.relationship" placeholder="เช่น บิดา, มารดา, ยาย">
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">เบอร์โทรศัพท์ผู้ปกครอง</label>
+                    <input type="text" class="form-control" v-model="defForm.phone_number_guardian" placeholder="ระบุเบอร์โทรศัพท์ผู้ปกครอง">
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">อาชีพผู้ปกครอง</label>
+                    <input type="text" class="form-control" v-model="defForm.occupation_guardian" placeholder="ระบุอาชีพของผู้ปกครอง">
+                  </div>
                 </div>
               </div>
 
@@ -1489,31 +1514,21 @@
             </div>
 
             <div class="form-group">
-              <label class="form-label">ชื่อผู้ปกครอง</label>
-              <input type="text" class="form-control" v-model="defForm.guardian_name" placeholder="ระบุชื่อ-สกุลผู้ปกครอง">
+              <label class="form-label">ระดับการศึกษา</label>
+              <input type="text" class="form-control" v-model="defForm.education_level" placeholder="เช่น ม.3, ปวช.1">
             </div>
 
             <div class="form-group">
-              <label class="form-label">เกี่ยวข้องเป็น</label>
-              <input type="text" class="form-control" v-model="defForm.relationship" placeholder="เช่น บิดา, มารดา, ยาย">
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">เบอร์โทรศัพท์ผู้ปกครอง</label>
-              <input type="text" class="form-control" v-model="defForm.phone_number_guardian" placeholder="ระบุเบอร์โทรศัพท์ผู้ปกครอง">
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">อาชีพผู้ปกครอง</label>
-              <input type="text" class="form-control" v-model="defForm.occupation_guardian" placeholder="ระบุอาชีพของผู้ปกครอง">
+              <label class="form-label">โรงเรียน/วิทยาลัย</label>
+              <input type="text" class="form-control" v-model="defForm.school" placeholder="ระบุชื่อสถานศึกษา">
             </div>
 
           </div>
 
-          <!-- ส่วนกรอกที่อยู่ภูมิลำเนาแบบแยกช่อง -->
+          <!-- ส่วนกรอกที่อยู่ปัจจุบันของเด็ก/เยาวชนแบบแยกช่อง -->
           <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid var(--card-border); padding: 20px; border-radius: 16px; margin-bottom: 20px;">
             <label class="form-label" style="font-weight: 700; color: var(--primary); font-size: 0.95rem; margin-bottom: 15px; display: block;">
-              <i class="fa-solid fa-map-location-dot"></i> ที่อยู่ภูมิลำเนา (เพื่อประมวลผลคำนวณสถิติอำเภอ)
+              <i class="fa-solid fa-map-location-dot"></i> ที่อยู่ปัจจุบันของเด็ก/เยาวชน
             </label>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
               <div class="form-group">
@@ -1566,6 +1581,34 @@
             <div class="form-group">
               <label class="form-label">ความสนใจ/ความสามารถพิเศษ</label>
               <textarea class="form-control" v-model="defForm.interested" placeholder="ระบุความสนใจ ทักษะพิเศษ หรือความถนัด หรือใส่ 'ไม่มีข้อมูล'" rows="2"></textarea>
+            </div>
+          </div>
+
+          <!-- ข้อมูลผู้ปกครองแสดงด้านล่างท้ายสุด -->
+          <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid var(--card-border); padding: 20px; border-radius: 16px; margin-bottom: 20px;">
+            <label class="form-label" style="font-weight: 700; color: var(--accent); font-size: 0.95rem; margin-bottom: 15px; display: block;">
+              <i class="fa-solid fa-people-roof"></i> ข้อมูลผู้ปกครอง (Parent / Guardian)
+            </label>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
+              <div class="form-group">
+                <label class="form-label">ชื่อผู้ปกครอง</label>
+                <input type="text" class="form-control" v-model="defForm.guardian_name" placeholder="ระบุชื่อ-สกุลผู้ปกครอง">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">เกี่ยวข้องเป็น</label>
+                <input type="text" class="form-control" v-model="defForm.relationship" placeholder="เช่น บิดา, มารดา, ยาย">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">เบอร์โทรศัพท์ผู้ปกครอง</label>
+                <input type="text" class="form-control" v-model="defForm.phone_number_guardian" placeholder="ระบุเบอร์โทรศัพท์ผู้ปกครอง">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">อาชีพผู้ปกครอง</label>
+                <input type="text" class="form-control" v-model="defForm.occupation_guardian" placeholder="ระบุอาชีพของผู้ปกครอง">
+              </div>
             </div>
           </div>
 
@@ -1824,6 +1867,8 @@
               <div><strong style="color: var(--text-muted);">ชื่อ-สกุล (ชื่อเล่น):</strong> <span>{{ calendarDetailDef.title_name }}{{ calendarDetailDef.first_name }} {{ calendarDetailDef.last_name }} ({{ calendarDetailDef.nick_name || '-' }})</span></div>
               <div><strong style="color: var(--text-muted);">เพศ:</strong> <span>{{ calendarDetailDef.gender }}</span></div>
               <div><strong style="color: var(--text-muted);">วันเกิด:</strong> <span>{{ formatThaiDate(calendarDetailDef.birth_date) }}</span></div>
+              <div><strong style="color: var(--text-muted);">ระดับการศึกษา:</strong> <span>{{ calendarDetailDef.education_level || '-' }}</span></div>
+              <div><strong style="color: var(--text-muted);">โรงเรียน/วิทยาลัย:</strong> <span>{{ calendarDetailDef.school || '-' }}</span></div>
               <div style="grid-column: 1 / -1;"><strong style="color: var(--text-muted);">ที่อยู่ปัจจุบัน:</strong> <span>{{ calendarDetailDef.address || '-' }}</span></div>
               <div style="grid-column: 1 / -1;"><strong style="color: var(--text-muted);">ประวัติการรักษา:</strong> <span>{{ calendarDetailDef.medical_history || 'ไม่มีประวัติ' }}</span></div>
               <div style="grid-column: 1 / -1;"><strong style="color: var(--text-muted);">ประวัติการใช้สารเสพติด:</strong> <span>{{ calendarDetailDef.drug_history || 'ไม่มีประวัติ' }}</span></div>

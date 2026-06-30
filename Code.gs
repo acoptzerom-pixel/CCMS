@@ -1631,7 +1631,9 @@ function upsertDefendant(defData, token) {
       "occupation_guardian",
       "medical_history",
       "drug_history",
-      "interested"
+      "interested",
+      "education_level",
+      "school"
     ]);
     var defendants = getSheetData("tb_defendants");
     var cases = getSheetData("tb_cases");
@@ -1668,6 +1670,7 @@ function upsertDefendant(defData, token) {
     defRow.gender = defData.gender || "";
     defRow.birth_date = birthDateVal;
     defRow.education_level = defData.education_level || "";
+    defRow.school = defData.school || "";
     defRow.occupation = defData.occupation || "";
     defRow.phone_number = defData.phone_number || "";
     
