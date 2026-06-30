@@ -715,77 +715,90 @@
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
               
-              <!-- ฟอร์มข้อมูลประวัติทั่วไป และผลการประเมินทางจิตวิทยา -->
-              <div class="glass-card" style="position: relative;">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border); padding-bottom: 15px; margin-bottom: 25px;">
-                  <h3 style="font-family: var(--font-display); font-weight: 700;"><i class="fa-solid fa-user-tag"></i> ข้อมูลเด็กและเยาวชน</h3>
-                  <button v-if="session.role === 'admin' || session.role === 'psychologist'" class="btn btn-primary" style="padding: 6px 12px; border-radius: 8px; font-size: 0.85rem; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border: none; color: #ffffff;" @click="openEditDefModal">
-                    แก้ไขประวัติ <i class="fa-solid fa-user-pen"></i>
-                  </button>
-                </div>
+              <!-- ฝั่งซ้าย: ข้อมูลประวัติเยาวชน และ ข้อมูลผู้ปกครอง -->
+              <div style="display: flex; flex-direction: column; gap: 20px;">
+                
+                <!-- การ์ดที่ 1: ข้อมูลเด็กและเยาวชน -->
+                <div class="glass-card" style="position: relative;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border); padding-bottom: 15px; margin-bottom: 25px;">
+                    <h3 style="font-family: var(--font-display); font-weight: 700; margin: 0;"><i class="fa-solid fa-user-tag"></i> ข้อมูลเด็กและเยาวชน</h3>
+                    <button v-if="session.role === 'admin' || session.role === 'psychologist'" class="btn btn-primary" style="padding: 6px 12px; border-radius: 8px; font-size: 0.85rem; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border: none; color: #ffffff;" @click="openEditDefModal">
+                      แก้ไขประวัติ <i class="fa-solid fa-user-pen"></i>
+                    </button>
+                  </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-                  <div><strong style="color: var(--text-muted);">เลขบัตรประชาชน:</strong></div>
-                  <div>{{ currentDef.citizen_id }}</div>
-                  
-                  <div><strong style="color: var(--text-muted);">ชื่อ-สกุลจริง:</strong></div>
-                  <div>{{ currentDef.title_name }}{{ currentDef.first_name }} {{ currentDef.last_name }} ({{ currentDef.nick_name || 'ไม่มีชื่อเล่น' }})</div>
-                  
-                  <div><strong style="color: var(--text-muted);">เพศ:</strong></div>
-                  <div>{{ currentDef.gender }}</div>
-                  
-                  <div><strong style="color: var(--text-muted);">วันเกิด:</strong></div>
-                  <div>{{ formatThaiDate(currentDef.birth_date) }}</div>
-                  
-                  <div><strong style="color: var(--text-muted);">ที่อยู่ปัจจุบัน:</strong></div>
-                  <div>{{ currentDef.address || 'ไม่ระบุที่อยู่' }}</div>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                    <div><strong style="color: var(--text-muted);">เลขบัตรประชาชน:</strong></div>
+                    <div>{{ currentDef.citizen_id }}</div>
+                    
+                    <div><strong style="color: var(--text-muted);">ชื่อ-สกุล (ชื่อเล่น/ฉายา):</strong></div>
+                    <div>{{ currentDef.title_name }}{{ currentDef.first_name }} {{ currentDef.last_name }} ({{ currentDef.nick_name || 'ไม่มีชื่อเล่น' }})</div>
+                    
+                    <div><strong style="color: var(--text-muted);">เพศ:</strong></div>
+                    <div>{{ currentDef.gender }}</div>
+                    
+                    <div><strong style="color: var(--text-muted);">วันเกิด:</strong></div>
+                    <div>{{ formatThaiDate(currentDef.birth_date) }}</div>
+                    
+                    <div><strong style="color: var(--text-muted);">ที่อยู่ปัจจุบัน:</strong></div>
+                    <div>{{ currentDef.address || 'ไม่ระบุที่อยู่' }}</div>
 
-                  <div><strong style="color: var(--text-muted);">เบอร์โทรศัพท์เยาวชน:</strong></div>
-                  <div>{{ currentDef.phone_number || '-' }}</div>
+                    <div><strong style="color: var(--text-muted);">เบอร์โทรศัพท์:</strong></div>
+                    <div>{{ currentDef.phone_number || '-' }}</div>
 
-                  <div><strong style="color: var(--text-muted);">อาชีพเยาวชน:</strong></div>
-                  <div>{{ currentDef.occupation || '-' }}</div>
+                    <div><strong style="color: var(--text-muted);">อาชีพ (ตำแหน่ง):</strong></div>
+                    <div>{{ currentDef.occupation || '-' }}</div>
 
-                  <div><strong style="color: var(--text-muted);">ระดับการศึกษา:</strong></div>
-                  <div>{{ currentDef.education_level || '-' }}</div>
+                    <div><strong style="color: var(--text-muted);">ระดับการศึกษา:</strong></div>
+                    <div>{{ currentDef.education_level || '-' }}</div>
 
-                  <div><strong style="color: var(--text-muted);">โรงเรียน/วิทยาลัย:</strong></div>
-                  <div>{{ currentDef.school || '-' }}</div>
+                    <div><strong style="color: var(--text-muted);">โรงเรียน/วิทยาลัย:</strong></div>
+                    <div>{{ currentDef.school || '-' }}</div>
 
-                  <div><strong style="color: var(--text-muted);">ประวัติการรักษา:</strong></div>
-                  <div>{{ currentDef.medical_history || 'ไม่มีประวัติ' }}</div>
+                    <div><strong style="color: var(--text-muted);">ประวัติการรักษา:</strong></div>
+                    <div>{{ currentDef.medical_history || 'ไม่มีประวัติ' }}</div>
 
-                  <div><strong style="color: var(--text-muted);">ประวัติการใช้สารเสพติด:</strong></div>
-                  <div>{{ currentDef.drug_history || 'ไม่มีประวัติ' }}</div>
+                    <div><strong style="color: var(--text-muted);">ประวัติการใช้สารเสพติด:</strong></div>
+                    <div>{{ currentDef.drug_history || 'ไม่มีประวัติ' }}</div>
 
-                  <div><strong style="color: var(--text-muted);">ความสนใจ/ความสามารถพิเศษ:</strong></div>
-                  <div>{{ currentDef.interested || 'ไม่มีข้อมูล' }}</div>
+                    <div><strong style="color: var(--text-muted);">ความสนใจ/ความสามารถพิเศษ:</strong></div>
+                    <div>{{ currentDef.interested || 'ไม่มีข้อมูล' }}</div>
+                  </div>
 
-                  <!-- ข้อมูลผู้ปกครองแสดงด้านล่างท้ายสุด -->
-                  <div><strong style="color: var(--text-muted);">ชื่อผู้ปกครอง:</strong></div>
-                  <div>{{ currentDef.guardian_name ? currentDef.guardian_name + (currentDef.relationship ? ' (' + currentDef.relationship + ')' : '') : '-' }}</div>
-
-                  <div><strong style="color: var(--text-muted);">เบอร์โทรศัพท์ผู้ปกครอง:</strong></div>
-                  <div>{{ currentDef.phone_number_guardian || '-' }}</div>
-
-                  <div><strong style="color: var(--text-muted);">อาชีพผู้ปกครอง:</strong></div>
-                  <div>{{ currentDef.occupation_guardian || '-' }}</div>
-                </div>
-
-                <!-- การประเมินความเสี่ยงในการกระทำผิดซ้ำ -->
-                <div style="margin-top: 25px; background: rgba(var(--accent-rgb), 0.03); border: 1px solid var(--card-border); padding: 20px; border-radius: 16px;">
-                  <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-gauge-high" style="font-size: 1.1rem; color: var(--accent);"></i> การประเมินความเสี่ยงในการกระทำผิดซ้ำ
-                  </h4>
-                  <div style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.92rem; font-weight: 700; padding: 6px 14px; border-radius: 99px;"
-                       :style="currentDef.risk_assessment === 'มีความเสี่ยงในการกระทำผิดซ้ำสูง' ? 'background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444;' :
-                               currentDef.risk_assessment === 'มีความเสี่ยงในการกระทำผิดซ้ำปานกลาง' ? 'background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color: #f59e0b;' :
-                               'background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981;'">
-                    <i class="fa-solid" :class="currentDef.risk_assessment === 'มีความเสี่ยงในการกระทำผิดซ้ำสูง' ? 'fa-triangle-exclamation' :
-                                                currentDef.risk_assessment === 'มีความเสี่ยงในการกระทำผิดซ้ำปานกลาง' ? 'fa-circle-exclamation' : 'fa-circle-check'"></i>
-                    {{ currentDef.risk_assessment || 'มีความเสี่ยงในการกระทำผิดซ้ำต่ำ' }}
+                  <!-- การประเมินความเสี่ยงในการกระทำผิดซ้ำ -->
+                  <div style="margin-top: 25px; background: rgba(var(--accent-rgb), 0.03); border: 1px solid var(--card-border); padding: 20px; border-radius: 16px;">
+                    <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                      <i class="fa-solid fa-gauge-high" style="font-size: 1.1rem; color: var(--accent);"></i> การประเมินความเสี่ยงในการกระทำผิดซ้ำ
+                    </h4>
+                    <div style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.92rem; font-weight: 700; padding: 6px 14px; border-radius: 99px;"
+                         :style="currentDef.risk_assessment === 'มีความเสี่ยงในการกระทำผิดซ้ำสูง' ? 'background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444;' :
+                                 currentDef.risk_assessment === 'มีความเสี่ยงในการกระทำผิดซ้ำปานกลาง' ? 'background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color: #f59e0b;' :
+                                 'background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981;'">
+                      <i class="fa-solid" :class="currentDef.risk_assessment === 'มีความเสี่ยงในการกระทำผิดซ้ำสูง' ? 'fa-triangle-exclamation' :
+                                                  currentDef.risk_assessment === 'มีความเสี่ยงในการกระทำผิดซ้ำปานกลาง' ? 'fa-circle-exclamation' : 'fa-circle-check'"></i>
+                      {{ currentDef.risk_assessment || 'มีความเสี่ยงในการกระทำผิดซ้ำต่ำ' }}
+                    </div>
                   </div>
                 </div>
+
+                <!-- การ์ดที่ 2: ข้อมูลผู้ปกครอง -->
+                <div class="glass-card">
+                  <div style="border-bottom: 1px solid var(--card-border); padding-bottom: 15px; margin-bottom: 25px;">
+                    <h3 style="font-family: var(--font-display); font-weight: 700; margin: 0;"><i class="fa-solid fa-people-roof"></i> ข้อมูลผู้ปกครอง</h3>
+                  </div>
+                  
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div><strong style="color: var(--text-muted);">ชื่อผู้ปกครอง:</strong></div>
+                    <div>{{ currentDef.guardian_name ? currentDef.guardian_name + (currentDef.relationship ? ' (' + currentDef.relationship + ')' : '') : '-' }}</div>
+
+                    <div><strong style="color: var(--text-muted);">เบอร์โทรศัพท์ผู้ปกครอง:</strong></div>
+                    <div>{{ currentDef.phone_number_guardian || '-' }}</div>
+
+                    <div><strong style="color: var(--text-muted);">อาชีพผู้ปกครอง (ตำแหน่ง):</strong></div>
+                    <div>{{ currentDef.occupation_guardian || '-' }}</div>
+                  </div>
+                </div>
+
               </div>
 
               <!-- รายการข้อมูลคดีที่เชื่อมโยงกับเด็ก/เยาวชนคนนี้ (tb_cases) -->
@@ -892,12 +905,12 @@
                 </div>
 
                 <div class="form-group">
-                  <label class="form-label">เบอร์โทรศัพท์เด็ก/เยาวชน</label>
+                  <label class="form-label">เบอร์โทรศัพท์</label>
                   <input type="text" class="form-control" v-model="defForm.phone_number" placeholder="0899999999">
                 </div>
 
                 <div class="form-group">
-                  <label class="form-label">อาชีพเยาวชน</label>
+                  <label class="form-label">อาชีพ (ตำแหน่ง)</label>
                   <input type="text" class="form-control" v-model="defForm.occupation" placeholder="ระบุอาชีพของเยาวชน">
                 </div>
 
@@ -993,7 +1006,7 @@
                   </div>
 
                   <div class="form-group">
-                    <label class="form-label">อาชีพผู้ปกครอง</label>
+                    <label class="form-label">อาชีพผู้ปกครอง (ตำแหน่ง)</label>
                     <input type="text" class="form-control" v-model="defForm.occupation_guardian" placeholder="ระบุอาชีพของผู้ปกครอง">
                   </div>
                 </div>
@@ -1515,12 +1528,12 @@
             </div>
 
             <div class="form-group">
-              <label class="form-label">เบอร์โทรศัพท์ติดต่อเยาวชน</label>
+              <label class="form-label">เบอร์โทรศัพท์</label>
               <input type="text" class="form-control" v-model="defForm.phone_number">
             </div>
 
             <div class="form-group">
-              <label class="form-label">อาชีพเยาวชน</label>
+              <label class="form-label">อาชีพ (ตำแหน่ง)</label>
               <input type="text" class="form-control" v-model="defForm.occupation" placeholder="ระบุอาชีพของเยาวชน">
             </div>
 
@@ -1617,7 +1630,7 @@
               </div>
 
               <div class="form-group">
-                <label class="form-label">อาชีพผู้ปกครอง</label>
+                <label class="form-label">อาชีพผู้ปกครอง (ตำแหน่ง)</label>
                 <input type="text" class="form-control" v-model="defForm.occupation_guardian" placeholder="ระบุอาชีพของผู้ปกครอง">
               </div>
             </div>
