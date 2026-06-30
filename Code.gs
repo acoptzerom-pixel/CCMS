@@ -1265,7 +1265,7 @@ function getAllDefendantsWithCases(token) {
       d.citizen_id = dCid;
       d.no = d.no !== undefined ? d.no : (d.No !== undefined ? d.No : (d.NO !== undefined ? d.NO : ""));
       d.cases = linked;
-      
+      formatDefendantAddress(d);
       list.push(d);
     }
     
@@ -1359,39 +1359,7 @@ function searchDefendantByCitizenId(citizenId, token) {
       return { success: true, found: false, message: "ไม่พบประวัติเด็กและเยาวชนรายนี้ในระบบฐานข้อมูล" };
     }
 
-    // สร้างข้อมูลที่อยู่เต็มชั่วคราวเพื่อส่งให้หน้าบ้านแสดงผลในช่อง textarea โดยเชื่อมคอลัมน์ _address ทั้งหมดเข้าด้วยกัน
-    var fullAddrParts = [];
-    var addressFields = ["number_address", "village_address", "village_number_address", "road_address", "sub_district_address", "district_address", "province_address"];
-    for (var f = 0; f < addressFields.length; f++) {
-      var fieldName = addressFields[f];
-      if (foundDef[fieldName]) {
-        var valStr = foundDef[fieldName].toString().trim();
-        if (valStr !== "") {
-          var prefix = "";
-          if (fieldName === "village_address" && valStr.indexOf("หมู่") === -1 && valStr.indexOf("ม.") === -1) {
-            prefix = "หมู่ ";
-          } else if (fieldName === "sub_district_address" && valStr.indexOf("ตำบล") === -1 && valStr.indexOf("ต.") === -1) {
-            prefix = "ต.";
-          } else if (fieldName === "district_address" && valStr.indexOf("อำเภอ") === -1 && valStr.indexOf("อ.") === -1) {
-            prefix = "อ.";
-          } else if (fieldName === "province_address" && valStr.indexOf("จังหวัด") === -1 && valStr.indexOf("จ.") === -1) {
-            prefix = "จ.";
-          }
-          fullAddrParts.push(prefix + valStr);
-        }
-      }
-    }
-    if (fullAddrParts.length === 0) {
-      for (var key in foundDef) {
-        if (foundDef.hasOwnProperty(key) && key.indexOf("_address") !== -1 && foundDef[key]) {
-          var valStr = foundDef[key].toString().trim();
-          if (valStr !== "") {
-            fullAddrParts.push(valStr);
-          }
-        }
-      }
-    }
-    foundDef.address = fullAddrParts.join(" ");
+    formatDefendantAddress(foundDef);
 
     // ปรับสเกลปีเกิดของเยาวชนให้อยู่ในโหมด ค.ศ. และแปลงเป็นสตริง ISO สำหรับบราวเซอร์
     if (foundDef.birth_date) {
