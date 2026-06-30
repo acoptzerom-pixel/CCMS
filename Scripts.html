@@ -3020,6 +3020,18 @@
         }
 
         const savingCounselorComments = ref(false);
+        const isEditingCounselorNote = ref(false);
+        const tempCounselorNote = ref('');
+
+        function startEditCounselorNote() {
+          tempCounselorNote.value = currentDef.value ? (currentDef.value.counselor_note || '') : '';
+          isEditingCounselorNote.value = true;
+        }
+
+        function cancelEditCounselorNote() {
+          isEditingCounselorNote.value = false;
+        }
+
         function saveCounselorComments() {
           if (!currentDef.value || !currentDef.value.citizen_id) return;
           savingCounselorComments.value = true;
@@ -3054,7 +3066,7 @@
                 confirmButtonColor: '#7c3aed'
               });
             })
-            .updateCounselorComments(currentDef.value.citizen_id, tempCounselorNote.value, session.value.token);
+            .updateCounselorComments(currentDef.value.citizen_id, tempCounselorNote.value || '', session.value.token);
         }
 
         function triggerPrint() {
@@ -3108,10 +3120,7 @@
            unfilteredStats,
            
            // Counselor comments saving state & action
-           savingCounselorComments, saveCounselorComments,
-           
-           // Inline comments editing states & functions
-           isEditingCounselorNote, tempCounselorNote, startEditCounselorNote, cancelEditCounselorNote
+           savingCounselorComments, saveCounselorComments, isEditingCounselorNote, tempCounselorNote, startEditCounselorNote, cancelEditCounselorNote
          };
       }
     }).mount('#app');

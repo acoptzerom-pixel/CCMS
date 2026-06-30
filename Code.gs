@@ -1218,6 +1218,7 @@ function getAllDefendantsWithCases(token) {
   }
   
   try {
+    ensurePsyDiagnosisColumn();
     var defendants = getSheetData("tb_defendants");
     var cases = getSheetData("tb_cases");
     
@@ -1341,6 +1342,7 @@ function searchDefendantByCitizenId(citizenId, token) {
   }
   
   try {
+    ensurePsyDiagnosisColumn();
     var cleanId = cleanCitizenId(citizenId);
     if (!cleanId) return { success: false, message: "โปรดระบุเลขบัตรประชาชนในการค้นหา" };
     
@@ -1633,7 +1635,11 @@ function upsertDefendant(defData, token) {
       "drug_history",
       "interested",
       "education_level",
-      "school"
+      "school",
+      "risk_assessment",
+      "counselor_comments",
+      "note",
+      "counselor_note"
     ]);
     var defendants = getSheetData("tb_defendants");
     var cases = getSheetData("tb_cases");
@@ -2666,9 +2672,9 @@ function deleteCounselor(rowNum, password, token) {
 /**
  * อัปเดตความเห็นเพิ่มเติมของผู้ให้คำปรึกษา
  */
-function updateCounselorComments(citizenId, comments) {
+function updateCounselorComments(citizenId, comments, token) {
   try {
-    var userSession = getSession();
+    var userSession = verifySessionToken(token);
     if (!userSession) {
       return { success: false, message: "โปรดเข้าสู่ระบบใหม่" };
     }
@@ -2679,10 +2685,16 @@ function updateCounselorComments(citizenId, comments) {
     
     ensurePsyDiagnosisColumn();
     
+    var cleanId = cleanCitizenId(citizenId);
+    if (!cleanId) {
+      return { success: false, message: "เลขบัตรประชาชนไม่ถูกต้อง" };
+    }
+    
     var db = getSheetData("tb_defendants");
     var targetRow = null;
     for (var i = 0; i < db.length; i++) {
-      if (db[i].citizen_id === citizenId) {
+      var sheetCid = cleanCitizenId(db[i].citizen_id);
+      if (sheetCid === cleanId) {
         targetRow = db[i];
         break;
       }
