@@ -150,16 +150,26 @@ function cleanCitizenId(cid) {
  * ตรวจเช็คและเพิ่มคอลัมน์วินิจฉัยทางจิตวิทยาเบื้องต้นอัตโนมัติ
  */
 function ensurePsyDiagnosisColumn() {
+  ensureColumnsExist("tb_defendants", ["psy_diagnosis"]);
+}
+
+/**
+ * ตรวจเช็คและเพิ่มคอลัมน์ในตารางของชีทตามรายชื่อคอลัมน์ที่กำหนดแบบไดนามิก
+ */
+function ensureColumnsExist(sheetName, columnsArray) {
   var ss = getSpreadsheet();
-  var sheet = ss.getSheetByName("tb_defendants");
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return;
   var lastCol = sheet.getLastColumn();
-  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-  var psyColIdx = headers.indexOf("psy_diagnosis");
-  if (psyColIdx === -1) {
-    sheet.getRange(1, lastCol + 1).setValue("psy_diagnosis");
-    return lastCol + 1;
+  var headers = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+  for (var i = 0; i < columnsArray.length; i++) {
+    var colName = columnsArray[i];
+    if (headers.indexOf(colName) === -1) {
+      sheet.getRange(1, lastCol + 1).setValue(colName);
+      lastCol++;
+      headers.push(colName);
+    }
   }
-  return psyColIdx + 1;
 }
 
 /**
@@ -1436,38 +1446,130 @@ function searchDefendantByCitizenId(citizenId, token) {
  * ช่วยจัดรูปแบบที่อยู่ของจำเลย/เยาวชนสำหรับการส่งออกข้อมูล
  */
 function formatDefendantAddress(def) {
-  var fullAddrParts = [];
-  var addressFields = ["number_address", "village_address", "village_number_address", "road_address", "sub_district_address", "district_address", "province_address"];
-  for (var f = 0; f < addressFields.length; f++) {
-    var fieldName = addressFields[f];
-    if (def[fieldName]) {
-      var valStr = def[fieldName].toString().trim();
-      if (valStr !== "") {
-        var prefix = "";
-        if (fieldName === "village_address" && valStr.indexOf("หมู่") === -1 && valStr.indexOf("ม.") === -1) {
-          prefix = "หมู่ ";
-        } else if (fieldName === "sub_district_address" && valStr.indexOf("ตำบล") === -1 && valStr.indexOf("ต.") === -1) {
-          prefix = "ต.";
-        } else if (fieldName === "district_address" && valStr.indexOf("อำเภอ") === -1 && valStr.indexOf("อ.") === -1) {
-          prefix = "อ.";
-        } else if (fieldName === "province_address" && valStr.indexOf("จังหวัด") === -1 && valStr.indexOf("จ.") === -1) {
-          prefix = "จ.";
-        }
-        fullAddrParts.push(prefix + valStr);
+  var parts = [];
+  
+  if (def.number_address) {
+    var val = def.number_address.toString().trim();
+    if (val) parts.push(val);
+  }
+  
+  if (def.village_address) {
+    var val = def.village_address.toString().trim();
+    if (val) {
+      if (val.indexOf("หมู่บ้าน") === -1 && val.indexOf("ม.บ้าน") === -1) {
+        parts.push("หมู่บ้าน" + val);
+      } else {
+        parts.push(val);
       }
     }
   }
-  if (fullAddrParts.length === 0) {
+  
+  if (def.village_number_address) {
+    var val = def.village_number_address.toString().trim();
+    if (val) {
+      if (val.indexOf("หมู่ที่") === -1 && val.indexOf("หมู่") === -1 && val.indexOf("ม.") === -1) {
+        parts.push("หมู่ที่ " + val);
+      } else {
+        parts.push(val);
+      }
+    }
+  }
+  
+  if (def.road_address) {
+    var val = def.road_address.toString().trim();
+    if (val) {
+      if (val.indexOf("ถนน") === -1 && val.indexOf("ถ.") === -1) {
+        parts.push("ถนน" + val);
+      } else {
+        parts.push(val);
+      }
+    }
+  }
+  
+  var isBkk = false;
+  if (def.province_address) {
+    var provVal = def.province_address.toString().trim();
+    if (provVal.indexOf("กรุงเทพ") !== -1 || provVal.indexOf("กทม") !== -1) {
+      isBkk = true;
+    }
+  }
+  
+  if (def.sub_district_address) {
+    var val = def.sub_district_address.toString().trim();
+    if (val) {
+      if (isBkk) {
+        if (val.indexOf("แขวง") === -1) {
+          parts.push("แขวง" + val);
+        } else {
+          parts.push(val);
+        }
+      } else {
+        if (val.indexOf("ตำบล") === -1 && val.indexOf("ต.") === -1) {
+          parts.push("ต." + val);
+        } else {
+          parts.push(val);
+        }
+      }
+    }
+  }
+  
+  if (def.district_address) {
+    var val = def.district_address.toString().trim();
+    if (val) {
+      if (isBkk) {
+        if (val.indexOf("เขต") === -1) {
+          parts.push("เขต" + val);
+        } else {
+          parts.push(val);
+        }
+      } else {
+        if (val.indexOf("อำเภอ") === -1 && val.indexOf("อ.") === -1) {
+          parts.push("อ." + val);
+        } else {
+          parts.push(val);
+        }
+      }
+    }
+  }
+  
+  if (def.province_address) {
+    var val = def.province_address.toString().trim();
+    if (val) {
+      if (isBkk) {
+        // กรุงเทพมหานคร ไม่ต้องใส่ จ. นำหน้า
+        if (val.indexOf("กรุงเทพ") === -1) {
+          parts.push("กรุงเทพมหานคร");
+        } else {
+          parts.push(val);
+        }
+      } else {
+        if (val.indexOf("จังหวัด") === -1 && val.indexOf("จ.") === -1) {
+          parts.push("จ." + val);
+        } else {
+          parts.push(val);
+        }
+      }
+    }
+  }
+  
+  if (def.postcode_address) {
+    var val = def.postcode_address.toString().trim();
+    if (val) {
+      parts.push(val);
+    }
+  }
+  
+  if (parts.length === 0) {
     for (var key in def) {
       if (def.hasOwnProperty(key) && key.indexOf("_address") !== -1 && def[key]) {
         var valStr = def[key].toString().trim();
         if (valStr !== "") {
-          fullAddrParts.push(valStr);
+          parts.push(valStr);
         }
       }
     }
   }
-  def.address = fullAddrParts.join(" ");
+  def.address = parts.join(" ");
 }
 
 /**
@@ -1544,7 +1646,22 @@ function upsertDefendant(defData, token) {
   }
   
   try {
-    ensurePsyDiagnosisColumn();
+    ensureColumnsExist("tb_defendants", [
+      "psy_diagnosis",
+      "number_address",
+      "village_address",
+      "village_number_address",
+      "road_address",
+      "sub_district_address",
+      "district_address",
+      "province_address",
+      "postcode_address",
+      "guardian_name",
+      "phone_number",
+      "phone_number_guardian",
+      "occupation",
+      "occupation_guardian"
+    ]);
     var defendants = getSheetData("tb_defendants");
     var cases = getSheetData("tb_cases");
     var citizenIdStr = cleanCitizenId(defData.citizen_id);
@@ -1563,7 +1680,6 @@ function upsertDefendant(defData, token) {
       birthDateVal.setHours(12, 0, 0, 0);
     }
     
-    var parsedAddr = parseThaiAddress(defData.address);
     var defRow = {};
     if (existingDef) {
       for (var k in existingDef) {
@@ -1584,13 +1700,14 @@ function upsertDefendant(defData, token) {
     defRow.occupation = defData.occupation || "";
     defRow.phone_number = defData.phone_number || "";
     
-    defRow.number_address = parsedAddr.number_address;
-    defRow.village_address = parsedAddr.village_address;
-    defRow.village_number_address = parsedAddr.village_number_address;
-    defRow.road_address = parsedAddr.road_address;
-    defRow.sub_district_address = parsedAddr.sub_district_address;
-    defRow.district_address = parsedAddr.district_address;
-    defRow.province_address = parsedAddr.province_address;
+    defRow.number_address = defData.number_address || "";
+    defRow.village_address = defData.village_address || "";
+    defRow.village_number_address = defData.village_number_address || "";
+    defRow.road_address = defData.road_address || "";
+    defRow.sub_district_address = defData.sub_district_address || "";
+    defRow.district_address = defData.district_address || "";
+    defRow.province_address = defData.province_address || "";
+    defRow.postcode_address = defData.postcode_address || "";
     
     defRow.medical_history = defData.medical_history || "";
     defRow.drug_history = defData.drug_history || "";
