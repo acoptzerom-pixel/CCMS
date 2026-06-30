@@ -446,7 +446,7 @@
           address: '',
           medical_history: '', drug_history: '', interested: '',
           guardian_name: '', relationship: '', phone_number_guardian: '', occupation_guardian: '',
-          psy_diagnosis: ''
+          psy_diagnosis: '', risk_assessment: 'มีความเสี่ยงในการกระทำผิดซ้ำต่ำ'
         });
 
         const caseForm = reactive({
@@ -2613,10 +2613,14 @@
         function resetDefForm(cid) {
           Object.assign(defForm, {
             citizen_id: cid || '', title_name: 'นาย', first_name: '', last_name: '', nick_name: '',
-            gender: 'ชาย', birth_date: '', phone_number: '', address: '',
+            gender: 'ชาย', birth_date: '', phone_number: '', occupation: '',
+            education_level: '', school: '',
+            number_address: '', village_address: '', village_number_address: '', road_address: '',
+            sub_district_address: '', district_address: '', province_address: '', postcode_address: '',
+            address: '',
             medical_history: '', drug_history: '', interested: '',
             guardian_name: '', relationship: 'บิดา', phone_number_guardian: '', occupation_guardian: '',
-            psy_diagnosis: ''
+            psy_diagnosis: '', risk_assessment: 'มีความเสี่ยงในการกระทำผิดซ้ำต่ำ'
           });
         }
 

@@ -150,7 +150,7 @@ function cleanCitizenId(cid) {
  * ตรวจเช็คและเพิ่มคอลัมน์วินิจฉัยทางจิตวิทยาเบื้องต้นอัตโนมัติ
  */
 function ensurePsyDiagnosisColumn() {
-  ensureColumnsExist("tb_defendants", ["psy_diagnosis"]);
+  ensureColumnsExist("tb_defendants", ["psy_diagnosis", "risk_assessment"]);
 }
 
 /**
@@ -1692,6 +1692,7 @@ function upsertDefendant(defData, token) {
     defRow.occupation_guardian = defData.occupation_guardian || "";
     defRow.updated_at = new Date().toISOString();
     defRow.psy_diagnosis = defData.psy_diagnosis || "";
+    defRow.risk_assessment = defData.risk_assessment || "";
     
     var msg = "";
     if (existingDef) {

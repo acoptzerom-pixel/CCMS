@@ -772,14 +772,19 @@
                   <div>{{ currentDef.occupation_guardian || '-' }}</div>
                 </div>
 
-                <!-- ผลตรวจประเมินจิตวิทยาเบื้องต้นเด่นชัดเจน -->
-                <div style="margin-top: 25px; background: rgba(var(--accent-rgb), 0.05); border: 1px solid rgba(var(--accent-rgb), 0.2); padding: 20px; border-radius: 16px;">
-                  <h4 style="font-size: 0.9rem; font-weight: 600; color: var(--accent); margin-bottom: 10px;">
-                    <i class="fa-solid fa-brain"></i> ผลการตรวจวินิจฉัยทางจิตวิทยาเบื้องต้น
+                <!-- การประเมินความเสี่ยงในการกระทำผิดซ้ำ -->
+                <div style="margin-top: 25px; background: rgba(var(--accent-rgb), 0.03); border: 1px solid var(--card-border); padding: 20px; border-radius: 16px;">
+                  <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-gauge-high" style="font-size: 1.1rem; color: var(--accent);"></i> การประเมินความเสี่ยงในการกระทำผิดซ้ำ
                   </h4>
-                  <p style="font-size: 0.9rem; line-height: 1.6; color: var(--text-main); white-space: pre-line;">
-                    {{ currentDef.psy_diagnosis || 'ยังไม่ได้กรอกข้อมูลผลการประเมินทางจิตวิทยาเบื้องต้น' }}
-                  </p>
+                  <div style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.92rem; font-weight: 700; padding: 6px 14px; border-radius: 99px;"
+                       :style="currentDef.risk_assessment === 'มีความเสี่ยงในการกระทำผิดซ้ำสูง' ? 'background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444;' :
+                               currentDef.risk_assessment === 'มีความเสี่ยงในการกระทำผิดซ้ำปานกลาง' ? 'background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color: #f59e0b;' :
+                               'background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981;'">
+                    <i class="fa-solid" :class="currentDef.risk_assessment === 'มีความเสี่ยงในการกระทำผิดซ้ำสูง' ? 'fa-triangle-exclamation' :
+                                                currentDef.risk_assessment === 'มีความเสี่ยงในการกระทำผิดซ้ำปานกลาง' ? 'fa-circle-exclamation' : 'fa-circle-check'"></i>
+                    {{ currentDef.risk_assessment || 'มีความเสี่ยงในการกระทำผิดซ้ำต่ำ' }}
+                  </div>
                 </div>
               </div>
 
@@ -994,10 +999,16 @@
                 </div>
               </div>
 
-              <!-- รายละเอียดผลตรวจจิตวิทยาเบื้องต้นตั้งแต่นาทีกรอกประวัติเด็กครั้งแรก -->
-              <div class="form-group">
-                <label class="form-label"><i class="fa-solid fa-brain" style="color: var(--accent);"></i> ผลการตรวจวินิจฉัยทางจิตวิทยาเบื้องต้น (ใส่เพื่อประกอบรายงานศาล)</label>
-                <textarea class="form-control" v-model="defForm.psy_diagnosis" placeholder="ระบุการประเมินสภาพจิตใจ พฤติกรรมประเมินทางจิตวิทยาเบื้องต้น ทัศนคติ สภาพแวดล้อมทางครอบครัว..." rows="4"></textarea>
+              <!-- การบันทึกข้อมูลการประเมินความเสี่ยงในการกระทำผิดซ้ำ -->
+              <div class="form-group" style="background: rgba(255, 255, 255, 0.01); padding: 20px; border-radius: 16px; border: 1px solid var(--card-border);">
+                <label class="form-label" style="color: var(--accent); font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
+                  <i class="fa-solid fa-gauge-high" style="font-size: 1.1rem; color: var(--accent);"></i> การประเมินความเสี่ยงในการกระทำผิดซ้ำ
+                </label>
+                <select class="form-control" v-model="defForm.risk_assessment" required style="font-weight: 600; font-size: 0.92rem; border-radius: 8px;">
+                  <option value="มีความเสี่ยงในการกระทำผิดซ้ำต่ำ">🟢 มีความเสี่ยงในการกระทำผิดซ้ำต่ำ</option>
+                  <option value="มีความเสี่ยงในการกระทำผิดซ้ำปานกลาง">🟡 มีความเสี่ยงในการกระทำผิดซ้ำปานกลาง</option>
+                  <option value="มีความเสี่ยงในการกระทำผิดซ้ำสูง">🔴 มีความเสี่ยงในการกระทำผิดซ้ำสูง</option>
+                </select>
               </div>
 
               <div style="display: flex; gap: 15px; justify-content: flex-end; margin-top: 25px;">
@@ -1612,12 +1623,16 @@
             </div>
           </div>
 
-          <!-- ฟิลด์แก้ไขตรวจจิตวิทยาประวัติเชิงลึกใน Modal ชัดเจน -->
-          <div class="form-group" style="background: rgba(var(--accent-rgb), 0.05); padding: 20px; border-radius: 16px; border: 1px solid rgba(var(--accent-rgb), 0.2);">
-            <label class="form-label" style="color: var(--accent); font-weight: bold; font-size: 0.95rem;">
-              <i class="fa-solid fa-brain"></i> ผลการตรวจวินิจฉัยทางจิตวิทยาเบื้องต้น
+          <!-- การบันทึกข้อมูลการประเมินความเสี่ยงในการกระทำผิดซ้ำ -->
+          <div class="form-group" style="background: rgba(var(--accent-rgb), 0.03); padding: 20px; border-radius: 16px; border: 1px solid var(--card-border);">
+            <label class="form-label" style="color: var(--accent); font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-gauge-high" style="font-size: 1.1rem; color: var(--accent);"></i> การประเมินความเสี่ยงในการกระทำผิดซ้ำ
             </label>
-            <textarea class="form-control" v-model="defForm.psy_diagnosis" placeholder="ระบุการประเมินวิเคราะห์สภาพจิตใจ สภาพสังคม ครอบครัว บุคลิกภาพเพื่อใช้แนบคำร้องศาลเยาวชน..." rows="5"></textarea>
+            <select class="form-control" v-model="defForm.risk_assessment" required style="font-weight: 600; font-size: 0.92rem; border-radius: 8px;">
+              <option value="มีความเสี่ยงในการกระทำผิดซ้ำต่ำ">🟢 มีความเสี่ยงในการกระทำผิดซ้ำต่ำ</option>
+              <option value="มีความเสี่ยงในการกระทำผิดซ้ำปานกลาง">🟡 มีความเสี่ยงในการกระทำผิดซ้ำปานกลาง</option>
+              <option value="มีความเสี่ยงในการกระทำผิดซ้ำสูง">🔴 มีความเสี่ยงในการกระทำผิดซ้ำสูง</option>
+            </select>
           </div>
 
           <div style="display: flex; gap: 15px; justify-content: flex-end; margin-top: 25px; border-top: 1px solid var(--card-border); padding-top: 20px;">
@@ -1876,9 +1891,14 @@
             </div>
             
             <div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--card-border);">
-              <strong style="color: var(--text-muted); display: block; margin-bottom: 6px; font-size: 0.92rem;">ผลการประเมินสภาวะทางจิตวิทยาเบื้องต้น:</strong>
-              <div style="background: var(--card-bg); padding: 12px; border-radius: 8px; border: 1px solid var(--card-border); font-size: 0.9rem; line-height: 1.5; color: var(--text-main);">
-                {{ calendarDetailDef.psy_diagnosis || 'ยังไม่ได้ระบุผลประเมินสภาวะจิตใจ' }}
+              <strong style="color: var(--text-muted); display: block; margin-bottom: 8px; font-size: 0.92rem;">การประเมินความเสี่ยงในการกระทำผิดซ้ำ:</strong>
+              <div style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.88rem; font-weight: 700; padding: 6px 12px; border-radius: 99px;"
+                   :style="calendarDetailDef.risk_assessment === 'มีความเสี่ยงในการกระทำผิดซ้ำสูง' ? 'background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444;' :
+                           calendarDetailDef.risk_assessment === 'มีความเสี่ยงในการกระทำผิดซ้ำปานกลาง' ? 'background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color: #f59e0b;' :
+                           'background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981;'">
+                <i class="fa-solid" :class="calendarDetailDef.risk_assessment === 'มีความเสี่ยงในการกระทำผิดซ้ำสูง' ? 'fa-triangle-exclamation' :
+                                            calendarDetailDef.risk_assessment === 'มีความเสี่ยงในการกระทำผิดซ้ำปานกลาง' ? 'fa-circle-exclamation' : 'fa-circle-check'"></i>
+                {{ calendarDetailDef.risk_assessment || 'มีความเสี่ยงในการกระทำผิดซ้ำต่ำ' }}
               </div>
             </div>
           </div>
