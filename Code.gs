@@ -1628,7 +1628,10 @@ function upsertDefendant(defData, token) {
       "phone_number",
       "phone_number_guardian",
       "occupation",
-      "occupation_guardian"
+      "occupation_guardian",
+      "medical_history",
+      "drug_history",
+      "interested"
     ]);
     var defendants = getSheetData("tb_defendants");
     var cases = getSheetData("tb_cases");

@@ -755,11 +755,14 @@
                   <div><strong style="color: var(--text-muted);">อาชีพผู้ปกครอง:</strong></div>
                   <div>{{ currentDef.occupation_guardian || '-' }}</div>
 
-                  <div><strong style="color: var(--text-muted);">ประวัติการรักษาแพทย์:</strong></div>
+                  <div><strong style="color: var(--text-muted);">ประวัติการรักษา:</strong></div>
                   <div>{{ currentDef.medical_history || 'ไม่มีประวัติ' }}</div>
 
-                  <div><strong style="color: var(--text-muted);">ประวัติการยุ่งเกี่ยวสารเสพติด:</strong></div>
+                  <div><strong style="color: var(--text-muted);">ประวัติการใช้สารเสพติด:</strong></div>
                   <div>{{ currentDef.drug_history || 'ไม่มีประวัติ' }}</div>
+
+                  <div><strong style="color: var(--text-muted);">ความสนใจ/ความสามารถพิเศษ:</strong></div>
+                  <div>{{ currentDef.interested || 'ไม่มีข้อมูล' }}</div>
                 </div>
 
                 <!-- ผลตรวจประเมินจิตวิทยาเบื้องต้นเด่นชัดเจน -->
@@ -945,6 +948,24 @@
                     <label class="form-label">รหัสไปรษณีย์</label>
                     <input type="text" class="form-control" v-model="defForm.postcode_address" placeholder="21000" required>
                   </div>
+                </div>
+              </div>
+
+              <!-- ข้อมูลเพิ่มเติมเยาวชน: ประวัติการรักษา, ประวัติการใช้สารเสพติด, ความสนใจ/ความสามารถพิเศษ -->
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 20px;">
+                <div class="form-group">
+                  <label class="form-label">ประวัติการรักษา</label>
+                  <textarea class="form-control" v-model="defForm.medical_history" placeholder="ระบุโรคประจำตัว ประวัติการพบแพทย์ (ถ้ามี) หรือใส่ 'ไม่มีประวัติ'" rows="2"></textarea>
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label">ประวัติการใช้สารเสพติด</label>
+                  <textarea class="form-control" v-model="defForm.drug_history" placeholder="ระบุประเภทสารเสพติด ความถี่ในการใช้ (ถ้ามี) หรือใส่ 'ไม่มีประวัติ'" rows="2"></textarea>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">ความสนใจ/ความสามารถพิเศษ</label>
+                  <textarea class="form-control" v-model="defForm.interested" placeholder="ระบุความสนใจ ทักษะพิเศษ หรือความถนัด หรือใส่ 'ไม่มีข้อมูล'" rows="2"></textarea>
                 </div>
               </div>
 
@@ -1530,6 +1551,24 @@
             </div>
           </div>
 
+          <!-- ข้อมูลเพิ่มเติมเยาวชน: ประวัติการรักษา, ประวัติการใช้สารเสพติด, ความสนใจ/ความสามารถพิเศษ -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 20px;">
+            <div class="form-group">
+              <label class="form-label">ประวัติการรักษา</label>
+              <textarea class="form-control" v-model="defForm.medical_history" placeholder="ระบุโรคประจำตัว ประวัติการพบแพทย์ (ถ้ามี) หรือใส่ 'ไม่มีประวัติ'" rows="2"></textarea>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">ประวัติการใช้สารเสพติด</label>
+              <textarea class="form-control" v-model="defForm.drug_history" placeholder="ระบุประเภทสารเสพติด ความถี่ในการใช้ (ถ้ามี) หรือใส่ 'ไม่มีประวัติ'" rows="2"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">ความสนใจ/ความสามารถพิเศษ</label>
+              <textarea class="form-control" v-model="defForm.interested" placeholder="ระบุความสนใจ ทักษะพิเศษ หรือความถนัด หรือใส่ 'ไม่มีข้อมูล'" rows="2"></textarea>
+            </div>
+          </div>
+
           <!-- ฟิลด์แก้ไขตรวจจิตวิทยาประวัติเชิงลึกใน Modal ชัดเจน -->
           <div class="form-group" style="background: rgba(var(--accent-rgb), 0.05); padding: 20px; border-radius: 16px; border: 1px solid rgba(var(--accent-rgb), 0.2);">
             <label class="form-label" style="color: var(--accent); font-weight: bold; font-size: 0.95rem;">
@@ -1786,8 +1825,9 @@
               <div><strong style="color: var(--text-muted);">เพศ:</strong> <span>{{ calendarDetailDef.gender }}</span></div>
               <div><strong style="color: var(--text-muted);">วันเกิด:</strong> <span>{{ formatThaiDate(calendarDetailDef.birth_date) }}</span></div>
               <div style="grid-column: 1 / -1;"><strong style="color: var(--text-muted);">ที่อยู่ปัจจุบัน:</strong> <span>{{ calendarDetailDef.address || '-' }}</span></div>
-              <div style="grid-column: 1 / -1;"><strong style="color: var(--text-muted);">ประวัติการรักษาทางการแพทย์:</strong> <span>{{ calendarDetailDef.medical_history || 'ไม่มีประวัติ' }}</span></div>
-              <div style="grid-column: 1 / -1;"><strong style="color: var(--text-muted);">ประวัติพฤติกรรมเสี่ยง/สารเสพติด:</strong> <span>{{ calendarDetailDef.drug_history || 'ไม่มีประวัติ' }}</span></div>
+              <div style="grid-column: 1 / -1;"><strong style="color: var(--text-muted);">ประวัติการรักษา:</strong> <span>{{ calendarDetailDef.medical_history || 'ไม่มีประวัติ' }}</span></div>
+              <div style="grid-column: 1 / -1;"><strong style="color: var(--text-muted);">ประวัติการใช้สารเสพติด:</strong> <span>{{ calendarDetailDef.drug_history || 'ไม่มีประวัติ' }}</span></div>
+              <div style="grid-column: 1 / -1;"><strong style="color: var(--text-muted);">ความสนใจ/ความสามารถพิเศษ:</strong> <span>{{ calendarDetailDef.interested || 'ไม่มีข้อมูล' }}</span></div>
             </div>
             
             <div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--card-border);">
