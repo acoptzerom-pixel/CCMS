@@ -1783,7 +1783,6 @@
           searchDone.value = false;
           newDefFormActive.value = false;
           errorMsg.value = '';
-          isEditingCounselorNote.value = false;
           
           if (!searchId.value) return;
           const cleanId = searchId.value.replace(/\D/g, "");
@@ -3018,7 +3017,6 @@
 
         function cancelEditCounselorNote() {
           isEditingCounselorNote.value = false;
-          tempCounselorNote.value = '';
         }
 
         const savingCounselorComments = ref(false);
@@ -3056,7 +3054,7 @@
                 confirmButtonColor: '#7c3aed'
               });
             })
-            .updateCounselorComments(currentDef.value.citizen_id, tempCounselorNote.value || '', session.value.token);
+            .updateCounselorComments(currentDef.value.citizen_id, tempCounselorNote.value, session.value.token);
         }
 
         function triggerPrint() {
@@ -3111,6 +3109,8 @@
            
            // Counselor comments saving state & action
            savingCounselorComments, saveCounselorComments,
+           
+           // Inline comments editing states & functions
            isEditingCounselorNote, tempCounselorNote, startEditCounselorNote, cancelEditCounselorNote
          };
       }
