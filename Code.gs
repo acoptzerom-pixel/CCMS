@@ -987,6 +987,40 @@ function getDashboardData(startDateStr, endDateStr, token) {
       }
     }
 
+    // === Counselor Active Cases Calculation ===
+    var counselors = getSheetData("tb_counselor");
+    var counselorActiveCases = {};
+    for (var i = 0; i < counselors.length; i++) {
+      var c = counselors[i];
+      var pos = c.counselor_position ? c.counselor_position.toString().trim() : "";
+      if (pos === "ผู้ให้คำปรึกษา") {
+        var name = c.counselor_name ? c.counselor_name.toString().trim() : "";
+        if (name) {
+          counselorActiveCases[name] = 0;
+        }
+      }
+    }
+
+    for (var i = 0; i < cases.length; i++) {
+      var cs = cases[i];
+      var hasRedNo = cs.red_case_no && cs.red_case_no.toString().trim() !== "";
+      if (!hasRedNo) {
+        var csCounselor = cs.counselor ? cs.counselor.toString().trim() : "";
+        if (csCounselor && counselorActiveCases.hasOwnProperty(csCounselor)) {
+          counselorActiveCases[csCounselor]++;
+        }
+      }
+    }
+
+    var counselorActiveCasesList = [];
+    for (var name in counselorActiveCases) {
+      var count = counselorActiveCases[name];
+      if (count > 0) {
+        counselorActiveCasesList.push({ name: name, count: count });
+      }
+    }
+    counselorActiveCasesList.sort(function(a, b) { return b.count - a.count; });
+
     return {
       success: true,
       data: {
@@ -1003,6 +1037,7 @@ function getDashboardData(startDateStr, endDateStr, token) {
         ageCountsBySection: ageCountsBySection,
         districtCounts: sortedDistrictsBySection["ทั้งหมด"],
         districtCountsBySection: sortedDistrictsBySection,
+        counselorActiveCasesList: counselorActiveCasesList,
         trendData: trendDataObj,
         availableYears: availableYears,
         period: {

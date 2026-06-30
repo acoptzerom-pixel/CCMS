@@ -419,7 +419,8 @@
           topCharges: [],
           genderCounts: {},
           ageCounts: {},
-          districtCounts: {}
+          districtCounts: {},
+          counselorActiveCases: []
         });
 
         const unfilteredStats = reactive({
@@ -430,7 +431,8 @@
           topCharges: [],
           genderCounts: {},
           ageCounts: {},
-          districtCounts: {}
+          districtCounts: {},
+          counselorActiveCases: []
         });
 
         // Local Form States
@@ -894,6 +896,11 @@
           unfilteredStats.genderCounts = data.genderCountsBySection ? (data.genderCountsBySection["ทั้งหมด"] || { "ชาย": 0, "หญิง": 0 }) : (data.genderCounts || { "ชาย": 0, "หญิง": 0 });
           unfilteredStats.ageCounts = data.ageCountsBySection ? (data.ageCountsBySection["ทั้งหมด"] || {}) : (data.ageCounts || {});
           unfilteredStats.districtCounts = data.districtCountsBySection ? (data.districtCountsBySection["ทั้งหมด"] || {}) : (data.districtCounts || {});
+          
+          stats.counselorActiveCases.length = 0;
+          if (data.counselorActiveCasesList) {
+            stats.counselorActiveCases.push(...data.counselorActiveCasesList);
+          }
           
           if (data.trendData) trendData.value = data.trendData;
           if (data.availableYears) {
@@ -2668,6 +2675,11 @@
             pendingCaseSections: { "มาตรา 73": 14, "มาตรา 90": 5, "มาตรา 132 วรรคหนึ่ง": 30, "มาตรา 132 วรรคสอง": 10, "คดีจากศาลอื่น": 5, "คดีอื่นๆ": 0 },
             carriedForwardCaseSections: { "มาตรา 73": 12, "มาตรา 90": 4, "มาตรา 132 วรรคหนึ่ง": 25, "มาตรา 132 วรรคสอง": 8, "คดีจากศาลอื่น": 3, "คดีอื่นๆ": 1 },
             recidivismCount: 38,
+            counselorActiveCasesList: [
+              { name: "นายสมชาย ใจดี", count: 12 },
+              { name: "นางสาวสมศรี รักเรียน", count: 8 },
+              { name: "นายสมศักดิ์ รักชาติ", count: 5 }
+            ],
             topCharges: [
               { name: "ความผิดฐานลักทรัพย์ ม.334 - 335", count: 185 },
               { name: "ความผิดต่อชีวิต ม.288 - ม.290, ม.292 - ม.294", count: 98 },
