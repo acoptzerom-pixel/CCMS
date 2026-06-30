@@ -3094,6 +3094,16 @@
             return dateVal.getTime();
           }
 
+          // 0. Filter out cases with no future appointment and remove empty youth
+          youthList.forEach(youth => {
+            if (youth.cases && Array.isArray(youth.cases)) {
+              youth.cases = youth.cases.filter(c => {
+                return c.nextAppointmentDate && c.nextAppointmentDate !== 'ไม่มีนัดหมายในอนาคต';
+              });
+            }
+          });
+          youthList = youthList.filter(youth => youth.cases && youth.cases.length > 0);
+
           // 1. Sort cases within each youth
           youthList.forEach(youth => {
             if (youth.cases && Array.isArray(youth.cases)) {

@@ -989,6 +989,27 @@ function getDashboardData(startDateStr, endDateStr, token) {
 
     // === Counselor Active Cases Calculation ===
     var counselors = getSheetData("tb_counselor");
+    var appointments = getSheetData("tb_appointment");
+    var nowTimeForCounselor = new Date();
+    nowTimeForCounselor.setHours(0, 0, 0, 0);
+    var nowMsForCounselor = nowTimeForCounselor.getTime();
+
+    // Build a set of black_case numbers that have at least one future appointment
+    var blackCasesWithFutureApp = {};
+    for (var i = 0; i < appointments.length; i++) {
+      var app = appointments[i];
+      if (!app.black_case || !app.appointment_date) continue;
+      var appDateIso = formatDateAsIso(app.appointment_date);
+      if (appDateIso) {
+        var appMs = new Date(appDateIso);
+        appMs.setHours(0, 0, 0, 0);
+        if (appMs.getTime() >= nowMsForCounselor) {
+          var cleanBlack = app.black_case.toString().replace(/\s+/g, "").toLowerCase();
+          blackCasesWithFutureApp[cleanBlack] = true;
+        }
+      }
+    }
+
     var counselorActiveYouthIds = {};
     for (var i = 0; i < counselors.length; i++) {
       var c = counselors[i];
@@ -1005,6 +1026,11 @@ function getDashboardData(startDateStr, endDateStr, token) {
       var cs = cases[i];
       var hasRedNo = cs.red_case_no && cs.red_case_no.toString().trim() !== "";
       if (!hasRedNo) {
+        // Check if this case's black_case has a future appointment
+        var csBlackCase = cs.black_case ? cs.black_case.toString().trim() : "";
+        var cleanBlackCase = csBlackCase.replace(/\s+/g, "").toLowerCase();
+        if (!csBlackCase || !blackCasesWithFutureApp[cleanBlackCase]) continue;
+
         var csCounselor = cs.counselor ? cs.counselor.toString().trim() : "";
         if (csCounselor && counselorActiveYouthIds.hasOwnProperty(csCounselor)) {
           var cleanId = cs.citizen_id ? cleanCitizenId(cs.citizen_id) : "";
@@ -2699,19 +2725,24 @@ function getCounselorActiveCasesDetail(counselorName, token) {
       
       var chargeText = cs.charge_no ? (chargeMap[cs.charge_no] || cs.charge_name || cs.charge_no) : (cs.charge_name || "ไม่ระบุข้อหา");
       
+      // Only include cases that have a future appointment
+      if (!nextAppDate) continue;
+
       youthMap[cid].cases.push({
         blackCase: csBlackCase,
         charge: chargeText,
-        nextAppointmentDate: nextAppDate || "ไม่มีนัดหมายในอนาคต",
+        nextAppointmentDate: nextAppDate,
         nextAppointmentReason: nextAppReason,
         nextAppointmentTime: nextAppTime
       });
     }
     
-    // Convert map to array
+    // Convert map to array, exclude youth with no remaining cases
     var youthList = [];
     for (var cid in youthMap) {
-      youthList.push(youthMap[cid]);
+      if (youthMap[cid].cases.length > 0) {
+        youthList.push(youthMap[cid]);
+      }
     }
     
     return { success: true, counselorName: counselorName, youthList: youthList };
