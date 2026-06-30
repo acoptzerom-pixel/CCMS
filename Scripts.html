@@ -446,7 +446,7 @@
           address: '',
           medical_history: '', drug_history: '', interested: '',
           guardian_name: '', relationship: '', phone_number_guardian: '', occupation_guardian: '',
-          psy_diagnosis: '', risk_assessment: 'มีความเสี่ยงในการกระทำผิดซ้ำต่ำ'
+          psy_diagnosis: '', risk_assessment: 'มีความเสี่ยงในการกระทำผิดซ้ำต่ำ', counselor_comments: ''
         });
 
         const caseForm = reactive({
@@ -2620,7 +2620,7 @@
             address: '',
             medical_history: '', drug_history: '', interested: '',
             guardian_name: '', relationship: 'บิดา', phone_number_guardian: '', occupation_guardian: '',
-            psy_diagnosis: '', risk_assessment: 'มีความเสี่ยงในการกระทำผิดซ้ำต่ำ'
+            psy_diagnosis: '', risk_assessment: 'มีความเสี่ยงในการกระทำผิดซ้ำต่ำ', counselor_comments: ''
           });
         }
 
@@ -3007,6 +3007,43 @@
           printModalActive.value = false;
         }
 
+        const savingCounselorComments = ref(false);
+        function saveCounselorComments() {
+          if (!currentDef.value || !currentDef.value.citizen_id) return;
+          savingCounselorComments.value = true;
+          google.script.run
+            .withSuccessHandler((res) => {
+              savingCounselorComments.value = false;
+              if (res.success) {
+                currentDef.value.counselor_comments = res.comments;
+                Swal.fire({
+                  icon: 'success',
+                  title: 'บันทึกสำเร็จ',
+                  text: res.message,
+                  confirmButtonColor: '#7c3aed',
+                  timer: 2000
+                });
+              } else {
+                Swal.fire({
+                  icon: 'error',
+                  title: 'เกิดข้อผิดพลาด',
+                  text: res.message,
+                  confirmButtonColor: '#7c3aed'
+                });
+              }
+            })
+            .withFailureHandler((err) => {
+              savingCounselorComments.value = false;
+              Swal.fire({
+                icon: 'error',
+                title: 'เกิดข้อผิดพลาด',
+                text: 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้: ' + err.toString(),
+                confirmButtonColor: '#7c3aed'
+              });
+            })
+            .updateCounselorComments(currentDef.value.citizen_id, currentDef.value.counselor_comments || '');
+        }
+
         function triggerPrint() {
           window.print();
         }
@@ -3054,9 +3091,12 @@
            // Trend chart states & functions
            selectedStartTrendYear, selectedEndTrendYear, availableYears, trendData, onTrendStartYearChange, onTrendEndYearChange,
           
-          // Unfiltered stats for print preview
-          unfilteredStats
-        };
+           // Unfiltered stats for print preview
+           unfilteredStats,
+           
+           // Counselor comments saving state & action
+           savingCounselorComments, saveCounselorComments
+         };
       }
     }).mount('#app');
   </script>

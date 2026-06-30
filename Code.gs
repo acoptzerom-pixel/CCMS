@@ -150,7 +150,7 @@ function cleanCitizenId(cid) {
  * ตรวจเช็คและเพิ่มคอลัมน์วินิจฉัยทางจิตวิทยาเบื้องต้นอัตโนมัติ
  */
 function ensurePsyDiagnosisColumn() {
-  ensureColumnsExist("tb_defendants", ["psy_diagnosis", "risk_assessment"]);
+  ensureColumnsExist("tb_defendants", ["psy_diagnosis", "risk_assessment", "counselor_comments"]);
 }
 
 /**
@@ -1693,6 +1693,7 @@ function upsertDefendant(defData, token) {
     defRow.updated_at = new Date().toISOString();
     defRow.psy_diagnosis = defData.psy_diagnosis || "";
     defRow.risk_assessment = defData.risk_assessment || "";
+    defRow.counselor_comments = defData.counselor_comments || "";
     
     var msg = "";
     if (existingDef) {
@@ -2657,5 +2658,48 @@ function deleteCounselor(rowNum, password, token) {
     return { success: true, message: "ลบข้อมูลผู้ให้คำปรึกษาเรียบร้อยแล้ว" };
   } catch (e) {
     return { success: false, message: "เกิดข้อผิดพลาดในการลบผู้ให้คำปรึกษา: " + e.toString() };
+  }
+}
+
+/**
+ * อัปเดตความเห็นเพิ่มเติมของผู้ให้คำปรึกษา
+ */
+function updateCounselorComments(citizenId, comments) {
+  try {
+    var userSession = getSession();
+    if (!userSession) {
+      return { success: false, message: "โปรดเข้าสู่ระบบใหม่" };
+    }
+    var role = userSession.role ? userSession.role.toString().toLowerCase() : "";
+    if (role !== "admin" && role !== "psychologist" && role !== "counselor") {
+      return { success: false, message: "ไม่มีสิทธิ์ดำเนินการเฉพาะผู้ให้คำปรึกษา นักจิตวิทยา และแอดมินเท่านั้น" };
+    }
+    
+    ensurePsyDiagnosisColumn();
+    
+    var db = readDataFromSheet("tb_defendants");
+    var targetRow = null;
+    var rowNum = -1;
+    for (var i = 0; i < db.length; i++) {
+      if (db[i].citizen_id === citizenId) {
+        targetRow = db[i];
+        rowNum = i + 2; 
+        break;
+      }
+    }
+    
+    if (!targetRow) {
+      return { success: false, message: "ไม่พบข้อมูลเด็ก/เยาวชน" };
+    }
+    
+    var updateData = {
+      counselor_comments: comments,
+      updated_at: new Date().toISOString()
+    };
+    
+    updateRowInSheet("tb_defendants", rowNum, updateData);
+    return { success: true, comments: comments, message: "บันทึกความเห็นเพิ่มเติมเรียบร้อยแล้ว" };
+  } catch (e) {
+    return { success: false, message: "เกิดข้อผิดพลาดในการบันทึกความเห็น: " + e.toString() };
   }
 }
