@@ -2678,13 +2678,11 @@ function updateCounselorComments(citizenId, comments) {
     
     ensurePsyDiagnosisColumn();
     
-    var db = readDataFromSheet("tb_defendants");
+    var db = getSheetData("tb_defendants");
     var targetRow = null;
-    var rowNum = -1;
     for (var i = 0; i < db.length; i++) {
       if (db[i].citizen_id === citizenId) {
         targetRow = db[i];
-        rowNum = i + 2; 
         break;
       }
     }
@@ -2692,6 +2690,8 @@ function updateCounselorComments(citizenId, comments) {
     if (!targetRow) {
       return { success: false, message: "ไม่พบข้อมูลเด็ก/เยาวชน" };
     }
+    
+    var rowNum = targetRow.rowNum;
     
     var updateData = {
       note: comments,
