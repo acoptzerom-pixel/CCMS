@@ -490,59 +490,56 @@
             
           </div>
 
-          <!-- แผงประชากรศาสตร์ (Youth Demographics Panel) -->
-          <div class="glass-card" style="margin-top: 30px;">
-            <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 25px;">
-              <i class="fa-solid fa-users-viewfinder"></i> จำแนกสถิติเด็กและเยาวชนรับเข้าใหม่ (เพศ, ช่วงอายุ, และรายอำเภอในระยอง)
-            </h3>
+          <!-- แผงสถิติประชากรศาสตร์และงานดูแลของผู้ให้คำปรึกษา -->
+          <div class="dashboard-layout" style="margin-top: 30px;">
             
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 30px;">
+            <!-- การ์ดที่ 1 (ซ้าย): จำแนกสถิติเด็กและเยาวชนรับเข้าใหม่ -->
+            <div class="glass-card" style="margin-top: 0; display: flex; flex-direction: column;">
+              <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 25px;">
+                <i class="fa-solid fa-users-viewfinder"></i> จำแนกสถิติเด็กและเยาวชนรับเข้าใหม่ (เพศ, ช่วงอายุ, และรายอำเภอในระยอง)
+              </h3>
               
-              <!-- คอลัมน์ที่ 1 (ซ้าย) -->
-              <div style="display: flex; flex-direction: column; gap: 35px;">
-                
-                <!-- สถิติทางเพศ -->
-                <div>
-                  <h4 style="font-size: 0.95rem; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--card-border); padding-bottom: 10px; margin-bottom: 15px;">
-                    <i class="fa-solid fa-venus-mars"></i> จำแนกตามเพศ
-                  </h4>
-                  <div class="metric-item" v-for="(val, key) in stats.genderCounts">
-                    <div class="metric-header" style="cursor: pointer; transition: all 0.2s;" @click="showDemographicDetails('gender', key)" onmouseover="this.style.transform='translateX(4px)'" onmouseout="this.style.transform='none'">
-                      <span style="font-weight: 600; color: var(--primary); text-decoration: underline; text-underline-offset: 4px;">
-                        {{ key }}
-                      </span>
-                      <span>{{ val }} คน ({{ getPercent(val, Object.values(stats.genderCounts).reduce((a, b) => a + b, 0)) }}%)</span>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px;">
+                <!-- คอลัมน์ย่อยที่ 1: เพศ และ ช่วงอายุ -->
+                <div style="display: flex; flex-direction: column; gap: 35px;">
+                  <!-- สถิติทางเพศ -->
+                  <div>
+                    <h4 style="font-size: 0.95rem; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--card-border); padding-bottom: 10px; margin-bottom: 15px;">
+                      <i class="fa-solid fa-venus-mars"></i> จำแนกตามเพศ
+                    </h4>
+                    <div class="metric-item" v-for="(val, key) in stats.genderCounts">
+                      <div class="metric-header" style="cursor: pointer; transition: all 0.2s;" @click="showDemographicDetails('gender', key)" onmouseover="this.style.transform='translateX(4px)'" onmouseout="this.style.transform='none'">
+                        <span style="font-weight: 600; color: var(--primary); text-decoration: underline; text-underline-offset: 4px;">
+                          {{ key }}
+                        </span>
+                        <span>{{ val }} คน ({{ getPercent(val, Object.values(stats.genderCounts).reduce((a, b) => a + b, 0)) }}%)</span>
+                      </div>
+                      <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" :style="{ width: getPercent(val, Object.values(stats.genderCounts).reduce((a, b) => a + b, 0)) + '%' }"></div>
+                      </div>
                     </div>
-                    <div class="progress-bar-bg">
-                      <div class="progress-bar-fill" :style="{ width: getPercent(val, Object.values(stats.genderCounts).reduce((a, b) => a + b, 0)) + '%' }"></div>
+                  </div>
+
+                  <!-- สถิติตามอายุ -->
+                  <div>
+                    <h4 style="font-size: 0.95rem; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--card-border); padding-bottom: 10px; margin-bottom: 15px;">
+                      <i class="fa-solid fa-hourglass-half"></i> จำแนกตามช่วงอายุขณะกระทำผิด
+                    </h4>
+                    <div class="metric-item" v-for="key in ['18 ปีขึ้นไป', '15 ปี แต่ไม่ถึง 18 ปี', '12 ปี แต่ไม่ถึง 15 ปี', 'ต่ำกว่า 12 ปี', 'ไม่มีข้อมูล']" :key="key">
+                      <div class="metric-header" style="cursor: pointer; transition: all 0.2s;" @click="showDemographicDetails('age', key)" onmouseover="this.style.transform='translateX(4px)'" onmouseout="this.style.transform='none'">
+                        <span style="font-weight: 600; color: var(--primary); text-decoration: underline; text-underline-offset: 4px;">
+                          {{ key }}
+                        </span>
+                        <span>{{ stats.ageCounts[key] || 0 }} คน ({{ getPercent(stats.ageCounts[key] || 0, Object.values(stats.ageCounts).reduce((a, b) => a + b, 0)) }}%)</span>
+                      </div>
+                      <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" :style="{ width: getPercent(stats.ageCounts[key] || 0, Object.values(stats.ageCounts).reduce((a, b) => a + b, 0)) + '%' }"></div>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <!-- สถิติตามอายุ -->
-                <div>
-                  <h4 style="font-size: 0.95rem; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--card-border); padding-bottom: 10px; margin-bottom: 15px;">
-                    <i class="fa-solid fa-hourglass-half"></i> จำแนกตามช่วงอายุขณะกระทำผิด
-                  </h4>
-                  <div class="metric-item" v-for="key in ['18 ปีขึ้นไป', '15 ปี แต่ไม่ถึง 18 ปี', '12 ปี แต่ไม่ถึง 15 ปี', 'ต่ำกว่า 12 ปี', 'ไม่มีข้อมูล']" :key="key">
-                    <div class="metric-header" style="cursor: pointer; transition: all 0.2s;" @click="showDemographicDetails('age', key)" onmouseover="this.style.transform='translateX(4px)'" onmouseout="this.style.transform='none'">
-                      <span style="font-weight: 600; color: var(--primary); text-decoration: underline; text-underline-offset: 4px;">
-                        {{ key }}
-                      </span>
-                      <span>{{ stats.ageCounts[key] || 0 }} คน ({{ getPercent(stats.ageCounts[key] || 0, Object.values(stats.ageCounts).reduce((a, b) => a + b, 0)) }}%)</span>
-                    </div>
-                    <div class="progress-bar-bg">
-                      <div class="progress-bar-fill" :style="{ width: getPercent(stats.ageCounts[key] || 0, Object.values(stats.ageCounts).reduce((a, b) => a + b, 0)) + '%' }"></div>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-
-              <!-- คอลัมน์ที่ 2 (ขวา) -->
-              <div style="display: flex; flex-direction: column; gap: 35px;">
-                
-                <!-- สถิติตามอำเภอระยอง -->
+                <!-- คอลัมน์ย่อยที่ 2: อำเภอที่อยู่อาศัย -->
                 <div>
                   <h4 style="font-size: 0.95rem; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--card-border); padding-bottom: 10px; margin-bottom: 15px;">
                     <i class="fa-solid fa-map-location-dot"></i> จำแนกตามอำเภอที่อยู่อาศัย (จ.ระยอง)
@@ -559,31 +556,33 @@
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
 
-                <!-- สถิติตามผู้ให้คำปรึกษา (คดีคงค้าง) -->
-                <div>
-                  <h4 style="font-size: 0.95rem; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--card-border); padding-bottom: 10px; margin-bottom: 15px;">
-                    <i class="fa-solid fa-user-doctor"></i> คดีคงค้างของผู้ให้คำปรึกษา
-                  </h4>
-                  <div v-if="stats.counselorActiveCases.length === 0" style="color: var(--text-muted); font-size: 0.9rem; padding: 10px 0; text-align: center;">
-                    ไม่มีคดีคงค้างของผู้ให้คำปรึกษา
+            <!-- การ์ดที่ 2 (ขวา): จำนวนเด็กและเยาวชนที่อยู่ในความดูแลของผู้ให้คำปรึกษา -->
+            <div class="glass-card" style="margin-top: 0; display: flex; flex-direction: column;">
+              <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 25px;">
+                <i class="fa-solid fa-user-doctor"></i> จำนวนเด็กและเยาวชนที่อยู่ในความดูแลของผู้ให้คำปรึกษา
+              </h3>
+              
+              <div style="flex: 1; overflow-y: auto; max-height: 480px; padding-right: 5px;">
+                <div v-if="stats.counselorActiveCases.length === 0" style="color: var(--text-muted); font-size: 0.9rem; padding: 10px 0; text-align: center;">
+                  ไม่มีข้อมูลเด็กและเยาวชนคงค้างในความดูแล
+                </div>
+                <div v-else class="metric-item" v-for="(item, idx) in stats.counselorActiveCases" :key="item.name">
+                  <div class="metric-header">
+                    <span style="font-weight: 600; color: var(--text-main);">
+                      {{ item.name }}
+                    </span>
+                    <span>{{ item.count }} คน</span>
                   </div>
-                  <div v-else class="metric-item" v-for="(item, idx) in stats.counselorActiveCases" :key="item.name">
-                    <div class="metric-header">
-                      <span style="font-weight: 600; color: var(--text-main);">
-                        {{ item.name }}
-                      </span>
-                      <span>{{ item.count }} คดี</span>
-                    </div>
-                    <div class="progress-bar-bg">
-                      <div class="progress-bar-fill" :style="{ width: (item.count / stats.counselorActiveCases[0].count * 100) + '%', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }"></div>
-                    </div>
+                  <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" :style="{ width: (item.count / stats.counselorActiveCases[0].count * 100) + '%', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }"></div>
                   </div>
                 </div>
-
               </div>
-
             </div>
+
           </div>
 
         </div>
