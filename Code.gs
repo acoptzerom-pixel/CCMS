@@ -150,7 +150,7 @@ function cleanCitizenId(cid) {
  * ตรวจเช็คและเพิ่มคอลัมน์วินิจฉัยทางจิตวิทยาเบื้องต้นอัตโนมัติ
  */
 function ensurePsyDiagnosisColumn() {
-  ensureColumnsExist("tb_defendants", ["psy_diagnosis", "risk_assessment", "counselor_comments", "note"]);
+  ensureColumnsExist("tb_defendants", ["psy_diagnosis", "risk_assessment", "counselor_comments", "note", "counselor_note"]);
 }
 
 /**
@@ -1695,6 +1695,7 @@ function upsertDefendant(defData, token) {
     defRow.risk_assessment = defData.risk_assessment || "";
     defRow.counselor_comments = defData.counselor_comments || "";
     defRow.note = defData.note || "";
+    defRow.counselor_note = defData.counselor_note || "";
     
     var msg = "";
     if (existingDef) {
@@ -2694,12 +2695,12 @@ function updateCounselorComments(citizenId, comments) {
     var rowNum = targetRow.rowNum;
     
     var updateData = {
-      note: comments,
+      counselor_note: comments,
       updated_at: new Date().toISOString()
     };
     
     updateRowInSheet("tb_defendants", rowNum, updateData);
-    return { success: true, comments: comments, note: comments, message: "บันทึกความเห็นเพิ่มเติมเรียบร้อยแล้ว" };
+    return { success: true, comments: comments, counselor_note: comments, message: "บันทึกความเห็นเพิ่มเติมเรียบร้อยแล้ว" };
   } catch (e) {
     return { success: false, message: "เกิดข้อผิดพลาดในการบันทึกความเห็น: " + e.toString() };
   }
