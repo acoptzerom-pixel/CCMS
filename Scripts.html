@@ -446,7 +446,7 @@
           address: '',
           medical_history: '', drug_history: '', interested: '',
           guardian_name: '', relationship: '', phone_number_guardian: '', occupation_guardian: '',
-          psy_diagnosis: '', risk_assessment: 'มีความเสี่ยงในการกระทำผิดซ้ำต่ำ', counselor_comments: ''
+          psy_diagnosis: '', risk_assessment: 'มีความเสี่ยงในการกระทำผิดซ้ำต่ำ', note: ''
         });
 
         const caseForm = reactive({
@@ -2620,7 +2620,7 @@
             address: '',
             medical_history: '', drug_history: '', interested: '',
             guardian_name: '', relationship: 'บิดา', phone_number_guardian: '', occupation_guardian: '',
-            psy_diagnosis: '', risk_assessment: 'มีความเสี่ยงในการกระทำผิดซ้ำต่ำ', counselor_comments: ''
+            psy_diagnosis: '', risk_assessment: 'มีความเสี่ยงในการกระทำผิดซ้ำต่ำ', note: ''
           });
         }
 
@@ -3015,7 +3015,7 @@
             .withSuccessHandler((res) => {
               savingCounselorComments.value = false;
               if (res.success) {
-                currentDef.value.counselor_comments = res.comments;
+                currentDef.value.note = res.note;
                 Swal.fire({
                   icon: 'success',
                   title: 'บันทึกสำเร็จ',
@@ -3041,7 +3041,7 @@
                 confirmButtonColor: '#7c3aed'
               });
             })
-            .updateCounselorComments(currentDef.value.citizen_id, currentDef.value.counselor_comments || '');
+            .updateCounselorComments(currentDef.value.citizen_id, currentDef.value.note || '');
         }
 
         function triggerPrint() {

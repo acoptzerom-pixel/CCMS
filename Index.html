@@ -800,7 +800,7 @@
                 </div>
 
                 <!-- การ์ดที่ 3: ความเห็นเพิ่มเติมของผู้ให้คำปรึกษาที่มีต่อเด็กและเยาวชน -->
-                <div class="glass-card" style="background: rgba(var(--primary-rgb), 0.02); border: 1px solid var(--card-border);">
+                <div class="glass-card">
                   <div style="border-bottom: 1px solid var(--card-border); padding-bottom: 15px; margin-bottom: 20px;">
                     <h3 style="font-family: var(--font-display); font-weight: 700; margin: 0; font-size: 1.1rem; color: var(--primary);">
                       <i class="fa-solid fa-comment-medical"></i> ความเห็นเพิ่มเติมของผู้ให้คำปรึกษาที่มีต่อเด็กและเยาวชน
@@ -810,7 +810,7 @@
                   <!-- ส่วนผู้ใช้งานมีสิทธิ์แก้ไข (แอดมิน, นักจิตวิทยา, ผู้ให้คำปรึกษา) -->
                   <div v-if="session.role === 'admin' || session.role === 'psychologist' || session.role === 'counselor'">
                     <div class="form-group" style="margin-bottom: 15px;">
-                      <textarea class="form-control" v-model="currentDef.counselor_comments" 
+                      <textarea class="form-control" v-model="currentDef.note" 
                                 placeholder="พิมพ์บันทึกความคิดเห็น ข้อสังเกต หรือข้อเสนอแนะเพิ่มเติมเกี่ยวกับการให้คำปรึกษาแก่เด็กและเยาวชนรายนี้..." 
                                 rows="4" style="background: var(--bg-main); border: 1px solid var(--card-border); border-radius: 12px; font-size: 0.92rem; line-height: 1.5; color: var(--text-main); width: 100%; padding: 12px; resize: vertical;"></textarea>
                     </div>
@@ -825,7 +825,7 @@
                   <!-- ส่วนผู้ใช้งานทั่วไป (แสดงอย่างเดียว) -->
                   <div v-else>
                     <p style="font-size: 0.92rem; line-height: 1.6; color: var(--text-main); background: var(--bg-main); padding: 15px; border-radius: 12px; border: 1px solid var(--card-border); margin: 0; white-space: pre-wrap;">
-                      {{ currentDef.counselor_comments || 'ไม่มีความเห็นเพิ่มเติมของผู้ให้คำปรึกษา' }}
+                      {{ currentDef.note || 'ไม่มีความเห็นเพิ่มเติมของผู้ให้คำปรึกษา' }}
                     </p>
                   </div>
                 </div>
