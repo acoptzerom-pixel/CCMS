@@ -78,8 +78,21 @@
             <div class="form-group" style="margin-bottom: 30px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <label class="form-label" style="margin-bottom: 0;">รหัสผ่าน</label>
+                <a href="#" style="color: var(--accent); font-size: 0.85rem; text-decoration: none; font-weight: 600;" @click.prevent="authAlert = ''; authView = 'forgot'">ลืมรหัสผ่าน?</a>
               </div>
-              <input type="password" class="form-control" v-model="loginForm.password" required>
+              <div style="position: relative;">
+                <input :type="showPasswordLogin ? 'text' : 'password'" class="form-control" v-model="loginForm.password" required style="padding-right: 45px;">
+                <button type="button" 
+                        style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94a3b8; cursor: pointer; padding: 5px; font-size: 1.15rem; display: flex; align-items: center;"
+                        @mousedown="showPasswordLogin = true"
+                        @mouseup="showPasswordLogin = false"
+                        @mouseleave="showPasswordLogin = false"
+                        @touchstart.passive="showPasswordLogin = true"
+                        @touchend="showPasswordLogin = false"
+                        @touchcancel="showPasswordLogin = false">
+                  <i class="fa-solid" :class="showPasswordLogin ? 'fa-eye' : 'fa-eye-slash'"></i>
+                </button>
+              </div>
             </div>
 
             <button type="submit" class="btn btn-primary" style="width: 100%; height: 50px;" :disabled="loading">
@@ -89,7 +102,7 @@
           </form>
           
           <div style="text-align: center; margin-top: 25px; font-size: 0.9rem; color: #94a3b8;">
-            ยังไม่มีบัญชีสมาชิก? <a href="#" style="color: var(--accent); font-weight: 600; text-decoration: none;" @click.prevent="authView = 'register'">ลงทะเบียนสมัครสมาชิก <i class="fa-solid fa-user-plus"></i></a>
+            ยังไม่มีบัญชีสมาชิก? <a href="#" style="color: var(--accent); font-weight: 600; text-decoration: none;" @click.prevent="authAlert = ''; authView = 'register'">ลงทะเบียนสมัครสมาชิก <i class="fa-solid fa-user-plus"></i></a>
           </div>
         </div>
 
@@ -125,7 +138,19 @@
             
             <div class="form-group">
               <label class="form-label">รหัสผ่านสำหรับเข้าใช้งาน</label>
-              <input type="password" class="form-control" v-model="registerForm.password" required minlength="8">
+              <div style="position: relative;">
+                <input :type="showPasswordRegister ? 'text' : 'password'" class="form-control" v-model="registerForm.password" required minlength="8" style="padding-right: 45px;">
+                <button type="button" 
+                        style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94a3b8; cursor: pointer; padding: 5px; font-size: 1.15rem; display: flex; align-items: center;"
+                        @mousedown="showPasswordRegister = true"
+                        @mouseup="showPasswordRegister = false"
+                        @mouseleave="showPasswordRegister = false"
+                        @touchstart.passive="showPasswordRegister = true"
+                        @touchend="showPasswordRegister = false"
+                        @touchcancel="showPasswordRegister = false">
+                  <i class="fa-solid" :class="showPasswordRegister ? 'fa-eye' : 'fa-eye-slash'"></i>
+                </button>
+              </div>
             </div>
 
             <button type="submit" class="btn btn-primary" style="width: 100%; height: 50px; margin-top: 10px;" :disabled="loading">
@@ -135,7 +160,53 @@
           </form>
           
           <div style="text-align: center; margin-top: 25px; font-size: 0.9rem; color: #94a3b8;">
-            มีบัญชีสมาชิกอยู่แล้ว? <a href="#" style="color: var(--accent); font-weight: 600; text-decoration: none;" @click.prevent="authView = 'login'">เข้าสู่ระบบ <i class="fa-solid fa-arrow-right-to-bracket"></i></a>
+            มีบัญชีสมาชิกอยู่แล้ว? <a href="#" style="color: var(--accent); font-weight: 600; text-decoration: none;" @click.prevent="authAlert = ''; authView = 'login'">เข้าสู่ระบบ <i class="fa-solid fa-arrow-right-to-bracket"></i></a>
+          </div>
+        </div>
+
+        <!-- หน้าลืมรหัสผ่าน -->
+        <div v-if="authView === 'forgot'">
+          <h2 class="auth-title" style="margin-bottom: 5px;">ลืมรหัสผ่าน</h2>
+          <div style="text-align: center; color: #94a3b8; font-size: 0.85rem; margin-bottom: 25px; line-height: 1.4;">
+            กรอกอีเมลหรือชื่อผู้ใช้งานที่ลงทะเบียนไว้<br>เพื่อกำหนดรหัสผ่านใหม่ได้ทันที
+          </div>
+          
+          <div v-if="authAlert" class="banner banner-danger" style="padding: 10px 15px; margin-bottom: 15px; font-size: 0.85rem;">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>{{ authAlert }}</span>
+          </div>
+
+          <form @submit.prevent="handleForgotPassword">
+            <div class="form-group">
+              <label class="form-label">อีเมลหรือชื่อผู้ใช้งาน (Email or Username)</label>
+              <input type="text" class="form-control" v-model="forgotForm.usernameOrEmail" required>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 30px;">
+              <label class="form-label">รหัสผ่านใหม่</label>
+              <div style="position: relative;">
+                <input :type="showPasswordForgot ? 'text' : 'password'" class="form-control" v-model="forgotForm.newPassword" required minlength="8" placeholder="อย่างน้อย 8 ตัวอักษร" style="padding-right: 45px;">
+                <button type="button" 
+                        style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94a3b8; cursor: pointer; padding: 5px; font-size: 1.15rem; display: flex; align-items: center;"
+                        @mousedown="showPasswordForgot = true"
+                        @mouseup="showPasswordForgot = false"
+                        @mouseleave="showPasswordForgot = false"
+                        @touchstart.passive="showPasswordForgot = true"
+                        @touchend="showPasswordForgot = false"
+                        @touchcancel="showPasswordForgot = false">
+                  <i class="fa-solid" :class="showPasswordForgot ? 'fa-eye' : 'fa-eye-slash'"></i>
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; height: 50px;" :disabled="loading">
+              <span v-if="loading" class="loader" style="width: 20px; height: 20px; border-width: 2.5px;"></span>
+              <span v-else>ยืนยันการรีเซ็ทรหัสผ่านใหม่ <i class="fa-solid fa-key"></i></span>
+            </button>
+          </form>
+          
+          <div style="text-align: center; margin-top: 25px; font-size: 0.9rem; color: #94a3b8;">
+            มีบัญชีสมาชิกอยู่แล้ว? <a href="#" style="color: var(--accent); font-weight: 600; text-decoration: none;" @click.prevent="authAlert = ''; authView = 'login'">เข้าสู่ระบบ <i class="fa-solid fa-arrow-right-to-bracket"></i></a>
           </div>
         </div>
 

@@ -441,6 +441,11 @@
         // Local Form States
         const loginForm = reactive({ usernameOrEmail: '', password: '' });
         const registerForm = reactive({ full_name: '', email: '', username: '', position: '', password: '' });
+        const forgotForm = reactive({ usernameOrEmail: '', newPassword: '' });
+        
+        const showPasswordLogin = ref(false);
+        const showPasswordRegister = ref(false);
+        const showPasswordForgot = ref(false);
         
         const defForm = reactive({
           citizen_id: '', title_name: 'นาย', first_name: '', last_name: '', nick_name: '',
@@ -785,6 +790,50 @@
           } else {
             // Mock โหมดทดสอบสำหรับออฟไลน์ (Offline Fallback Simulator)
             simulateOfflineLogin();
+          }
+        }
+
+        function handleForgotPassword() {
+          loading.value = true;
+          authAlert.value = '';
+          
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res.success) {
+                  authView.value = 'login';
+                  Swal.fire({
+                    icon: 'success',
+                    title: 'รีเซ็ทรหัสผ่านสำเร็จ',
+                    text: res.message,
+                    confirmButtonColor: '#7c3aed'
+                  });
+                  forgotForm.usernameOrEmail = '';
+                  forgotForm.newPassword = '';
+                } else {
+                  authAlert.value = res.message;
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                authAlert.value = "ขณะนี้แหล่งข้อมูลขัดข้อง โปรดตรวจสอบใหม่อีกครั้งในภายหลัง";
+              })
+              .resetUserPassword(forgotForm.usernameOrEmail, forgotForm.newPassword);
+          } else {
+            // Mock โหมดทดสอบสำหรับออฟไลน์
+            setTimeout(() => {
+              loading.value = false;
+              authView.value = 'login';
+              Swal.fire({
+                icon: 'success',
+                title: 'รีเซ็ทรหัสผ่านสำเร็จ (โหมดจำลอง)',
+                text: 'จำลองการรีเซ็ทรหัสผ่านผู้ใช้งานใหม่เรียบร้อยแล้ว',
+                confirmButtonColor: '#7c3aed'
+              });
+              forgotForm.usernameOrEmail = '';
+              forgotForm.newPassword = '';
+            }, 1000);
           }
         }
 
@@ -3194,8 +3243,9 @@
           confirmDeleteCounselorModalActive, deleteCounselorPassword, counselorToDelete,
           addCounselorModalActive, counselorForm, openAddCounselorModal, closeAddCounselorModal, saveNewCounselor,
           caseModalActive, caseFormMode, editDefModalActive, settingsModalActive, settingsTab,
-          settingsForm, pwdForm, dashboardFilter, selectLists, stats, loginForm, registerForm, 
-          defForm, caseForm, handleLogin, handleRegister, handleLogout, toggleTheme, formatThaiDate,
+          settingsForm, pwdForm, dashboardFilter, selectLists, stats, loginForm, registerForm, forgotForm,
+          showPasswordLogin, showPasswordRegister, showPasswordForgot,
+          defForm, caseForm, handleLogin, handleRegister, handleForgotPassword, handleLogout, toggleTheme, formatThaiDate,
           searchDefendant, saveNewDefendant, openEditDefModal, saveEditDefendant,
           confirmDeleteDefModalActive, deleteConfirmPassword, confirmDeleteDef, cancelDeleteDef, submitDeleteDef,
           openAddCaseModal, openEditCaseModal, saveCase, handleDeleteCase, closeCaseModal,

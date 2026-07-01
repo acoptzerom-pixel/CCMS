@@ -410,6 +410,43 @@ function registerUser(userData) {
 }
 
 /**
+ * รีเซ็ทรหัสผ่านผู้ใช้
+ */
+function resetUserPassword(usernameOrEmail, newPassword) {
+  try {
+    var users = getSheetData("tb_user");
+    var cleanInput = usernameOrEmail.toString().trim().toLowerCase();
+    var foundUser = null;
+    
+    for (var i = 0; i < users.length; i++) {
+      var emailMatch = users[i].email && users[i].email.toString().trim().toLowerCase() === cleanInput;
+      var usernameMatch = users[i].username && users[i].username.toString().trim().toLowerCase() === cleanInput;
+      if (emailMatch || usernameMatch) {
+        foundUser = users[i];
+        break;
+      }
+    }
+    
+    if (!foundUser) {
+      return { success: false, message: "ไม่พบข้อมูลผู้ใช้งานหรือชื่อผู้ใช้งานนี้ในระบบ" };
+    }
+    
+    var cleanEmail = foundUser.email ? foundUser.email.toString().trim().toLowerCase() : cleanInput;
+    var salt = cleanEmail + "ccms_extra_salt";
+    var hashedPassword = hashPassword(newPassword, salt);
+    
+    updateRowInSheet("tb_user", foundUser.rowNum, { password: hashedPassword, updated_at: new Date().toISOString() });
+    
+    return {
+      success: true,
+      message: "รีเซ็ทรหัสผ่านใหม่เรียบร้อยแล้ว สามารถเข้าสู่ระบบด้วยรหัสผ่านใหม่ได้ทันที"
+    };
+  } catch (e) {
+    return { success: false, message: "เกิดข้อผิดพลาดในการรีเซ็ทรหัสผ่าน: " + e.toString() };
+  }
+}
+
+/**
  * ตรวจสอบความถูกต้องและล็อกอินเข้าสู่ระบบ
  */
 function loginUser(usernameOrEmail, password) {
