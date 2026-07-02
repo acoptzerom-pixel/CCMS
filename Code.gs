@@ -706,13 +706,13 @@ function getDashboardData(startDateStr, endDateStr, token) {
       "คดีอื่นๆ": 0
     };
     var genderCountsBySection = {
-      "ทั้งหมด": { "ชาย": 0, "หญิง": 0 },
-      "มาตรา 73": { "ชาย": 0, "หญิง": 0 },
-      "มาตรา 90": { "ชาย": 0, "หญิง": 0 },
-      "มาตรา 132 วรรคหนึ่ง": { "ชาย": 0, "หญิง": 0 },
-      "มาตรา 132 วรรคสอง": { "ชาย": 0, "หญิง": 0 },
-      "คดีจากศาลอื่น": { "ชาย": 0, "หญิง": 0 },
-      "คดีอื่นๆ": { "ชาย": 0, "หญิง": 0 }
+      "ทั้งหมด": { "ชาย": 0, "หญิง": 0, "ไม่มีข้อมูล": 0 },
+      "มาตรา 73": { "ชาย": 0, "หญิง": 0, "ไม่มีข้อมูล": 0 },
+      "มาตรา 90": { "ชาย": 0, "หญิง": 0, "ไม่มีข้อมูล": 0 },
+      "มาตรา 132 วรรคหนึ่ง": { "ชาย": 0, "หญิง": 0, "ไม่มีข้อมูล": 0 },
+      "มาตรา 132 วรรคสอง": { "ชาย": 0, "หญิง": 0, "ไม่มีข้อมูล": 0 },
+      "คดีจากศาลอื่น": { "ชาย": 0, "หญิง": 0, "ไม่มีข้อมูล": 0 },
+      "คดีอื่นๆ": { "ชาย": 0, "หญิง": 0, "ไม่มีข้อมูล": 0 }
     };
     var ageCountsBySection = {
       "ทั้งหมด": { "18 ปีขึ้นไป": 0, "15 ปี แต่ไม่ถึง 18 ปี": 0, "12 ปี แต่ไม่ถึง 15 ปี": 0, "ต่ำกว่า 12 ปี": 0, "ไม่มีข้อมูล": 0 },
@@ -880,10 +880,8 @@ function getDashboardData(startDateStr, endDateStr, token) {
           }
         }
         
-        if (gender !== "ไม่มีข้อมูล") {
-          genderCountsBySection["ทั้งหมด"][gender]++;
-          genderCountsBySection[sectionLabel][gender]++;
-        }
+        genderCountsBySection["ทั้งหมด"][gender]++;
+        genderCountsBySection[sectionLabel][gender]++;
         
         districtCountsBySection["ทั้งหมด"][distLabel] = (districtCountsBySection["ทั้งหมด"][distLabel] || 0) + 1;
         districtCountsBySection[sectionLabel][distLabel] = (districtCountsBySection[sectionLabel][distLabel] || 0) + 1;
@@ -902,7 +900,7 @@ function getDashboardData(startDateStr, endDateStr, token) {
         list.push({ name: ch, count: counts[ch] });
       }
       list.sort(function(a, b) { return b.count - a.count; });
-      topChargesBySection[sec] = list.slice(0, 10);
+      topChargesBySection[sec] = list;
     }
     
     // จัดเรียงลำดับอำเภอระยองตามจำนวนจากมากไปน้อย และผลัก จังหวัดอื่นๆ/ไม่มีข้อมูล ไว้ท้ายสุด แยกตามมาตรา

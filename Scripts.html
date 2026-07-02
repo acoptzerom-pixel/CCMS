@@ -173,6 +173,40 @@
           return filteredDefendants.value.slice(start, end);
         });
 
+        const groupedTopCharges = computed(() => {
+          const list = stats.topCharges || [];
+          if (list.length === 0) return [];
+          
+          // Group by count
+          const groups = {};
+          list.forEach(item => {
+            const c = item.count;
+            if (!groups[c]) {
+              groups[c] = [];
+            }
+            groups[c].push(item.name);
+          });
+          
+          // Sort unique counts descending
+          const sortedCounts = Object.keys(groups).map(Number).sort((a, b) => b - a);
+          
+          // Build the ranked list
+          const rankedList = [];
+          sortedCounts.forEach((count, idx) => {
+            const rankNum = idx + 1;
+            const chargeNames = groups[count];
+            const textParts = chargeNames.map(name => `${name} (${count} คดี)`);
+            const labelText = textParts.join(", ");
+            
+            rankedList.push({
+              rank: rankNum,
+              text: labelText
+            });
+          });
+          
+          return rankedList;
+        });
+
         // Computed properties for the Calendar
         const calendarDays = computed(() => {
           const year = calendarYear.value;
@@ -945,7 +979,7 @@
           unfilteredStats.totalCarriedForward = data.carriedForwardCaseSections ? Object.values(data.carriedForwardCaseSections).reduce((a, b) => a + b, 0) : 0;
           unfilteredStats.recidivismCount = data.recidivismCountBySection ? (data.recidivismCountBySection["ทั้งหมด"] || 0) : (data.recidivismCount || 0);
           unfilteredStats.topCharges = data.topChargesBySection ? (data.topChargesBySection["ทั้งหมด"] || []) : (data.topCharges || []);
-          unfilteredStats.genderCounts = data.genderCountsBySection ? (data.genderCountsBySection["ทั้งหมด"] || { "ชาย": 0, "หญิง": 0 }) : (data.genderCounts || { "ชาย": 0, "หญิง": 0 });
+          unfilteredStats.genderCounts = data.genderCountsBySection ? (data.genderCountsBySection["ทั้งหมด"] || { "ชาย": 0, "หญิง": 0, "ไม่มีข้อมูล": 0 }) : (data.genderCounts || { "ชาย": 0, "หญิง": 0, "ไม่มีข้อมูล": 0 });
           unfilteredStats.ageCounts = data.ageCountsBySection ? (data.ageCountsBySection["ทั้งหมด"] || {}) : (data.ageCounts || {});
           unfilteredStats.districtCounts = data.districtCountsBySection ? (data.districtCountsBySection["ทั้งหมด"] || {}) : (data.districtCounts || {});
           
@@ -1019,7 +1053,7 @@
             
             // ป้องกันสถิติว่างเมื่อดึงข้อมูลจากเซิร์ฟเวอร์ด้วยเวอร์ชันดั้งเดิม (Demographics Fallbacks)
             for (const key in stats.genderCounts) delete stats.genderCounts[key];
-            Object.assign(stats.genderCounts, (data.genderCountsBySection && data.genderCountsBySection[filter]) ? data.genderCountsBySection[filter] : (data.genderCounts || { "ชาย": 0, "หญิง": 0 }));
+            Object.assign(stats.genderCounts, (data.genderCountsBySection && data.genderCountsBySection[filter]) ? data.genderCountsBySection[filter] : (data.genderCounts || { "ชาย": 0, "หญิง": 0, "ไม่มีข้อมูล": 0 }));
             
             for (const key in stats.ageCounts) delete stats.ageCounts[key];
             Object.assign(stats.ageCounts, (data.ageCountsBySection && data.ageCountsBySection[filter]) ? data.ageCountsBySection[filter] : (data.ageCounts || {}));
@@ -2548,7 +2582,14 @@
         }
 
         function getChartColor(idx) {
-          const colors = ['#3b82f6', '#818cf8', '#6366f1', '#10b981', '#059669', '#f59e0b', '#d97706', '#ef4444', '#b91c1c', '#a855f7'];
+          const colors = [
+            '#3b82f6', '#818cf8', '#6366f1', '#10b981', '#059669', 
+            '#f59e0b', '#d97706', '#ef4444', '#b91c1c', '#a855f7',
+            '#ec4899', '#f43f5e', '#14b8a6', '#06b6d4', '#0ea5e9', 
+            '#84cc16', '#eab308', '#f97316', '#64748b', '#475569',
+            '#adfa1d', '#00f2fe', '#4facfe', '#00c6ff', '#0072ff',
+            '#f093fb', '#f5576c', '#43e97b', '#38f9d7', '#fa709a'
+          ];
           return colors[idx % colors.length];
         }
 
@@ -3284,6 +3325,9 @@
           
            // Unfiltered stats for print preview
            unfilteredStats,
+           
+           // Grouped charges for custom legend
+           groupedTopCharges,
            
            // Counselor comments saving state & action
            savingCounselorComments, saveCounselorComments, isEditingCounselorNote, tempCounselorNote, startEditCounselorNote, cancelEditCounselorNote
