@@ -547,10 +547,17 @@
                 <div class="charges-chart-wrapper">
                   <div id="top-charges-pie-chart" class="charges-chart-left"></div>
                   <div class="charges-legend-right" style="overflow-y: auto; max-height: 280px; padding-right: 5px;">
-                    <div v-for="(item, idx) in groupedTopCharges" :key="idx" class="custom-legend-item" style="align-items: flex-start; margin-bottom: 12px; line-height: 1.5;">
+                    <div v-for="(group, idx) in groupedTopCharges" :key="idx" class="custom-legend-item" style="align-items: flex-start; margin-bottom: 12px; line-height: 1.6;">
                       <span class="legend-color-dot" :style="{ backgroundColor: getChartColor(idx), marginTop: '4px' }"></span>
-                      <span class="legend-label-text" style="font-size: 0.88rem; color: var(--text-main);">
-                        <span class="legend-rank" style="font-weight: 700; color: var(--primary); margin-right: 4px;">{{ item.rank }}.</span> {{ item.text }}
+                      <span class="legend-label-text" style="font-size: 0.88rem; color: var(--text-main); width: 100%;">
+                        <div style="display: flex; align-items: flex-start;">
+                          <span class="legend-rank" style="font-weight: 700; color: var(--primary); width: 24px; min-width: 24px; display: inline-block;">{{ group.rank }}.</span>
+                          <div style="flex: 1;">
+                            <div v-for="(item, itemIdx) in group.items" :key="itemIdx" style="margin-bottom: 3px;">
+                              {{ item.name }} <span style="font-weight: 700;">{{ item.countText }}</span>{{ item.suffix }}
+                            </div>
+                          </div>
+                        </div>
                       </span>
                     </div>
                   </div>

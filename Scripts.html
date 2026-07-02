@@ -195,12 +195,19 @@
           sortedCounts.forEach((count, idx) => {
             const rankNum = idx + 1;
             const chargeNames = groups[count];
-            const textParts = chargeNames.map(name => `${name} (${count} คดี)`);
-            const labelText = textParts.join(", ");
+            
+            const items = chargeNames.map((name, i) => {
+              const isLast = i === chargeNames.length - 1;
+              return {
+                name: name,
+                countText: `(${count} คดี)`,
+                suffix: isLast ? '' : ','
+              };
+            });
             
             rankedList.push({
               rank: rankNum,
-              text: labelText
+              items: items
             });
           });
           
@@ -979,7 +986,12 @@
           unfilteredStats.totalCarriedForward = data.carriedForwardCaseSections ? Object.values(data.carriedForwardCaseSections).reduce((a, b) => a + b, 0) : 0;
           unfilteredStats.recidivismCount = data.recidivismCountBySection ? (data.recidivismCountBySection["ทั้งหมด"] || 0) : (data.recidivismCount || 0);
           unfilteredStats.topCharges = data.topChargesBySection ? (data.topChargesBySection["ทั้งหมด"] || []) : (data.topCharges || []);
-          unfilteredStats.genderCounts = data.genderCountsBySection ? (data.genderCountsBySection["ทั้งหมด"] || { "ชาย": 0, "หญิง": 0, "ไม่มีข้อมูล": 0 }) : (data.genderCounts || { "ชาย": 0, "หญิง": 0, "ไม่มีข้อมูล": 0 });
+          const rawGender = data.genderCountsBySection ? (data.genderCountsBySection["ทั้งหมด"] || {}) : (data.genderCounts || {});
+          const orderedGender = {};
+          ["ชาย", "หญิง", "ไม่มีข้อมูล"].forEach(key => {
+            orderedGender[key] = rawGender[key] !== undefined ? rawGender[key] : 0;
+          });
+          unfilteredStats.genderCounts = orderedGender;
           unfilteredStats.ageCounts = data.ageCountsBySection ? (data.ageCountsBySection["ทั้งหมด"] || {}) : (data.ageCounts || {});
           unfilteredStats.districtCounts = data.districtCountsBySection ? (data.districtCountsBySection["ทั้งหมด"] || {}) : (data.districtCounts || {});
           
@@ -1052,8 +1064,13 @@
             stats.topCharges.push(...(data.topChargesBySection ? (data.topChargesBySection[filter] || []) : []));
             
             // ป้องกันสถิติว่างเมื่อดึงข้อมูลจากเซิร์ฟเวอร์ด้วยเวอร์ชันดั้งเดิม (Demographics Fallbacks)
+            const source = (data.genderCountsBySection && data.genderCountsBySection[filter]) ? data.genderCountsBySection[filter] : (data.genderCounts || {});
+            const orderedGender = {};
+            ["ชาย", "หญิง", "ไม่มีข้อมูล"].forEach(key => {
+              orderedGender[key] = source[key] !== undefined ? source[key] : 0;
+            });
             for (const key in stats.genderCounts) delete stats.genderCounts[key];
-            Object.assign(stats.genderCounts, (data.genderCountsBySection && data.genderCountsBySection[filter]) ? data.genderCountsBySection[filter] : (data.genderCounts || { "ชาย": 0, "หญิง": 0, "ไม่มีข้อมูล": 0 }));
+            Object.assign(stats.genderCounts, orderedGender);
             
             for (const key in stats.ageCounts) delete stats.ageCounts[key];
             Object.assign(stats.ageCounts, (data.ageCountsBySection && data.ageCountsBySection[filter]) ? data.ageCountsBySection[filter] : (data.ageCounts || {}));
