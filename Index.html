@@ -640,6 +640,9 @@
             <div class="glass-card" style="margin-top: 0; display: flex; flex-direction: column;">
               <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 25px;">
                 <i class="fa-solid fa-user-doctor"></i> จำนวนเด็กและเยาวชนที่อยู่ในความดูแลของผู้ให้คำปรึกษา ณ ปัจจุบัน
+                <span v-if="stats.counselorActiveCases && stats.counselorActiveCases.length > 0" style="color: var(--primary); font-weight: 800; margin-left: 5px;">
+                  ({{ stats.counselorActiveCases.reduce((sum, item) => sum + item.count, 0) }} คน)
+                </span>
               </h3>
               
               <div style="flex: 1; overflow-y: auto; max-height: 480px; padding-right: 5px;">
