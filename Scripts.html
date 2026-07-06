@@ -50,6 +50,65 @@
         const currentThaiDate = ref('');
         const systemTodayDateStr = ref(formatLocalDateString(new Date()));
         
+        // Mobile Menu Gesture States
+        const isMobileMenuOpen = ref(false);
+        const currentTranslateX = ref(-280);
+        const isDraggingMobileMenu = ref(false);
+        const windowWidth = ref(window.innerWidth);
+
+        const mobileSidebarStyle = computed(() => {
+          if (windowWidth.value > 768) {
+            return {};
+          }
+          return {
+            transform: `translateX(${currentTranslateX.value}px)`,
+            transition: isDraggingMobileMenu.value ? 'none' : 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+            boxShadow: (isMobileMenuOpen.value || isDraggingMobileMenu.value) ? '0 0 30px rgba(0,0,0,0.5)' : 'none'
+          };
+        });
+
+        const backdropStyle = computed(() => {
+          if (windowWidth.value > 768) {
+            return { display: 'none' };
+          }
+          const opacity = ((currentTranslateX.value + 280) / 280) * 0.6;
+          return {
+            opacity: opacity,
+            pointerEvents: (isMobileMenuOpen.value || isDraggingMobileMenu.value) ? 'auto' : 'none',
+            transition: isDraggingMobileMenu.value ? 'none' : 'opacity 0.3s ease'
+          };
+        });
+
+        function openMobileMenu() {
+          isMobileMenuOpen.value = true;
+          currentTranslateX.value = 0;
+        }
+
+        function closeMobileMenu() {
+          isMobileMenuOpen.value = false;
+          currentTranslateX.value = -280;
+        }
+
+        function toggleMobileMenu() {
+          if (isMobileMenuOpen.value) {
+            closeMobileMenu();
+          } else {
+            openMobileMenu();
+          }
+        }
+
+        function getMobileHeaderTitle() {
+          switch (currentView.value) {
+            case 'dashboard': return 'แดชบอร์ด';
+            case 'search': return 'ข้อมูลเด็กและเยาวชน';
+            case 'calendar': return 'ปฏิทินวันนัด';
+            case 'counselors': return 'ผู้ให้คำปรึกษา';
+            case 'monthly_report': return 'สถิติคดีประจำเดือน';
+            case 'users': return 'จัดการผู้ใช้งาน';
+            default: return 'CCMS Rayong';
+          }
+        }
+        
         // Form & Queries state
         const searchId = ref('');
         const searchDone = ref(false);
@@ -479,6 +538,100 @@
           counselorActiveCases: []
         });
 
+        const activePrintType = ref('dashboard');
+        const currentYearCE = new Date().getFullYear();
+        const currentMonthNum = new Date().getMonth() + 1;
+        const currentYearBE = currentYearCE + 543;
+
+        const monthlyReport = reactive({
+          selectedMonth: currentMonthNum,
+          selectedYear: currentYearBE,
+          data: {},
+          defaults: {},
+          loading: false,
+          editing: false,
+          saving: false,
+          hasSaved: false,
+          activeTab: 'summary',
+          charges: [],
+          directors: [],
+          selectedDirectorId: ''
+        });
+
+        const selectedDirectorObj = computed(() => {
+          return monthlyReport.directors.find(d => d.userId == monthlyReport.selectedDirectorId) || null;
+        });
+
+        const showMonthYearPicker = ref(false);
+        const tempSelectedMonth = ref(currentMonthNum);
+        const tempSelectedYear = ref(currentYearBE);
+        const thaiMonthsShort = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+        const availableReportYears = ref([currentYearBE, currentYearBE - 1, currentYearBE - 2, currentYearBE - 3]);
+
+        function selectMonthYear(monthNum) {
+          monthlyReport.selectedMonth = monthNum;
+          monthlyReport.selectedYear = tempSelectedYear.value;
+          showMonthYearPicker.value = false;
+          loadMonthlyReport();
+        }
+
+        function scrollToItem(type, val) {
+          if (type === 'month') {
+            const index = val - 1;
+            const wheel = document.querySelector('.wheel-month-column');
+            if (wheel) wheel.scrollTop = index * 40;
+            tempSelectedMonth.value = val;
+          } else if (type === 'year') {
+            const index = availableReportYears.value.indexOf(val);
+            const wheel = document.querySelector('.wheel-year-column');
+            if (wheel) wheel.scrollTop = index * 40;
+            tempSelectedYear.value = val;
+          }
+        }
+
+        let isInitializingPicker = false;
+
+        function togglePicker() {
+          showMonthYearPicker.value = !showMonthYearPicker.value;
+          if (showMonthYearPicker.value) {
+            isInitializingPicker = true;
+            tempSelectedMonth.value = monthlyReport.selectedMonth;
+            tempSelectedYear.value = monthlyReport.selectedYear;
+            setTimeout(() => {
+              scrollToItem('month', tempSelectedMonth.value);
+              scrollToItem('year', tempSelectedYear.value);
+              setTimeout(() => {
+                isInitializingPicker = false;
+              }, 150);
+            }, 50);
+          }
+        }
+
+        function onWheelScroll(e, type) {
+          if (isInitializingPicker) return;
+          const scrollTop = e.target.scrollTop;
+          const index = Math.round(scrollTop / 40);
+          if (type === 'month') {
+            const m = Math.max(1, Math.min(12, index + 1));
+            if (tempSelectedMonth.value !== m) {
+              tempSelectedMonth.value = m;
+            }
+          } else if (type === 'year') {
+            const yearIndex = Math.max(0, Math.min(availableReportYears.value.length - 1, index));
+            const y = availableReportYears.value[yearIndex];
+            if (tempSelectedYear.value !== y) {
+              tempSelectedYear.value = y;
+            }
+          }
+        }
+
+        function confirmMonthYear() {
+          monthlyReport.selectedMonth = tempSelectedMonth.value;
+          monthlyReport.selectedYear = tempSelectedYear.value;
+          showMonthYearPicker.value = false;
+          loadMonthlyReport();
+        }
+
         // Local Form States
         const loginForm = reactive({ usernameOrEmail: '', password: '' });
         const registerForm = reactive({ full_name: '', email: '', username: '', position: '', password: '' });
@@ -531,6 +684,87 @@
         onMounted(() => {
           checkSavedSession();
           fetchAdminProfileImage();
+          
+          // Mobile Menu Swipe Gestures & Resize Handler
+          window.addEventListener('resize', () => {
+            windowWidth.value = window.innerWidth;
+            if (window.innerWidth > 768) {
+              closeMobileMenu();
+            }
+          });
+
+          let touchStartX = 0;
+          let touchStartY = 0;
+          let isSwipeActive = false;
+          const sidebarWidth = 280;
+
+          window.addEventListener('touchstart', (e) => {
+            if (window.innerWidth > 768) return;
+            const target = e.target;
+            if (target && (target.closest('.wheel-column') || target.closest('select') || target.closest('input') || target.closest('textarea') || target.closest('.no-swipe'))) {
+              return;
+            }
+            const clientX = e.touches[0].clientX;
+            const clientY = e.touches[0].clientY;
+            
+            if (!isMobileMenuOpen.value && clientX < 45) {
+              touchStartX = clientX;
+              touchStartY = clientY;
+              isSwipeActive = true;
+              isDraggingMobileMenu.value = true;
+              currentTranslateX.value = -sidebarWidth;
+            } else if (isMobileMenuOpen.value) {
+              touchStartX = clientX;
+              touchStartY = clientY;
+              isSwipeActive = true;
+              isDraggingMobileMenu.value = true;
+              currentTranslateX.value = 0;
+            }
+          }, { passive: true });
+
+          window.addEventListener('touchmove', (e) => {
+            if (!isSwipeActive) return;
+            const clientX = e.touches[0].clientX;
+            const clientY = e.touches[0].clientY;
+            const deltaX = clientX - touchStartX;
+            const deltaY = clientY - touchStartY;
+            
+            if (Math.abs(deltaX) > Math.abs(deltaY)) {
+              if (!isMobileMenuOpen.value) {
+                let newTranslate = -sidebarWidth + deltaX;
+                if (newTranslate > 0) newTranslate = 0;
+                if (newTranslate < -sidebarWidth) newTranslate = -sidebarWidth;
+                currentTranslateX.value = newTranslate;
+              } else {
+                let newTranslate = deltaX;
+                if (newTranslate > 0) newTranslate = 0;
+                if (newTranslate < -sidebarWidth) newTranslate = -sidebarWidth;
+                currentTranslateX.value = newTranslate;
+              }
+            }
+          }, { passive: true });
+
+          window.addEventListener('touchend', (e) => {
+            if (!isSwipeActive) return;
+            isSwipeActive = false;
+            isDraggingMobileMenu.value = false;
+            const threshold = sidebarWidth / 3;
+            const currentPos = currentTranslateX.value;
+            
+            if (!isMobileMenuOpen.value) {
+              if (currentPos > -sidebarWidth + threshold) {
+                openMobileMenu();
+              } else {
+                closeMobileMenu();
+              }
+            } else {
+              if (currentPos < -threshold) {
+                closeMobileMenu();
+              } else {
+                openMobileMenu();
+              }
+            }
+          });
           
           // ตั้งค่าธีมอัตโนมัติตามเวลา หรือดึงค่าจากที่บันทึกไว้ล่าสุด
           const savedTheme = localStorage.getItem('theme');
@@ -732,19 +966,19 @@
             selectLists.approverName = res.selectLists.approverName || "";
             selectLists.acknowledgerName = res.selectLists.acknowledgerName || "";
           }
-          if (res.defendants) {
+          if (res.defendants && res.defendants.length > 0) {
             defendantsList.value = res.defendants;
           }
-          if (res.appointments) {
+          if (res.appointments && res.appointments.length > 0) {
             appointments.value = res.appointments;
           }
           if (res.dashboardAllAppointments) {
             dashboardAllAppointments.value = res.dashboardAllAppointments;
           }
-          if (res.users) {
+          if (res.users && res.users.length > 0) {
             usersList.value = res.users;
           }
-          if (res.counselors) {
+          if (res.counselors && res.counselors.length > 0) {
             counselorsList.value = res.counselors.map(c => ({ ...c, isEditing: false }));
           }
         }
@@ -1558,7 +1792,15 @@
             currentView.value = 'dashboard';
             return;
           }
+          if (viewName === 'monthly_report' && session.value.role === 'counselor') {
+            alert("ขออภัย บัญชีผู้ให้คำปรึกษาไม่สามารถเข้าใช้งานสถิติคดีประจำเดือนได้");
+            currentView.value = 'dashboard';
+            return;
+          }
           currentView.value = viewName;
+          if (windowWidth.value <= 768) {
+            closeMobileMenu();
+          }
           if (viewName === 'search') {
             searchDone.value = false;
             newDefFormActive.value = false;
@@ -1566,6 +1808,11 @@
             cardCurrentPage.value = 1;
             if (defendantsList.value.length === 0) {
               loadDefendantsList();
+            } else {
+              loadDefendantsList(true); // ดึงข้อมูลล่าสุดเบื้องหลังเงียบๆ (Stale-While-Revalidate)
+            }
+            if (selectLists.charges.length === 0) {
+              loadSelectLists();
             }
           } else if (viewName === 'dashboard') {
             if (stats.totalNewCases === 0) {
@@ -1586,6 +1833,11 @@
             if (appointments.value.length === 0) {
               loadAppointments();
             }
+            if (selectLists.counselors.length === 0) {
+              loadSelectLists();
+            }
+          } else if (viewName === 'monthly_report') {
+            loadMonthlyReport();
           }
         }
 
@@ -2905,57 +3157,205 @@
                 },
                 "คดีจากศาลอื่น": {
                   newCases: [0, 1, 1, 1, 1, 2, 2, 2, 1, 2, 2, 2],
-                  closedCases: [0, 1, 1, 1, 1, 1, 2, 2, 1, 2, 2, 2],
-                  pendingCases: [1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2]
+                  closedCases: [0, 1, 1, 1, 1, 1, 2, 2, 1, 1, 2, 2],
+                  pendingCases: [1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3]
                 },
                 "คดีอื่นๆ": {
-                  newCases: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                  closedCases: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                  pendingCases: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-                }
-              },
-              2026: {
-                "ทั้งหมด": {
-                  newCases: [10, 15, 20, 12, 18, 25, 30, 22, 18, 26, 35, 30],
-                  closedCases: [8, 12, 16, 14, 15, 20, 25, 26, 20, 22, 30, 32],
-                  pendingCases: [15, 18, 22, 20, 23, 28, 33, 29, 27, 31, 36, 34]
-                },
-                "มาตรา 73": {
-                  newCases: [3, 4, 6, 3, 5, 7, 9, 6, 5, 7, 12, 10],
-                  closedCases: [2, 3, 5, 4, 4, 6, 7, 8, 5, 6, 10, 11],
-                  pendingCases: [4, 5, 6, 5, 6, 7, 9, 7, 7, 8, 10, 9]
-                },
-                "มาตรา 90": {
-                  newCases: [2, 3, 4, 3, 3, 5, 6, 5, 4, 5, 8, 7],
-                  closedCases: [2, 2, 4, 3, 3, 4, 5, 6, 4, 4, 7, 8],
-                  pendingCases: [3, 4, 4, 4, 4, 5, 6, 5, 5, 6, 7, 6]
-                },
-                "มาตรา 132 วรรคหนึ่ง": {
-                  newCases: [3, 5, 6, 4, 5, 8, 9, 7, 6, 9, 10, 9],
-                  closedCases: [2, 4, 5, 5, 5, 6, 8, 8, 7, 8, 9, 10],
-                  pendingCases: [5, 6, 7, 6, 6, 8, 9, 8, 7, 8, 9, 8]
-                },
-                "มาตรา 132 วรรคสอง": {
-                  newCases: [2, 2, 3, 2, 3, 3, 4, 3, 3, 4, 5, 4],
-                  closedCases: [2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4],
-                  pendingCases: [2, 2, 3, 3, 4, 4, 5, 5, 5, 6, 7, 7]
-                },
-                "คดีจากศาลอื่น": {
-                  newCases: [0, 1, 1, 0, 2, 2, 2, 1, 0, 1, 0, 0],
-                  closedCases: [0, 1, 1, 0, 1, 2, 2, 1, 0, 1, 0, 0],
-                  pendingCases: [1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2]
-                },
-                "คดีอื่นๆ": {
-                  newCases: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                  closedCases: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                  pendingCases: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+                  newCases: [0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0],
+                  closedCases: [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+                  pendingCases: [0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2]
                 }
               }
-            },
-            availableYears: [2025, 2026]
+            }
           };
-          updateDashboardUI(data);
+          dashboardRawData.value = data;
+          applyDashboardFilters();
+        }
 
+        function loadMonthlyReport() {
+          monthlyReport.editing = false;
+          
+          const yearCE = monthlyReport.selectedYear - 543;
+          const monthPad = String(monthlyReport.selectedMonth).padStart(2, '0');
+          const monthYearStr = yearCE + "-" + monthPad;
+          
+          // 1. ลองดึงข้อมูลจากแคชเบราว์เซอร์มาแสดงผลก่อน (ถ้ามี) เพื่อให้ระบบตอบสนองทันที
+          const cachedReportStr = localStorage.getItem(`ccms_monthly_report_${monthYearStr}`);
+          let hasCache = false;
+          if (cachedReportStr) {
+            try {
+              const res = JSON.parse(cachedReportStr);
+              monthlyReport.data = res.data;
+              monthlyReport.defaults = res.defaults;
+              monthlyReport.hasSaved = res.hasSaved;
+              monthlyReport.charges = res.charges || [];
+              monthlyReport.directors = res.directors || [];
+              if (monthlyReport.directors.length > 0 && !monthlyReport.selectedDirectorId) {
+                monthlyReport.selectedDirectorId = monthlyReport.directors[0].userId;
+              }
+              hasCache = true;
+            } catch (e) {
+              console.error("Failed to parse cached monthly report:", e);
+            }
+          }
+          
+          // หากไม่มีแคชเลย ค่อยแสดงตัวหมุนโหลด (Loader)
+          if (!hasCache) {
+            monthlyReport.loading = true;
+          }
+          
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                monthlyReport.loading = false;
+                if (res.success) {
+                  // อัปเดตข้อมูลล่าสุดลงหน้าจอ และเขียนทับแคช LocalStorage
+                  monthlyReport.data = res.data;
+                  monthlyReport.defaults = res.defaults;
+                  monthlyReport.hasSaved = res.hasSaved;
+                  monthlyReport.charges = res.charges || [];
+                  monthlyReport.directors = res.directors || [];
+                  if (monthlyReport.directors.length > 0 && !monthlyReport.selectedDirectorId) {
+                    monthlyReport.selectedDirectorId = monthlyReport.directors[0].userId;
+                  }
+                  
+                  try {
+                    localStorage.setItem(`ccms_monthly_report_${monthYearStr}`, JSON.stringify(res));
+                  } catch (e) {
+                    console.warn("ไม่สามารถบันทึกแคชรายงานประจำเดือนลงใน LocalStorage ได้:", e);
+                  }
+                } else {
+                  Swal.fire({
+                    icon: 'error',
+                    title: 'ข้อผิดพลาด',
+                    text: res.message
+                  });
+                }
+              })
+              .withFailureHandler((err) => {
+                monthlyReport.loading = false;
+                // ถ้ามีแคชแล้ว ไม่จำเป็นต้องขึ้นหน้าจอเออเรอร์รุนแรง แจ้งเป็นเตือนเบาๆ
+                if (hasCache) {
+                  console.warn("ไม่สามารถอัปเดตข้อมูลสถิติล่าสุดได้ (ใช้ออฟไลน์แคช)");
+                } else {
+                  Swal.fire({
+                    icon: 'error',
+                    title: 'ข้อผิดพลาด',
+                    text: 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้: ' + err.message
+                  });
+                }
+              })
+              .getMonthlyReport(monthYearStr, session.value.token);
+          } else {
+            monthlyReport.loading = false;
+            const mockCharges = [
+              { charge_no: 1, charge_statistics: "ความผิดเกี่ยวกับความมั่นคงแห่งราชอาณาจักร", charge_statistics_no: 1 },
+              { charge_no: 2, charge_statistics: "ความผิดต่อพระมหากษัตริย์ พระราชินี ต่อรัชทายาท ฯ ม.107 - ม.112", charge_statistics_no: 1.1 },
+              { charge_no: 3, charge_statistics: "ความผิดต่อความมั่นคงของรัฐ ม.115 - ม.118", charge_statistics_no: 1.2 },
+              { charge_no: 4, charge_statistics: "ความผิดต่อสัมพันธไมตรีกับต่างประเทศ ม.134 - ม.135", charge_statistics_no: 1.3 },
+              { charge_no: 5, charge_statistics: "ความผิดเกี่ยวกับการปกครอง", charge_statistics_no: 2 },
+              { charge_no: 6, charge_statistics: "ความผิดต่อเจ้าพนักงาน ม.136 - ม.146", charge_statistics_no: 2.1 },
+              { charge_no: 7, charge_statistics: "ความผิดต่อตำแหน่งหน้าที่ราชการ ม.147 - ม.166", charge_statistics_no: 2.2 },
+              { charge_no: 8, charge_statistics: "ความผิดเกี่ยวกับการยุติธรรม", charge_statistics_no: 3 },
+              { charge_no: 9, charge_statistics: "ความผิดต่อเจ้าพนักงานในการยุติธรรม ม.167 - ม.199", charge_statistics_no: 3.1 },
+              { charge_no: 10, charge_statistics: "ความผิดต่อตำแหน่งหน้าที่ในการยุติธรรม ม.200 - ม.205", charge_statistics_no: 3.2 },
+              { charge_no: 11, charge_statistics: "ความผิดเกี่ยวกับศาสนา ม.206 - ม.208", charge_statistics_no: 4 },
+              { charge_no: 12, charge_statistics: "ความผิดเกี่ยวกับความสงบสุขของประชาชน", charge_statistics_no: 5 },
+              { charge_no: 13, charge_statistics: "ความผิดฐานเป็นอั้งยี่ ม.209", charge_statistics_no: 5.1 },
+              { charge_no: 14, charge_statistics: "ความผิดฐานเป็นซ่องโจร ม.210", charge_statistics_no: 5.2 },
+              { charge_no: 15, charge_statistics: "ความผิดฐานเป็นอั้งยี่ , ซ่องโจร ม.211 - ม.214", charge_statistics_no: 5.3 },
+              { charge_no: 16, charge_statistics: "ความผิดเกี่ยวกับการก่อให้เกิดภยันตรายแก่ประชาชน ม.215 - ม.216", charge_statistics_no: 5.4 }
+            ];
+            monthlyReport.charges = mockCharges;
+            const mockData = {};
+            mockCharges.forEach(c => {
+              mockData[`sec2_m90_pending_${c.charge_no}`] = 0;
+              mockData[`sec2_m90_new_${c.charge_no}`] = 0;
+              mockData[`sec2_m90_success_${c.charge_no}`] = 0;
+              mockData[`sec2_m90_failed_${c.charge_no}`] = 0;
+              mockData[`sec2_m90_active_${c.charge_no}`] = 0;
+              mockData[`sec2_m90_noconsent_${c.charge_no}`] = 0;
+            });
+            monthlyReport.data = mockData;
+            monthlyReport.defaults = { ...mockData };
+            monthlyReport.hasSaved = false;
+          }
+        }
+ 
+        function saveMonthlyReport() {
+          if (session.value.role !== 'admin' && session.value.role !== 'psychologist') {
+            Swal.fire({
+              icon: 'error',
+              title: 'ถูกปฏิเสธการเข้าถึง',
+              text: 'คุณไม่มีสิทธิ์ในการบันทึกหรือแก้ไขข้อมูลรายงานนี้'
+            });
+            return;
+          }
+          monthlyReport.saving = true;
+          const yearCE = monthlyReport.selectedYear - 543;
+          const monthPad = String(monthlyReport.selectedMonth).padStart(2, '0');
+          const monthYearStr = yearCE + "-" + monthPad;
+          
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                monthlyReport.saving = false;
+                monthlyReport.editing = false;
+                if (res.success) {
+                  monthlyReport.hasSaved = true;
+                  Swal.fire({
+                    icon: 'success',
+                    title: 'สำเร็จ',
+                    text: res.message,
+                    timer: 1500,
+                    showConfirmButton: false
+                  });
+                  
+                  // อัปเดตแคชเมื่อบันทึกข้อมูลเรียบร้อย
+                  try {
+                    const freshCachedRes = {
+                      success: true,
+                      data: monthlyReport.data,
+                      defaults: monthlyReport.defaults,
+                      hasSaved: true,
+                      charges: monthlyReport.charges,
+                      directors: monthlyReport.directors
+                    };
+                    localStorage.setItem(`ccms_monthly_report_${monthYearStr}`, JSON.stringify(freshCachedRes));
+                  } catch (e) {
+                    console.warn("ไม่สามารถอัปเดตแคชประจำเดือนได้:", e);
+                  }
+                  
+                  loadMonthlyReport();
+                } else {
+                  Swal.fire({
+                    icon: 'error',
+                    title: 'ข้อผิดพลาด',
+                    text: res.message
+                  });
+                }
+              })
+              .withFailureHandler((err) => {
+                monthlyReport.saving = false;
+                Swal.fire({
+                  icon: 'error',
+                  title: 'ข้อผิดพลาด',
+                  text: 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้: ' + err.message
+                });
+              })
+              .saveMonthlyReportData(monthYearStr, monthlyReport.data, session.value.token);
+          } else {
+            monthlyReport.saving = false;
+            monthlyReport.editing = false;
+            monthlyReport.hasSaved = true;
+            Swal.fire({
+              icon: 'success',
+              title: 'สำเร็จ (Mock)',
+              text: 'บันทึกข้อมูลสถิติคดีประจำเดือนเรียบร้อยแล้ว',
+              timer: 1500,
+              showConfirmButton: false
+            });
+          }
         }
 
         function simulateOfflineSelectLists() {
@@ -3091,8 +3491,19 @@
         function updateReportZoom() {
           const container = document.querySelector('.print-preview-scroll-container');
           const width = container ? container.clientWidth : window.innerWidth;
-          const zoomFactor = Math.min(1, (width - 16) / 794);
-          manualZoom.value = Math.round(zoomFactor * 100) / 100;
+          const height = window.innerHeight;
+          
+          const isLandscape = activePrintType.value === 'dashboard' || 
+                              (activePrintType.value === 'monthly' && monthlyReport.activeTab === 'm132');
+          
+          const sheetWidth = isLandscape ? 1123 : 794;
+          const sheetHeight = isLandscape ? 794 : 1123;
+          
+          const zoomWidth = (width - 40) / sheetWidth;
+          const zoomHeight = (height - 120) / sheetHeight;
+          
+          let zoomFactor = Math.min(1.2, zoomWidth, zoomHeight);
+          manualZoom.value = Math.max(0.35, Math.round(zoomFactor * 100) / 100);
           document.documentElement.style.setProperty('--report-zoom', manualZoom.value.toString());
         }
 
@@ -3104,7 +3515,16 @@
           printModalActive.value = true;
           
           const width = window.innerWidth;
-          const zoomFactor = Math.min(1, (width - 16) / 794);
+          const height = window.innerHeight;
+          const isLandscape = activePrintType.value === 'dashboard' || 
+                              (activePrintType.value === 'monthly' && monthlyReport.activeTab === 'm132');
+          const sheetWidth = isLandscape ? 1123 : 794;
+          const sheetHeight = isLandscape ? 794 : 1123;
+          
+          const zoomWidth = (width - 40) / sheetWidth;
+          const zoomHeight = (height - 120) / sheetHeight;
+          
+          let zoomFactor = Math.min(1.2, zoomWidth, zoomHeight);
           manualZoom.value = Math.max(0.35, Math.round(zoomFactor * 100) / 100);
           
           setTimeout(() => {
@@ -3126,7 +3546,219 @@
             container.removeEventListener('touchmove', handleTouchMove);
             container.removeEventListener('touchend', handleTouchEnd);
           }
+          const styleEl = document.getElementById('dynamic-print-style');
+          if (styleEl) {
+            styleEl.innerHTML = '';
+          }
           printModalActive.value = false;
+        }
+
+        function loadMonthlyReport() {
+          monthlyReport.loading = true;
+          monthlyReport.editing = false;
+          
+          const yearCE = monthlyReport.selectedYear - 543;
+          const monthPad = String(monthlyReport.selectedMonth).padStart(2, '0');
+          const monthYearStr = yearCE + "-" + monthPad;
+          
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                monthlyReport.loading = false;
+                if (res.success) {
+                  monthlyReport.data = res.data;
+                  monthlyReport.defaults = res.defaults;
+                  monthlyReport.hasSaved = res.hasSaved;
+                  monthlyReport.charges = res.charges || [];
+                  monthlyReport.directors = res.directors || [];
+                  if (monthlyReport.directors.length > 0 && !monthlyReport.selectedDirectorId) {
+                    monthlyReport.selectedDirectorId = monthlyReport.directors[0].userId;
+                  }
+                } else {
+                  Swal.fire({
+                    icon: 'error',
+                    title: 'ข้อผิดพลาด',
+                    text: res.message
+                  });
+                }
+              })
+              .withFailureHandler((err) => {
+                monthlyReport.loading = false;
+                Swal.fire({
+                  icon: 'error',
+                  title: 'ข้อผิดพลาด',
+                  text: 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้: ' + err.message
+                });
+              })
+              .getMonthlyReport(monthYearStr, session.value.token);
+          } else {
+            monthlyReport.loading = false;
+            const mockCharges = [
+              { charge_no: 1, charge_statistics: "ความผิดเกี่ยวกับความมั่นคงแห่งราชอาณาจักร", charge_statistics_no: 1 },
+              { charge_no: 2, charge_statistics: "ความผิดต่อพระมหากษัตริย์ พระราชินี ต่อรัชทายาท ฯ ม.107 - ม.112", charge_statistics_no: 1.1 },
+              { charge_no: 3, charge_statistics: "ความผิดต่อความมั่นคงของรัฐ ม.115 - ม.118", charge_statistics_no: 1.2 },
+              { charge_no: 4, charge_statistics: "ความผิดต่อสัมพันธไมตรีกับต่างประเทศ ม.134 - ม.135", charge_statistics_no: 1.3 },
+              { charge_no: 5, charge_statistics: "ความผิดเกี่ยวกับการปกครอง", charge_statistics_no: 2 },
+              { charge_no: 6, charge_statistics: "ความผิดต่อเจ้าพนักงาน ม.136 - ม.146", charge_statistics_no: 2.1 },
+              { charge_no: 7, charge_statistics: "ความผิดต่อตำแหน่งหน้าที่ราชการ ม.147 - ม.166", charge_statistics_no: 2.2 },
+              { charge_no: 8, charge_statistics: "ความผิดเกี่ยวกับการยุติธรรม", charge_statistics_no: 3 },
+              { charge_no: 9, charge_statistics: "ความผิดต่อเจ้าพนักงานในการยุติธรรม ม.167 - ม.199", charge_statistics_no: 3.1 },
+              { charge_no: 10, charge_statistics: "ความผิดต่อตำแหน่งหน้าที่ในการยุติธรรม ม.200 - ม.205", charge_statistics_no: 3.2 },
+              { charge_no: 11, charge_statistics: "ความผิดเกี่ยวกับศาสนา ม.206 - ม.208", charge_statistics_no: 4 },
+              { charge_no: 12, charge_statistics: "ความผิดเกี่ยวกับความสงบสุขของประชาชน", charge_statistics_no: 5 },
+              { charge_no: 13, charge_statistics: "ความผิดฐานเป็นอั้งยี่ ม.209", charge_statistics_no: 5.1 },
+              { charge_no: 14, charge_statistics: "ความผิดฐานเป็นซ่องโจร ม.210", charge_statistics_no: 5.2 },
+              { charge_no: 120, charge_statistics: "ข้อหาอื่นนอกเหนือจากบัญชี", charge_statistics_no: null },
+              { charge_no: 121, charge_statistics: "พ.ร.บ.ควบคุมเครื่องดื่มแอลกอฮอล์ พ.ศ.2551", charge_statistics_no: 1 },
+              { charge_no: 122, charge_statistics: "พ.ร.บ.คุ้มครองเด็ก พ.ศ.2546", charge_statistics_no: 2 }
+            ];
+            monthlyReport.charges = mockCharges;
+            const mockData = {};
+            const keys = [
+              "sec2_m90_pending", "sec2_m90_entered", "sec2_m90_success", "sec2_m90_failed", "sec2_m90_progress",
+              "sec2_m132_pending", "sec2_m132_entered", "sec2_m132_success", "sec2_m132_failed", "sec2_m132_progress",
+              "sec4_m90_pending", "sec4_m90_entered", "sec4_m90_success", "sec4_m90_failed", "sec4_m90_progress",
+              "sec4_m132_pending", "sec4_m132_entered", "sec4_m132_success", "sec4_m132_failed", "sec4_m132_progress",
+              "sec6_m90_t1", "sec6_m90_t2", "sec6_m90_t3", "sec6_m90_t4", "sec6_m90_t5",
+              "sec6_m132_t1", "sec6_m132_t2", "sec6_m132_t3", "sec6_m132_t4", "sec6_m132_t5",
+              "sec11_m90_t1", "sec11_m90_t2", "sec11_m90_t3", "sec11_m90_t4", "sec11_m90_t5",
+              "sec11_m132_t1", "sec11_m132_t2", "sec11_m132_t3", "sec11_m132_t4", "sec11_m132_t5",
+              "sec16_m90_cases", "sec16_m90_people", "sec16_m90_days", "sec16_m90_times", "sec16_m90_money",
+              "sec16_m132_cases", "sec16_m132_people", "sec16_m132_days", "sec16_m132_times", "sec16_m132_money"
+            ];
+            mockCharges.forEach(c => {
+              const cNo = c.charge_no;
+              keys.push(`m90_c${cNo}_1`);
+              keys.push(`m90_c${cNo}_2`);
+              keys.push(`m90_c${cNo}_3`);
+              for (let col = 1; col <= 12; col++) {
+                keys.push(`m132_c${cNo}_${col}`);
+              }
+            });
+            keys.forEach(k => { mockData[k] = k.startsWith("sec16") ? 0 : Math.floor(Math.random() * 5); });
+            monthlyReport.data = mockData;
+            monthlyReport.defaults = { ...mockData };
+            monthlyReport.hasSaved = false;
+          }
+        }
+
+        function saveMonthlyReport() {
+          if (session.value.role !== 'admin' && session.value.role !== 'psychologist') {
+            Swal.fire({
+              icon: 'error',
+              title: 'ถูกปฏิเสธการเข้าถึง',
+              text: 'คุณไม่มีสิทธิ์ในการบันทึกหรือแก้ไขข้อมูลรายงานนี้'
+            });
+            return;
+          }
+          monthlyReport.saving = true;
+          const yearCE = monthlyReport.selectedYear - 543;
+          const monthPad = String(monthlyReport.selectedMonth).padStart(2, '0');
+          const monthYearStr = yearCE + "-" + monthPad;
+          
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                monthlyReport.saving = false;
+                monthlyReport.editing = false;
+                if (res.success) {
+                  monthlyReport.hasSaved = true;
+                  Swal.fire({
+                    icon: 'success',
+                    title: 'สำเร็จ',
+                    text: res.message,
+                    timer: 1500,
+                    showConfirmButton: false
+                  });
+                  loadMonthlyReport();
+                } else {
+                  Swal.fire({
+                    icon: 'error',
+                    title: 'ข้อผิดพลาด',
+                    text: res.message
+                  });
+                }
+              })
+              .withFailureHandler((err) => {
+                monthlyReport.saving = false;
+                Swal.fire({
+                  icon: 'error',
+                  title: 'ข้อผิดพลาด',
+                  text: 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้: ' + err.message
+                });
+              })
+              .saveMonthlyReportData(monthYearStr, monthlyReport.data, session.value.token);
+          } else {
+            monthlyReport.saving = false;
+            monthlyReport.editing = false;
+            monthlyReport.hasSaved = true;
+            Swal.fire({
+              icon: 'success',
+              title: 'สำเร็จ (Mock)',
+              text: 'บันทึกข้อมูลสถิติคดีประจำเดือนเรียบร้อยแล้ว',
+              timer: 1500,
+              showConfirmButton: false
+            });
+          }
+        }
+
+        function useAutoCalculatedValues() {
+          if (session.value.role !== 'admin' && session.value.role !== 'psychologist') {
+            return;
+          }
+          Swal.fire({
+            title: 'ยืนยันการใช้ค่าที่ระบบคำนวณ?',
+            text: 'ตัวเลขที่แก้ไขไว้ทั้งหมดจะถูกเขียนทับด้วยข้อมูลจากฐานข้อมูลหลัก',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'ยืนยัน',
+            cancelButtonText: 'ยกเลิก',
+            confirmButtonColor: 'var(--primary)',
+            cancelButtonColor: '#94a3b8'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              monthlyReport.data = { ...monthlyReport.defaults };
+              Swal.fire({
+                icon: 'success',
+                title: 'เขียนทับสำเร็จ',
+                text: 'นำค่าคำนวณระบบมาใส่ในฟอร์มแล้ว (กรุณากดบันทึกหากต้องการยืนยันค่านี้)',
+                timer: 1500,
+                showConfirmButton: false
+              });
+            }
+          });
+        }
+
+        function openMonthlyPrintPreview() {
+          activePrintType.value = 'monthly';
+          printModalActive.value = true;
+          
+          let styleEl = document.getElementById('dynamic-print-style');
+          if (!styleEl) {
+            styleEl = document.createElement('style');
+            styleEl.id = 'dynamic-print-style';
+            document.head.appendChild(styleEl);
+          }
+          if (monthlyReport.activeTab === 'summary') {
+            styleEl.innerHTML = '@media print { @page { size: portrait; margin: 15mm !important; } }';
+          } else {
+            styleEl.innerHTML = '@media print { @page { size: landscape; margin: 8mm !important; } }';
+          }
+          
+          const width = window.innerWidth;
+          const zoomFactor = Math.min(1, (width - 16) / 794);
+          manualZoom.value = Math.max(0.35, Math.round(zoomFactor * 100) / 100);
+          
+          setTimeout(() => {
+            document.documentElement.style.setProperty('--report-zoom', manualZoom.value.toString());
+            const container = document.querySelector('.print-preview-scroll-container');
+            if (container) {
+              container.addEventListener('touchstart', handleTouchStart, { passive: true });
+              container.addEventListener('touchmove', handleTouchMove, { passive: false });
+              container.addEventListener('touchend', handleTouchEnd, { passive: true });
+            }
+          }, 50);
+          setTimeout(updateReportZoom, 250);
         }
 
         const savingCounselorComments = ref(false);
@@ -3295,6 +3927,84 @@
           }
         }
 
+        // Charge grouping relationships for Section 90 and Section 132
+        const chargeGroups = {
+          1: [2, 3, 4],
+          5: [6, 7],
+          8: [9, 10],
+          12: [13, 14, 15, 16],
+          17: [18, 19, 20, 21, 22],
+          23: [24, 25, 26],
+          28: [29, 30, 31, 32, 33, 34],
+          35: [36, 37, 38, 39, 40, 41],
+          42: [43, 44, 45],
+          46: [47, 48, 49],
+          50: [51, 52, 53, 54, 55],
+          80: [81, 82, 83, 84, 85, 86, 87, 88, 89],
+          63: [64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120],
+          120: [121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131]
+        };
+
+        function getCategorySum(prefix, chargeNo, colIndex) {
+          if (!monthlyReport.data) return 0;
+          if (chargeGroups[chargeNo]) {
+            let sum = 0;
+            chargeGroups[chargeNo].forEach(childNo => {
+              sum += getCategorySum(prefix, childNo, colIndex);
+            });
+            return sum;
+          }
+          const key = `${prefix}_c${chargeNo}_${colIndex}`;
+          return parseInt(monthlyReport.data[key]) || 0;
+        }
+
+        function getRowTotal(prefix, chargeNo) {
+          const cols = prefix === 'm90' ? 3 : 12;
+          let sum = 0;
+          for (let c = 1; c <= cols; c++) {
+            sum += getCategorySum(prefix, chargeNo, c);
+          }
+          return sum;
+        }
+
+        function isCategoryHeader(chargeNo) {
+          return !!chargeGroups[chargeNo];
+        }
+
+        const criminalCodeMainItems = [1, 5, 8, 11, 12, 17, 23, 27, 28, 35, 42, 46, 50, 56, 57, 58, 59, 60, 61, 62];
+
+        function getCriminalCodeTotal(prefix, colIndex) {
+          let sum = 0;
+          criminalCodeMainItems.forEach(chargeNo => {
+            sum += getCategorySum(prefix, chargeNo, colIndex);
+          });
+          return sum;
+        }
+
+        function getCriminalCodeRowTotal(prefix) {
+          let sum = 0;
+          criminalCodeMainItems.forEach(chargeNo => {
+            sum += getRowTotal(prefix, chargeNo);
+          });
+          return sum;
+        }
+
+        function getTableGrandTotal(prefix, colIndex) {
+          const crimTotal = getCriminalCodeTotal(prefix, colIndex);
+          const otherTotal = getCategorySum(prefix, 63, colIndex);
+          const outsideTotal = getCategorySum(prefix, 120, colIndex);
+          return crimTotal + otherTotal + outsideTotal;
+        }
+
+        function getTableGrandRowTotal(prefix) {
+          const cols = prefix === 'm90' ? 3 : 12;
+          let sum = 0;
+          for (let c = 1; c <= cols; c++) {
+            sum += getTableGrandTotal(prefix, c);
+          }
+          return sum;
+        }
+
         return {
           session, currentView, authView, loading, errorMsg, cacheTime, isOffline, authAlert, adminProfileImage, isEditingProfile, cancelEditingProfile,
           searchId, searchDone, currentDef, linkedCases, newDefFormActive, usersList, counselorsList,
@@ -3346,9 +4056,19 @@
            // Grouped charges for custom legend
            groupedTopCharges,
            
-           // Counselor comments saving state & action
-           savingCounselorComments, saveCounselorComments, isEditingCounselorNote, tempCounselorNote, startEditCounselorNote, cancelEditCounselorNote
-         };
+            // Monthly report states & methods
+             monthlyReport, activePrintType, loadMonthlyReport, saveMonthlyReport, useAutoCalculatedValues, openMonthlyPrintPreview,
+             showMonthYearPicker, tempSelectedMonth, tempSelectedYear, thaiMonthsShort, availableReportYears, selectMonthYear,
+              scrollToItem, togglePicker, onWheelScroll, confirmMonthYear,
+              chargeGroups, getCategorySum, getRowTotal, getCriminalCodeTotal, getCriminalCodeRowTotal, getTableGrandTotal, getTableGrandRowTotal, isCategoryHeader, selectedDirectorObj,
+             
+             // Counselor comments saving state & action
+             savingCounselorComments, saveCounselorComments, isEditingCounselorNote, tempCounselorNote, startEditCounselorNote, cancelEditCounselorNote,
+             
+             // Mobile Menu States & Methods
+             isMobileMenuOpen, currentTranslateX, isDraggingMobileMenu, windowWidth, mobileSidebarStyle, backdropStyle,
+             openMobileMenu, closeMobileMenu, toggleMobileMenu, getMobileHeaderTitle
+          };
       }
     }).mount('#app');
   </script>

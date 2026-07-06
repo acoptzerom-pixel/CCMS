@@ -234,14 +234,27 @@
          ========================================== -->
     <div v-else class="app-container" v-show="!printModalActive">
       
-      <!-- SIDEBAR NAV (DESKTOP) -->
-      <aside class="sidebar">
+      <!-- MOBILE TOP HEADER BAR -->
+      <header class="mobile-header">
+        <button class="mobile-menu-btn" @click="toggleMobileMenu" aria-label="เปิดเมนูด้านข้าง">
+          <i class="fa-solid fa-bars"></i>
+          <span class="mobile-menu-text">เมนูการใช้งาน</span>
+        </button>
+        <span class="mobile-header-title">{{ getMobileHeaderTitle() }}</span>
+        <div class="mobile-header-avatar" @click="openSettingsModal" title="ตั้งค่าข้อมูลส่วนตัว">
+          <img v-if="session.profileImage" :src="session.profileImage" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+          <span v-else style="color: #ffffff; font-weight: bold; font-size: 0.75rem;">{{ session.fullName.substring(0, 2) }}</span>
+        </div>
+      </header>
+
+      <!-- SIDEBAR NAV (DESKTOP / MOBILE DRAWER) -->
+      <aside class="sidebar" :class="{ 'mobile-open': isMobileMenuOpen }" :style="mobileSidebarStyle">
         <div>
           <div class="brand" style="margin-bottom: 25px; align-items: flex-start;">
             <div class="brand-logo" style="flex-shrink: 0;"><i class="fa-solid fa-scale-balanced"></i></div>
             <div>
               <div class="brand-name">CCMS Rayong</div>
-              <div style="font-size: 0.55rem; color: var(--text-muted); line-height: 1.3; margin-top: 3px; font-weight: 500;">ศูนย์ให้คำปรึกษาแนะนำและประสานการประชุม เพื่อแก้ไข บำบัด ฟื้นฟู เด็ก เยาวชนและครอบครัว</div>
+              <div style="font-size: 0.65rem; color: var(--text-muted); line-height: 1.3; margin-top: 3px; font-weight: 500;">ศูนย์ให้คำปรึกษาแนะนำและประสานการประชุม เพื่อแก้ไข บำบัด ฟื้นฟู เด็ก เยาวชนและครอบครัว</div>
               <div style="font-size: 0.65rem; color: var(--text-muted); font-weight: 600; margin-top: 3px; letter-spacing: 0.5px;">ศาลเยาวชนและครอบครัวจังหวัดระยอง</div>
             </div>
           </div>
@@ -282,6 +295,9 @@
             <li v-if="session.role === 'admin' || session.role === 'psychologist'" class="nav-item" :class="{ active: currentView === 'counselors' }">
               <a href="#" @click.prevent="switchView('counselors')"><i class="fa-solid fa-user-doctor"></i> ข้อมูลผู้ให้คำปรึกษา</a>
             </li>
+            <li v-if="session.role !== 'counselor'" class="nav-item" :class="{ active: currentView === 'monthly_report' }">
+              <a href="#" @click.prevent="switchView('monthly_report')"><i class="fa-solid fa-file-invoice"></i> สถิติคดีประจำเดือน</a>
+            </li>
             <li v-if="session.role === 'admin'" class="nav-item" :class="{ active: currentView === 'users' }">
               <a href="#" @click.prevent="switchView('users')"><i class="fa-solid fa-user-gear"></i> สิทธิ์ผู้ใช้งาน</a>
             </li>
@@ -302,6 +318,9 @@
           </button>
         </div>
       </aside>
+      
+      <!-- BACKDROP OVERLAY FOR MOBILE MENU -->
+      <div class="sidebar-backdrop" :class="{ 'show': isMobileMenuOpen || isDraggingMobileMenu }" :style="backdropStyle" @click="closeMobileMenu"></div>
       
       <!-- MOBILE BOTTOM NAV -->
       <nav class="bottom-nav">
@@ -1490,6 +1509,652 @@
           </div>
         </div>
 
+        <!-- ====================================
+             3.6 สถิติคดีประจำเดือน (MONTHLY REPORT)
+             ==================================== -->
+        <div v-show="currentView === 'monthly_report'" class="animate-in" style="position: relative;">
+          <div v-if="monthlyReport.loading" class="loading-overlay">
+            <span class="loader"></span>
+            <p style="font-weight: 500;">กำลังประมวลผลข้อมูลสถิติคดีประจำเดือน...</p>
+          </div>
+
+          <div class="page-header header-monthly" style="border-left: 5px solid #10b981;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <div class="page-header-icon" style="background: linear-gradient(135deg, #10b981 0%, #34d399 100%);">
+                <i class="fa-solid fa-file-invoice"></i>
+              </div>
+              <div>
+                <h1 class="page-title">สถิติคดีประจำเดือน (งานช่วยอำนวยการ)</h1>
+                <p class="page-title-desc">รายงานสรุปผลการปฏิบัติตามมาตรา 90 และมาตรา 132 ประจำเดือน</p>
+              </div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 20px;">
+              <div style="display: flex; align-items: center; gap: 10px;" class="hide-mobile">
+                <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
+                  <i class="fa-regular fa-calendar-days"></i> {{ currentThaiDate }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- แผงควบคุม ค้นหา และพิมพ์ -->
+          <div class="glass-card shadow-sm" style="margin-bottom: 25px; padding: 20px; border-radius: 16px; position: relative; z-index: 100;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+              <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <!-- Custom Month-Year Picker (Wheel-style) -->
+                <div class="custom-picker-container">
+                  <button type="button" class="picker-btn" @click="togglePicker">
+                    <span>
+                      <i class="fa-solid fa-calendar-check" style="color: var(--primary); margin-right: 8px;"></i>
+                      {{ thaiMonths[monthlyReport.selectedMonth - 1] }} พ.ศ. {{ monthlyReport.selectedYear }}
+                    </span>
+                    <i class="fa-solid fa-chevron-down" style="font-size: 0.8rem; color: var(--text-muted);"></i>
+                  </button>
+                  
+                  <!-- Backdrop to close when clicking outside -->
+                  <div v-if="showMonthYearPicker" class="picker-backdrop" @click="showMonthYearPicker = false"></div>
+                  
+                  <!-- Popover Panel (Gray-themed Wheel Picker) -->
+                  <div v-if="showMonthYearPicker" class="picker-popover" style="width: 280px; background: var(--bg-card); border: 1px solid var(--card-border);">
+                    <div style="font-weight: 700; font-size: 0.9rem; text-align: center; margin-bottom: 12px; color: var(--text-main);">เลือกเดือนและปี พ.ศ.</div>
+                    
+                    <div class="wheel-picker">
+                      <!-- Month Wheel (Left column) -->
+                      <div class="wheel-column wheel-month-column" @scroll="onWheelScroll($event, 'month')">
+                        <div class="wheel-spacer"></div>
+                        <div v-for="m in 12" :key="m" 
+                             @click="scrollToItem('month', m)"
+                             :class="{ 'wheel-item-active': tempSelectedMonth === m }"
+                             class="wheel-item">
+                          {{ thaiMonths[m-1] }}
+                        </div>
+                        <div class="wheel-spacer"></div>
+                      </div>
+                      
+                      <!-- Year Wheel (Right column) -->
+                      <div class="wheel-column wheel-year-column" @scroll="onWheelScroll($event, 'year')">
+                        <div class="wheel-spacer"></div>
+                        <div v-for="y in availableReportYears" :key="y" 
+                             @click="scrollToItem('year', y)"
+                             :class="{ 'wheel-item-active': tempSelectedYear === y }"
+                             class="wheel-item">
+                          พ.ศ. {{ y }}
+                        </div>
+                        <div class="wheel-spacer"></div>
+                      </div>
+                      
+                      <!-- Highlight center bar -->
+                      <div class="wheel-highlight-bar"></div>
+                    </div>
+                    
+                    <!-- Action buttons -->
+                    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 15px;">
+                      <button type="button" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 8px;" @click="showMonthYearPicker = false">ยกเลิก</button>
+                      <button type="button" class="btn btn-primary" style="padding: 6px 15px; font-size: 0.8rem; border-radius: 8px; background: #64748b; border: none;" @click="confirmMonthYear">ตกลง</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 12px;">
+                <!-- ช่องเลือก ผู้อำนวยการฯ -->
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <label style="font-size: 0.85rem; font-weight: 700; color: var(--text-main); font-family: var(--font-display);">ผู้อำนวยการฯ:</label>
+                  <select v-model="monthlyReport.selectedDirectorId" class="form-select" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 8px; width: 220px; border: 1px solid var(--card-border); background-color: var(--bg-card); color: var(--text-main); font-weight: 600;">
+                    <option value="">-- เลือกผู้อำนวยการ --</option>
+                    <option v-for="d in monthlyReport.directors" :key="d.userId" :value="d.userId">
+                      {{ d.counselorName }}
+                    </option>
+                  </select>
+                </div>
+                <!-- ปุ่มกดต่างๆ -->
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                  <template v-if="!monthlyReport.editing">
+                    <button v-if="session.role === 'admin' || session.role === 'psychologist'" class="btn btn-primary" @click="monthlyReport.editing = true" style="background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);">
+                      <i class="fa-solid fa-pen-to-square"></i> แก้ไขตัวเลข
+                    </button>
+                    <button class="btn btn-success" @click="openMonthlyPrintPreview" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                      <i class="fa-solid fa-print"></i> พิมพ์รายงาน PDF
+                    </button>
+                  </template>
+                  <template v-else>
+                    <button class="btn btn-warning" @click="useAutoCalculatedValues" style="background: #eab308; color: #000;">
+                      <i class="fa-solid fa-wand-magic-sparkles"></i> ใช้ค่าคำนวณระบบ
+                    </button>
+                    <button class="btn btn-success" @click="saveMonthlyReport" :disabled="monthlyReport.saving" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                      <i class="fa-solid fa-floppy-disk"></i> {{ monthlyReport.saving ? 'กำลังบันทึก...' : 'บันทึก' }}
+                    </button>
+                    <button class="btn btn-secondary" @click="monthlyReport.editing = false" :disabled="monthlyReport.saving">
+                      ยกเลิก
+                    </button>
+                  </template>
+                </div>
+              </div>
+            </div>
+            
+            <div v-if="monthlyReport.hasSaved" style="margin-top: 12px; font-size: 0.85rem; color: #10b981; font-weight: 500;">
+              <i class="fa-solid fa-circle-check"></i> ข้อมูลในหน้านี้ได้รับการบันทึกทับ (มีค่าที่ผู้ใช้แก้ไข) คุณสามารถใช้ค่าอัตโนมัติได้ตลอดเวลา
+            </div>
+            <div v-else style="margin-top: 12px; font-size: 0.85rem; color: #94a3b8;">
+              <i class="fa-solid fa-info-circle"></i> ตัวเลขด้านล่างนี้คำนวณมาจากระบบฐานข้อมูลหลักโดยอัตโนมัติ
+            </div>
+          </div>
+
+          <!-- แท็บสำหรับเลือกประเภทรายงาน -->
+          <div class="report-tabs">
+            <button class="report-tab-btn" :class="{ active: monthlyReport.activeTab === 'summary' }" @click="monthlyReport.activeTab = 'summary'">
+              <i class="fa-solid fa-square-poll-vertical"></i> สรุป
+            </button>
+            <button class="report-tab-btn" :class="{ active: monthlyReport.activeTab === 'm90' }" @click="monthlyReport.activeTab = 'm90'">
+              <i class="fa-solid fa-scale-balanced"></i> ม.90
+            </button>
+            <button class="report-tab-btn" :class="{ active: monthlyReport.activeTab === 'm132' }" @click="monthlyReport.activeTab = 'm132'">
+              <i class="fa-solid fa-shield-halved"></i> ม.132
+            </button>
+          </div>
+
+          <!-- ตารางรายงาน 5 ส่วนหลัก -->
+          <div class="glass-card shadow-sm" style="padding: 25px; border-radius: 16px; margin-bottom: 25px; overflow-x: auto;">
+            
+                        <div v-show="monthlyReport.activeTab === 'summary'">
+              <!-- ตารางที่ 2 -->
+              <div class="report-section-title" style="font-family: var(--font-display); font-weight: 700; color: var(--text-main); font-size: 1.1rem; margin-bottom: 15px; border-bottom: 2px solid var(--primary); padding-bottom: 8px;">
+                2. คดีอาญาที่ใช้มาตรการพิเศษแทนการดำเนินคดีอาญาตามมาตรา 90 และ มาตรการแก้ไข บำบัด ฟื้นฟู ตามมาตรา 132 ในรอบปี
+              </div>
+              <table class="report-table" style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+                <thead>
+                  <tr style="background: var(--bg-hover); border-bottom: 2px solid var(--card-border);">
+                    <th style="padding: 12px; text-align: left; font-weight: 600; vertical-align: middle;">ประเภทคดี</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; width: 15%; vertical-align: middle;">ค้างดำเนินการ<br>จากปีที่แล้ว</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; width: 15%; vertical-align: middle;">เข้าสู่กระบวนการ<br>ในปีนี้</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; width: 15%; vertical-align: middle;">คดีที่ปฏิบัติตามแผน<br>สำเร็จในปีนี้</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; width: 15%; vertical-align: middle;">คดีที่ปฏิบัติตามแผน<br>ไม่สำเร็จในปีนี้</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; width: 15%; vertical-align: middle;">อยู่ระหว่างดำเนินการ<br>ตามแผน</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="border-bottom: 1px solid var(--card-border);">
+                    <td style="padding: 12px; font-weight: 500; vertical-align: middle;">มาตรการพิเศษฯ ตามมาตรา 90</td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec2_m90_pending" style="width: 80px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec2_m90_pending }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec2_m90_entered" style="width: 80px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec2_m90_entered }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec2_m90_success" style="width: 80px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec2_m90_success }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec2_m90_failed" style="width: 80px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec2_m90_failed }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec2_m90_progress" style="width: 80px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec2_m90_progress }}</span>
+                    </td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid var(--card-border);">
+                    <td style="padding: 12px; font-weight: 500; vertical-align: middle;">มาตรการแก้ไข บำบัด ฟื้นฟู<br>ตามมาตรา 132</td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec2_m132_pending" style="width: 80px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec2_m132_pending }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec2_m132_entered" style="width: 80px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec2_m132_entered }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec2_m132_success" style="width: 80px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec2_m132_success }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec2_m132_failed" style="width: 80px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec2_m132_failed }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec2_m132_progress" style="width: 80px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec2_m132_progress }}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <!-- ตารางที่ 4 -->
+              <div class="report-section-title" style="font-family: var(--font-display); font-weight: 700; color: var(--text-main); font-size: 1.1rem; margin-bottom: 15px; border-bottom: 2px solid var(--primary); padding-bottom: 8px;">
+                4. คดีอาญาที่ใช้มาตรการพิเศษแทนการดำเนินคดีอาญาตามมาตรา 90 และ มาตรการแก้ไข บำบัด ฟื้นฟู ตามมาตรา 132 ในรอบเดือน
+              </div>
+              <table class="report-table" style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+                <thead>
+                  <tr style="background: var(--bg-hover); border-bottom: 2px solid var(--card-border);">
+                    <th style="padding: 12px; text-align: left; font-weight: 600; vertical-align: middle;">ประเภทคดี</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; width: 15%; vertical-align: middle;">ค้างดำเนินการ<br>จากเดือนที่แล้ว</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; width: 15%; vertical-align: middle;">เข้าสู่กระบวนการ<br>ในเดือนนี้</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; width: 15%; vertical-align: middle;">คดีที่ปฏิบัติตามแผน<br>สำเร็จในเดือนนี้</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; width: 15%; vertical-align: middle;">คดีที่ปฏิบัติตามแผน<br>ไม่สำเร็จในเดือนนี้</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; width: 15%; vertical-align: middle;">อยู่ระหว่างดำเนินการ<br>ตามแผน</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="border-bottom: 1px solid var(--card-border);">
+                    <td style="padding: 12px; font-weight: 500; vertical-align: middle;">มาตรการพิเศษฯ ตามมาตรา 90</td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec4_m90_pending" style="width: 80px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec4_m90_pending }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec4_m90_entered" style="width: 80px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec4_m90_entered }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec4_m90_success" style="width: 80px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec4_m90_success }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec4_m90_failed" style="width: 80px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec4_m90_failed }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec4_m90_progress" style="width: 80px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec4_m90_progress }}</span>
+                    </td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid var(--card-border);">
+                    <td style="padding: 12px; font-weight: 500; vertical-align: middle;">มาตรการแก้ไข บำบัด ฟื้นฟู<br>ตามมาตรา 132</td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec4_m132_pending" style="width: 80px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec4_m132_pending }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec4_m132_entered" style="width: 80px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec4_m132_entered }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec4_m132_success" style="width: 80px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec4_m132_success }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec4_m132_failed" style="width: 80px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec4_m132_failed }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec4_m132_progress" style="width: 80px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec4_m132_progress }}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <!-- ตารางที่ 6 (รูปแบบสอดคล้องกับรูปที่ 2) -->
+              <div class="report-section-title" style="font-family: var(--font-display); font-weight: 700; color: var(--text-main); font-size: 1.1rem; margin-bottom: 15px; border-bottom: 2px solid var(--primary); padding-bottom: 8px;">
+                6. ระยะเวลาที่ใช้มาตรการพิเศษแทนการดำเนินคดีอาญาตามมาตรา 90 และ มาตรการแก้ไข บำบัด ฟื้นฟู ตามมาตรา 132 (นับตั้งแต่วันฟ้อง จนคดีเสร็จสิ้น)
+              </div>
+              <table class="report-table" style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+                <thead>
+                  <tr style="background: var(--bg-hover); border-bottom: 2px solid var(--card-border);">
+                    <th style="padding: 12px; text-align: left; font-weight: 600;">ประเภทคดี</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; width: 13%;">ไม่เกิน 1 เดือน</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; width: 13%;">เกิน 1 เดือน ไม่เกิน 3 เดือน</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; width: 13%;">เกิน 3 เดือน ไม่เกิน 6 เดือน</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; width: 13%;">เกิน 6 เดือน ไม่เกิน 1 ปี</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; width: 13%;">เกิน 1 ปี ขึ้นไป</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; width: 10%;">รวม</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="border-bottom: 1px solid var(--card-border);">
+                    <td style="padding: 12px; font-weight: 500;">มาตรการพิเศษฯ ตามมาตรา 90</td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec6_m90_t1" style="width: 70px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec6_m90_t1 || 0 }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec6_m90_t2" style="width: 70px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec6_m90_t2 || 0 }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec6_m90_t3" style="width: 70px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec6_m90_t3 || 0 }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec6_m90_t4" style="width: 70px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec6_m90_t4 || 0 }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec6_m90_t5" style="width: 70px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec6_m90_t5 || 0 }}</span>
+                    </td>
+                    <td style="padding: 12px; text-align: center; font-weight: bold; background: var(--bg-hover);">
+                      {{ (monthlyReport.data.sec6_m90_t1 || 0) + (monthlyReport.data.sec6_m90_t2 || 0) + (monthlyReport.data.sec6_m90_t3 || 0) + (monthlyReport.data.sec6_m90_t4 || 0) + (monthlyReport.data.sec6_m90_t5 || 0) }}
+                    </td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid var(--card-border);">
+                    <td style="padding: 12px; font-weight: 500;">มาตรการแก้ไข บำบัด ฟื้นฟู ตามมาตรา 132</td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec6_m132_t1" style="width: 70px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec6_m132_t1 || 0 }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec6_m132_t2" style="width: 70px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec6_m132_t2 || 0 }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec6_m132_t3" style="width: 70px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec6_m132_t3 || 0 }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec6_m132_t4" style="width: 70px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec6_m132_t4 || 0 }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec6_m132_t5" style="width: 70px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec6_m132_t5 || 0 }}</span>
+                    </td>
+                    <td style="padding: 12px; text-align: center; font-weight: bold; background: var(--bg-hover);">
+                      {{ (monthlyReport.data.sec6_m132_t1 || 0) + (monthlyReport.data.sec6_m132_t2 || 0) + (monthlyReport.data.sec6_m132_t3 || 0) + (monthlyReport.data.sec6_m132_t4 || 0) + (monthlyReport.data.sec6_m132_t5 || 0) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <!-- ตารางที่ 11 (รูปแบบสอดคล้องกับรูปที่ 2) -->
+              <div class="report-section-title" style="font-family: var(--font-display); font-weight: 700; color: var(--text-main); font-size: 1.1rem; margin-bottom: 15px; border-bottom: 2px solid var(--primary); padding-bottom: 8px;">
+                14. ระยะเวลาค้างในการปฏิบัติตามมาตรการพิเศษแทนการดำเนินคดีอาญาตามมาตรา 90 และมาตรการแก้ไข บำบัด ฟื้นฟู ตามมาตรา 132
+              </div>
+              <table class="report-table" style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+                <thead>
+                  <tr style="background: var(--bg-hover); border-bottom: 2px solid var(--card-border);">
+                    <th style="padding: 12px; text-align: left; font-weight: 600;">ประเภทคดี</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; width: 13%;">ไม่เกิน 1 เดือน</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; width: 13%;">เกิน 1 เดือน ไม่เกิน 3 เดือน</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; width: 13%;">เกิน 3 เดือน ไม่เกิน 6 เดือน</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; width: 13%;">เกิน 6 เดือน ไม่เกิน 1 ปี</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; width: 13%;">เกิน 1 ปี ขึ้นไป</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; width: 10%;">รวม</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="border-bottom: 1px solid var(--card-border);">
+                    <td style="padding: 12px; font-weight: 500;">มาตรการพิเศษฯ ตามมาตรา 90</td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec11_m90_t1" style="width: 70px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec11_m90_t1 || 0 }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec11_m90_t2" style="width: 70px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec11_m90_t2 || 0 }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec11_m90_t3" style="width: 70px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec11_m90_t3 || 0 }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec11_m90_t4" style="width: 70px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec11_m90_t4 || 0 }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec11_m90_t5" style="width: 70px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec11_m90_t5 || 0 }}</span>
+                    </td>
+                    <td style="padding: 12px; text-align: center; font-weight: bold; background: var(--bg-hover);">
+                      {{ (monthlyReport.data.sec11_m90_t1 || 0) + (monthlyReport.data.sec11_m90_t2 || 0) + (monthlyReport.data.sec11_m90_t3 || 0) + (monthlyReport.data.sec11_m90_t4 || 0) + (monthlyReport.data.sec11_m90_t5 || 0) }}
+                    </td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid var(--card-border);">
+                    <td style="padding: 12px; font-weight: 500;">มาตรการแก้ไข บำบัด ฟื้นฟู ตามมาตรา 132</td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec11_m132_t1" style="width: 70px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec11_m132_t1 || 0 }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec11_m132_t2" style="width: 70px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec11_m132_t2 || 0 }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec11_m132_t3" style="width: 70px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec11_m132_t3 || 0 }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec11_m132_t4" style="width: 70px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec11_m132_t4 || 0 }}</span>
+                    </td>
+                    <td style="padding: 8px; text-align: center;">
+                      <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data.sec11_m132_t5" style="width: 70px; display: inline-block; padding: 4px 8px;">
+                      <span v-else>{{ monthlyReport.data.sec11_m132_t5 || 0 }}</span>
+                    </td>
+                    <td style="padding: 12px; text-align: center; font-weight: bold; background: var(--bg-hover);">
+                      {{ (monthlyReport.data.sec11_m132_t1 || 0) + (monthlyReport.data.sec11_m132_t2 || 0) + (monthlyReport.data.sec11_m132_t3 || 0) + (monthlyReport.data.sec11_m132_t4 || 0) + (monthlyReport.data.sec11_m132_t5 || 0) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div> <!-- End Summary Tab -->
+
+            <!-- หน้า ม.90 -->
+            <div v-show="monthlyReport.activeTab === 'm90'">
+              <div class="report-section-title" style="font-family: var(--font-display); font-weight: 700; color: var(--text-main); font-size: 1.1rem; margin-bottom: 15px; border-bottom: 2px solid var(--primary); padding-bottom: 8px;">
+                แบบรายงานมาตรการพิเศษแทนการดำเนินคดีอาญา/ ผลการปฏิบัติตาม มาตรการพิเศษแทนการดำเนินคดีอาญา ชั้นศาล (ม.90)
+              </div>
+              <table class="report-table" style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+                <thead>
+                  <tr style="background: var(--bg-hover); border-bottom: 2px solid var(--card-border);">
+                    <th rowspan="2" style="padding: 10px; text-align: left; font-weight: 600; vertical-align: middle; border: 1px solid var(--card-border);">ข้อหา</th>
+                    <th colspan="3" style="padding: 10px; text-align: center; font-weight: 600; vertical-align: middle; border: 1px solid var(--card-border);">แผนแก้ไขบำบัดฟื้นฟู</th>
+                    <th rowspan="2" style="padding: 10px; text-align: center; font-weight: 600; width: 100px; vertical-align: middle; border: 1px solid var(--card-border);">รวม</th>
+                  </tr>
+                  <tr style="background: var(--bg-hover); border-bottom: 2px solid var(--card-border);">
+                    <th style="padding: 10px; text-align: center; font-weight: 600; width: 180px; vertical-align: middle; border: 1px solid var(--card-border);">ศาลไม่เห็นชอบด้วยกับแผนฯ</th>
+                    <th style="padding: 10px; text-align: center; font-weight: 600; width: 180px; vertical-align: middle; border: 1px solid var(--card-border);">ปฏิบัติตามแผนฯครบถ้วน</th>
+                    <th style="padding: 10px; text-align: center; font-weight: 600; width: 180px; vertical-align: middle; border: 1px solid var(--card-border);">ปฏิบัติตามแผนฯไม่ครบถ้วน</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template v-for="c in monthlyReport.charges" :key="c.charge_no">
+                    <!-- Heading Row -->
+                    <tr v-if="isCategoryHeader(c.charge_no)" style="background: rgba(255,255,255,0.02); font-weight: 700;">
+                      <td style="padding: 12px 10px; border: 1px solid var(--card-border);">
+                        {{ c.charge_statistics_no ? c.charge_statistics_no + '. ' : '' }}{{ c.charge_statistics }}
+                      </td>
+                      <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">
+                        {{ getCategorySum('m90', c.charge_no, 1) || '' }}
+                      </td>
+                      <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">
+                        {{ getCategorySum('m90', c.charge_no, 2) || '' }}
+                      </td>
+                      <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">
+                        {{ getCategorySum('m90', c.charge_no, 3) || '' }}
+                      </td>
+                      <td style="padding: 10px; text-align: center; font-weight: 700; border: 1px solid var(--card-border); background: rgba(0,0,0,0.05);">
+                        {{ getRowTotal('m90', c.charge_no) || '' }}
+                      </td>
+                    </tr>
+                    <!-- Leaf Row -->
+                    <tr v-else style="border-bottom: 1px solid var(--card-border);">
+                      <td style="padding: 10px; padding-left: 25px; border: 1px solid var(--card-border);">
+                        {{ c.charge_statistics_no ? c.charge_statistics_no + ' ' : '' }}{{ c.charge_statistics }}
+                      </td>
+                      <!-- Col 1: disapproved -->
+                      <td style="padding: 6px 10px; text-align: center; border: 1px solid var(--card-border);">
+                        <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data['m90_c' + c.charge_no + '_1']" style="width: 80px; display: inline-block; padding: 4px 6px;">
+                        <span v-else>{{ monthlyReport.data['m90_c' + c.charge_no + '_1'] || '' }}</span>
+                      </td>
+                      <!-- Col 2: completed -->
+                      <td style="padding: 6px 10px; text-align: center; border: 1px solid var(--card-border);">
+                        <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data['m90_c' + c.charge_no + '_2']" style="width: 80px; display: inline-block; padding: 4px 6px;">
+                        <span v-else>{{ monthlyReport.data['m90_c' + c.charge_no + '_2'] || '' }}</span>
+                      </td>
+                      <!-- Col 3: failed -->
+                      <td style="padding: 6px 10px; text-align: center; border: 1px solid var(--card-border);">
+                        <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data['m90_c' + c.charge_no + '_3']" style="width: 80px; display: inline-block; padding: 4px 6px;">
+                        <span v-else>{{ monthlyReport.data['m90_c' + c.charge_no + '_3'] || '' }}</span>
+                      </td>
+                      <!-- Row Total -->
+                      <td style="padding: 10px; text-align: center; font-weight: 700; border: 1px solid var(--card-border); background: rgba(0,0,0,0.03);">
+                        {{ getRowTotal('m90', c.charge_no) || '' }}
+                      </td>
+                    </tr>
+                  </template>
+                  
+                  <!-- Grand Totals -->
+                  <tr style="font-weight: 700; background: rgba(255,255,255,0.05); border-top: 2px solid var(--card-border);">
+                    <td style="padding: 12px 10px; border: 1px solid var(--card-border);">ความผิดตามประมวลกฎหมายอาญา (ข้อ 1 - 20)</td>
+                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getCriminalCodeTotal('m90', 1) || '' }}</td>
+                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getCriminalCodeTotal('m90', 2) || '' }}</td>
+                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getCriminalCodeTotal('m90', 3) || '' }}</td>
+                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border); background: rgba(0,0,0,0.05);">{{ getCriminalCodeRowTotal('m90') || '' }}</td>
+                  </tr>
+                  <tr style="font-weight: 700; background: rgba(255,255,255,0.05);">
+                    <td style="padding: 12px 10px; border: 1px solid var(--card-border);">ความผิดตามประมวลกฎหมายอื่น</td>
+                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getCategorySum('m90', 63, 1) || '' }}</td>
+                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getCategorySum('m90', 63, 2) || '' }}</td>
+                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getCategorySum('m90', 63, 3) || '' }}</td>
+                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border); background: rgba(0,0,0,0.05);">{{ getRowTotal('m90', 63) || '' }}</td>
+                  </tr>
+                  <tr style="font-weight: 700; background: rgba(255,255,255,0.05);">
+                    <td style="padding: 12px 10px; border: 1px solid var(--card-border);">ข้อหาอื่นนอกเหนือจากบัญชี</td>
+                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getCategorySum('m90', 120, 1) || '' }}</td>
+                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getCategorySum('m90', 120, 2) || '' }}</td>
+                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getCategorySum('m90', 120, 3) || '' }}</td>
+                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border); background: rgba(0,0,0,0.05);">{{ getRowTotal('m90', 120) || '' }}</td>
+                  </tr>
+                  <tr style="font-weight: 800; background: var(--bg-hover); border-top: 2px solid var(--card-border);">
+                    <td style="padding: 12px 10px; border: 1px solid var(--card-border); color: var(--primary);">รวมทั้งสิ้น</td>
+                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getTableGrandTotal('m90', 1) || '' }}</td>
+                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getTableGrandTotal('m90', 2) || '' }}</td>
+                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getTableGrandTotal('m90', 3) || '' }}</td>
+                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border); background: rgba(0,0,0,0.08); color: var(--primary);">{{ getTableGrandRowTotal('m90') || '' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              
+              <div style="margin-top: 20px; max-width: 500px;">
+                <table class="report-table" style="width: 100%; border-collapse: collapse;">
+                  <thead>
+                    <tr style="background: var(--bg-hover);">
+                      <th colspan="2" style="padding: 10px; border: 1px solid var(--card-border); text-align: left;">จำนวนคดีที่ไม่อาจใช้มาตรการพิเศษแทนการดำเนินคดีอาญา ตามมาตรา 90</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style="padding: 10px; border: 1px solid var(--card-border);">จำนวนคดีที่ผู้เสียหาย ไม่ยินยอม</td>
+                      <td style="padding: 10px; border: 1px solid var(--card-border); text-align: center; width: 100px;">0</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 10px; border: 1px solid var(--card-border);">จำนวนคดีที่โจทก์คัดค้าน</td>
+                      <td style="padding: 10px; border: 1px solid var(--card-border); text-align: center; width: 100px;">0</td>
+                    </tr>
+                    <tr style="font-weight: 700; background: var(--bg-hover);">
+                      <td style="padding: 10px; border: 1px solid var(--card-border);">รวม</td>
+                      <td style="padding: 10px; border: 1px solid var(--card-border); text-align: center; width: 100px;">0</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- หน้า ม.132 -->
+            <div v-show="monthlyReport.activeTab === 'm132'">
+              <div class="report-section-title" style="font-family: var(--font-display); font-weight: 700; color: var(--text-main); font-size: 1.1rem; margin-bottom: 15px; border-bottom: 2px solid var(--primary); padding-bottom: 8px;">
+                แบบรายงานมาตรการแก้ไข บำบัด ฟื้นฟู ก่อนมีคำพิพากษา ตามมาตรา 132
+              </div>
+              <div style="overflow-x: auto; margin-bottom: 30px;">
+                <table class="report-table" style="width: 100%; min-width: 1200px; border-collapse: collapse;">
+                  <thead>
+                    <tr style="background: var(--bg-hover); border-bottom: 2px solid var(--card-border);">
+                      <th rowspan="2" style="padding: 8px; text-align: left; font-weight: 600; vertical-align: middle; border: 1px solid var(--card-border);">ข้อหา</th>
+                      <th colspan="2" style="padding: 8px; text-align: center; font-weight: 600; border: 1px solid var(--card-border); font-size: 0.8rem;">1.รายงานตัวต่อพนักงานคุมประพฤที/บุคคล/องค์กร</th>
+                      <th colspan="2" style="padding: 8px; text-align: center; font-weight: 600; border: 1px solid var(--card-border); font-size: 0.8rem;">2.เข้ารับการแก้ไขบำบัดฟื้นฟู</th>
+                      <th colspan="2" style="padding: 8px; text-align: center; font-weight: 600; border: 1px solid var(--card-border); font-size: 0.8rem;">3.รับคำปรึกษาแนะนำ</th>
+                      <th colspan="2" style="padding: 8px; text-align: center; font-weight: 600; border: 1px solid var(--card-border); font-size: 0.8rem;">4.ทำกิจกรรมบำบัด/ทางเลือก</th>
+                      <th colspan="2" style="padding: 8px; text-align: center; font-weight: 600; border: 1px solid var(--card-border); font-size: 0.8rem;">5.ใช้วิธีการเพื่อความปลอดภัย</th>
+                      <th colspan="2" style="padding: 8px; text-align: center; font-weight: 600; border: 1px solid var(--card-border); font-size: 0.8rem;">6.อื่นๆ</th>
+                      <th rowspan="2" style="padding: 8px; text-align: center; font-weight: 600; width: 70px; vertical-align: middle; border: 1px solid var(--card-border);">รวม</th>
+                    </tr>
+                    <tr style="background: var(--bg-hover); border-bottom: 2px solid var(--card-border);">
+                      <th style="padding: 6px; text-align: center; border: 1px solid var(--card-border); font-size: 0.75rem; font-weight: 500;">ปฏิบัติตาม</th>
+                      <th style="padding: 6px; text-align: center; border: 1px solid var(--card-border); font-size: 0.75rem; font-weight: 500;">ปฏิบัติผิด</th>
+                      <th style="padding: 6px; text-align: center; border: 1px solid var(--card-border); font-size: 0.75rem; font-weight: 500;">ปฏิบัติตาม</th>
+                      <th style="padding: 6px; text-align: center; border: 1px solid var(--card-border); font-size: 0.75rem; font-weight: 500;">ปฏิบัติผิด</th>
+                      <th style="padding: 6px; text-align: center; border: 1px solid var(--card-border); font-size: 0.75rem; font-weight: 500;">ปฏิบัติตาม</th>
+                      <th style="padding: 6px; text-align: center; border: 1px solid var(--card-border); font-size: 0.75rem; font-weight: 500;">ปฏิบัติผิด</th>
+                      <th style="padding: 6px; text-align: center; border: 1px solid var(--card-border); font-size: 0.75rem; font-weight: 500;">ปฏิบัติตาม</th>
+                      <th style="padding: 6px; text-align: center; border: 1px solid var(--card-border); font-size: 0.75rem; font-weight: 500;">ปฏิบัติผิด</th>
+                      <th style="padding: 6px; text-align: center; border: 1px solid var(--card-border); font-size: 0.75rem; font-weight: 500;">ปฏิบัติตาม</th>
+                      <th style="padding: 6px; text-align: center; border: 1px solid var(--card-border); font-size: 0.75rem; font-weight: 500;">ปฏิบัติผิด</th>
+                      <th style="padding: 6px; text-align: center; border: 1px solid var(--card-border); font-size: 0.75rem; font-weight: 500;">ปฏิบัติตาม</th>
+                      <th style="padding: 6px; text-align: center; border: 1px solid var(--card-border); font-size: 0.75rem; font-weight: 500;">ปฏิบัติผิด</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template v-for="c in monthlyReport.charges" :key="c.charge_no">
+                      <!-- Heading Row -->
+                      <tr v-if="isCategoryHeader(c.charge_no)" style="background: rgba(255,255,255,0.02); font-weight: 700;">
+                        <td style="padding: 10px 8px; border: 1px solid var(--card-border);">
+                          {{ c.charge_statistics_no ? c.charge_statistics_no + '. ' : '' }}{{ c.charge_statistics }}
+                        </td>
+                        <td v-for="col in 12" :key="col" style="padding: 8px; text-align: center; border: 1px solid var(--card-border);">
+                          {{ getCategorySum('m132', c.charge_no, col) || '' }}
+                        </td>
+                        <td style="padding: 8px; text-align: center; font-weight: 700; border: 1px solid var(--card-border); background: rgba(0,0,0,0.05);">
+                          {{ getRowTotal('m132', c.charge_no) || '' }}
+                        </td>
+                      </tr>
+                      <!-- Leaf Row -->
+                      <tr v-else style="border-bottom: 1px solid var(--card-border);">
+                        <td style="padding: 8px; padding-left: 20px; border: 1px solid var(--card-border); font-size: 0.8rem;">
+                          {{ c.charge_statistics_no ? c.charge_statistics_no + ' ' : '' }}{{ c.charge_statistics }}
+                        </td>
+                        <td v-for="col in 12" :key="col" style="padding: 4px 6px; text-align: center; border: 1px solid var(--card-border);">
+                          <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data['m132_c' + c.charge_no + '_' + col]" style="width: 50px; display: inline-block; padding: 2px 4px; font-size: 0.8rem;">
+                          <span v-else style="font-size: 0.8rem;">{{ monthlyReport.data['m132_c' + c.charge_no + '_' + col] || '' }}</span>
+                        </td>
+                        <!-- Row Total -->
+                        <td style="padding: 8px; text-align: center; font-weight: 700; border: 1px solid var(--card-border); background: rgba(0,0,0,0.03);">
+                          {{ getRowTotal('m132', c.charge_no) || '' }}
+                        </td>
+                      </tr>
+                    </template>
+                    
+                    <!-- Grand Totals -->
+                    <tr style="font-weight: 700; background: rgba(255,255,255,0.05); border-top: 2px solid var(--card-border);">
+                      <td style="padding: 10px 8px; border: 1px solid var(--card-border);">ความผิดตามประมวลกฎหมายอาญา (ข้อ 1 - 20)</td>
+                      <td v-for="col in 12" :key="col" style="padding: 8px; text-align: center; border: 1px solid var(--card-border);">
+                        {{ getCriminalCodeTotal('m132', col) || '' }}
+                      </td>
+                      <td style="padding: 8px; text-align: center; border: 1px solid var(--card-border); background: rgba(0,0,0,0.05);">{{ getCriminalCodeRowTotal('m132') || '' }}</td>
+                    </tr>
+                    <tr style="font-weight: 700; background: rgba(255,255,255,0.05);">
+                      <td style="padding: 10px 8px; border: 1px solid var(--card-border);">ความผิดตามประมวลกฎหมายอื่น</td>
+                      <td v-for="col in 12" :key="col" style="padding: 8px; text-align: center; border: 1px solid var(--card-border);">
+                        {{ getCategorySum('m132', 63, col) || '' }}
+                      </td>
+                      <td style="padding: 8px; text-align: center; border: 1px solid var(--card-border); background: rgba(0,0,0,0.05);">{{ getRowTotal('m132', 63) || '' }}</td>
+                    </tr>
+                    <tr style="font-weight: 700; background: rgba(255,255,255,0.05);">
+                      <td style="padding: 10px 8px; border: 1px solid var(--card-border);">ข้อหาอื่นนอกเหนือจากบัญชี</td>
+                      <td v-for="col in 12" :key="col" style="padding: 8px; text-align: center; border: 1px solid var(--card-border);">
+                        {{ getCategorySum('m132', 120, col) || '' }}
+                      </td>
+                      <td style="padding: 8px; text-align: center; border: 1px solid var(--card-border); background: rgba(0,0,0,0.05);">{{ getRowTotal('m132', 120) || '' }}</td>
+                    </tr>
+                    <tr style="font-weight: 800; background: var(--bg-hover); border-top: 2px solid var(--card-border);">
+                      <td style="padding: 10px 8px; border: 1px solid var(--card-border); color: var(--primary);">รวมทั้งสิ้น</td>
+                      <td v-for="col in 12" :key="col" style="padding: 8px; text-align: center; border: 1px solid var(--card-border);">
+                        {{ getTableGrandTotal('m132', col) || '' }}
+                      </td>
+                      <td style="padding: 8px; text-align: center; border: 1px solid var(--card-border); background: rgba(0,0,0,0.08); color: var(--primary);">{{ getTableGrandRowTotal('m132') || '' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
       </main>
 
     </div>
@@ -2300,8 +2965,9 @@
       <div class="print-preview-scroll-container">
         <div class="a4-print-page" id="printable-report">
           
-          <!-- แผ่นที่ 1: รายงานสถิติภาพรวมและการแยกข้อหา -->
-          <div class="a4-sheet">
+          <template v-if="activePrintType === 'dashboard'">
+            <!-- แผ่นที่ 1: รายงานสถิติภาพรวมและการแยกข้อหา -->
+            <div class="a4-sheet">
             <div>
               <!-- หัวรายงานและตราสัญลักษณ์ (ลบรูปสัญญลักษณ์ออกและสปลิตบรรทัด) -->
               <div class="report-header" style="justify-content: center; text-align: center;">
@@ -2526,6 +3192,1397 @@
               </div>
             </div>
           </div>
+          </template>
+          
+          <template v-else-if="activePrintType === 'monthly'">
+            <!-- แผ่นงานช่วยอำนวยการแบบทางการขนาด A4 -->
+            <!-- 1. หน้าสรุป (3 แผ่นงาน) -->
+            <div v-if="monthlyReport.activeTab === 'summary'" style="display: flex; flex-direction: column; gap: 0;">
+              
+              <div class="a4-sheet" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 12mm 15mm; font-size: 17px; color: #000; line-height: 1.25; background-color: #fff; display: flex; flex-direction: column; justify-content: flex-start; gap: 8px; box-sizing: border-box; border-radius: 0; box-shadow: none; border: none; min-height: 297mm; height: 297mm; overflow: hidden; page-break-after: avoid;">
+                
+                <!-- หัวกระดาษคาดกล่องตาราง -->
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td style="border-right: 1.5px solid #000; border-bottom: 1.5px solid #000; padding: 6px 10px; text-align: center; font-weight: bold; width: 83%; font-size: 20px; color: #000; background: #fff;">
+                      แบบรายงานสถิติคดีเยาวชนและครอบครัวประจำเดือน
+                    </td>
+                    <td style="border-bottom: 1.5px solid #000; padding: 6px 10px; text-align: center; font-weight: bold; width: 17%; font-size: 21px; color: #000; background-color: #fff;">
+                      ในส่วนอาญา
+                    </td>
+                  </tr>
+                </table>
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; margin-top: -1.5px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td style="border-right: 1.5px solid #000; border-bottom: 1.5px solid #000; padding: 6px 10px; text-align: center; font-weight: bold; width: 48%; font-size: 17px; color: #1d4ed8; vertical-align: middle; background: #fff;">
+                      ประจำเดือน ......{{ thaiMonths[monthlyReport.selectedMonth - 1] }}....... พ.ศ. .....{{ monthlyReport.selectedYear }}........
+                    </td>
+                    <td style="border-bottom: 1.5px solid #000; padding: 6px 15px; font-size: 17px; color: #000; text-align: left; vertical-align: middle; width: 52%; background: #fff;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 14px; height: 14px; border: 1.5px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 8px; font-size: 10px; font-weight: bold; flex-shrink: 0; background: #fff; line-height: 1;">✓</div>
+                        <span style="font-weight: bold;">ศาลเยาวชนและครอบครัวจังหวัดระยอง</span>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- ตารางที่ 2 -->
+                <div style="font-weight: bold; font-size: 17px; color: #000; margin-top: 5px; margin-bottom: 1px; text-align: left;">
+                  2. คดีอาญาที่ใช้มาตรการพิเศษแทนการดำเนินคดีอาญาตามมาตรา 90 และ มาตรการแก้ไข บำบัด ฟื้นฟู ตามมาตรา 132 ในรอบปี
+                </div>
+                <table class="report-table" style="width: 100%; border-collapse: collapse; border: 1.2px solid #000; font-size: 17px; text-align: center;">
+                  <thead>
+                    <tr style="background-color: #f8fafc; font-weight: bold;">
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; text-align: center; width: 32%;">ประเภทคดี</th>
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; width: 13.6%;">ค้างดำเนินการจากปีที่แล้ว</th>
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; width: 13.6%;">เข้าสู่กระบวนการในปีนี้</th>
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; width: 13.6%;">คดีที่ปฏิบัติตามแผนสำเร็จในปีนี้</th>
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; width: 13.6%;">คดีที่ปฏิบัติตามแผนไม่สำเร็จในปีนี้</th>
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; width: 13.6%;">อยู่ระหว่างดำเนินการตามแผน</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; text-align: left; background: #fff;">มาตรการพิเศษฯ ตามมาตรา 90</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec2_m90_pending }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec2_m90_entered }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec2_m90_success }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec2_m90_failed }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold; color: red;">{{ monthlyReport.data.sec2_m90_progress }}</td>
+                    </tr>
+                    <tr>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; text-align: left; background: #fff;">มาตรการแก้ไข บำบัด ฟื้นฟู ตามมาตรา 132</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec2_m132_pending }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec2_m132_entered }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec2_m132_success }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec2_m132_failed }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold; color: red;">{{ monthlyReport.data.sec2_m132_progress }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <!-- ตารางที่ 4 -->
+                <div style="font-weight: bold; font-size: 17px; color: #000; margin-top: 5px; margin-bottom: 1px; text-align: left;">
+                  4. คดีอาญาที่ใช้มาตรการพิเศษแทนการดำเนินคดีอาญาตามมาตรา 90 และ มาตรการแก้ไข บำบัด ฟื้นฟู ตามมาตรา 132 ในรอบเดือน
+                </div>
+                <table class="report-table" style="width: 100%; border-collapse: collapse; border: 1.2px solid #000; font-size: 17px; text-align: center;">
+                  <thead>
+                    <tr style="background-color: #f8fafc; font-weight: bold;">
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; text-align: center; width: 32%;">ประเภทคดี</th>
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; width: 13.6%;">ค้างดำเนินการจากเดือนที่แล้ว</th>
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; width: 13.6%;">เข้าสู่กระบวนการในเดือนนี้</th>
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; width: 13.6%;">คดีที่ปฏิบัติตามแผนสำเร็จในเดือนนี้</th>
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; width: 13.6%;">คดีที่ปฏิบัติตามแผนไม่สำเร็จในเดือนนี้</th>
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; width: 13.6%;">อยู่ระหว่างดำเนินการตามแผน</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; text-align: left; background: #fff;">มาตรการพิเศษฯ ตามมาตรา 90</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec4_m90_pending }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec4_m90_entered }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec4_m90_success }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec4_m90_failed }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold; color: red;">{{ monthlyReport.data.sec4_m90_progress }}</td>
+                    </tr>
+                    <tr>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; text-align: left; background: #fff;">มาตรการแก้ไข บำบัด ฟื้นฟู ตามมาตรา 132</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec4_m132_pending }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec4_m132_entered }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec4_m132_success }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec4_m132_failed }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold; color: red;">{{ monthlyReport.data.sec4_m132_progress }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <!-- ตารางที่ 6 -->
+                <div style="font-weight: bold; font-size: 17px; color: #000; margin-top: 5px; margin-bottom: 1px; text-align: left;">
+                  6.ระยะเวลาที่ใช้มาตรการพิเศษแทนการดำเนินคดีอาญาตามมาตรา 90 และ มาตรการแก้ไข บำบัด ฟื้นฟู ตามมาตรา 132 (นับตั้งแต่วันฟ้อง จนคดีเสร็จสิ้น)
+                </div>
+                <table class="report-table" style="width: 100%; border-collapse: collapse; border: 1.2px solid #000; font-size: 17px; text-align: center;">
+                  <thead>
+                    <tr style="background-color: #f8fafc; font-weight: bold;">
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; text-align: center; width: 32%;">ประเภทคดี</th>
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; width: 11.3%;">ไม่เกิน 1 เดือน</th>
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; width: 11.3%;">เกิน 1 เดือน ไม่เกิน 3 เดือน</th>
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; width: 11.3%;">เกิน 3 เดือน ไม่เกิน 6 เดือน</th>
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; width: 11.3%;">เกิน 6 เดือน ไม่เกิน 1 ปี</th>
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; width: 11.3%;">เกิน 1 ปี ขึ้นไป</th>
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; width: 11.3%;">รวม</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; text-align: left; background: #fff;">มาตรการพิเศษฯ ตามมาตรา 90</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec6_m90_t1 || 0 }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec6_m90_t2 || 0 }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec6_m90_t3 || 0 }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec6_m90_t4 || 0 }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec6_m90_t5 || 0 }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold; color: red;">
+                        {{ (monthlyReport.data.sec6_m90_t1 || 0) + (monthlyReport.data.sec6_m90_t2 || 0) + (monthlyReport.data.sec6_m90_t3 || 0) + (monthlyReport.data.sec6_m90_t4 || 0) + (monthlyReport.data.sec6_m90_t5 || 0) }}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; text-align: left; background: #fff;">มาตรการแก้ไข บำบัด ฟื้นฟู ตามมาตรา 132</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec6_m132_t1 || 0 }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec6_m132_t2 || 0 }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec6_m132_t3 || 0 }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec6_m132_t4 || 0 }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec6_m132_t5 || 0 }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold; color: red;">
+                        {{ (monthlyReport.data.sec6_m132_t1 || 0) + (monthlyReport.data.sec6_m132_t2 || 0) + (monthlyReport.data.sec6_m132_t3 || 0) + (monthlyReport.data.sec6_m132_t4 || 0) + (monthlyReport.data.sec6_m132_t5 || 0) }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <!-- ตารางที่ 11 -->
+                <div style="font-weight: bold; font-size: 17px; color: #000; margin-top: 5px; margin-bottom: 1px; text-align: left;">
+                  14. ระยะเวลาค้างในการปฏิบัติตามมาตรการพิเศษแทนการดำเนินคดีอาญาตามมาตรา 90 และมาตรการแก้ไข บำบัด ฟื้นฟู ตามมาตรา 132
+                </div>
+                <table class="report-table" style="width: 100%; border-collapse: collapse; border: 1.2px solid #000; font-size: 17px; text-align: center;">
+                  <thead>
+                    <tr style="background-color: #f8fafc; font-weight: bold;">
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; text-align: center; width: 32%;">ประเภทคดี</th>
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; width: 11.3%;">ไม่เกิน 1 เดือน</th>
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; width: 11.3%;">เกิน 1 เดือน ไม่เกิน 3 เดือน</th>
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; width: 11.3%;">เกิน 3 เดือน ไม่เกิน 6 เดือน</th>
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; width: 11.3%;">เกิน 6 เดือน ไม่เกิน 1 ปี</th>
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; width: 11.3%;">เกิน 1 ปี ขึ้นไป</th>
+                      <th style="border: 1.2px solid #000; padding: 3px 5px; width: 11.3%;">รวม</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; text-align: left; background: #fff;">มาตรการพิเศษฯ ตามมาตรา 90</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec11_m90_t1 || 0 }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec11_m90_t2 || 0 }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec11_m90_t3 || 0 }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec11_m90_t4 || 0 }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec11_m90_t5 || 0 }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold; color: red;">
+                        {{ (monthlyReport.data.sec11_m90_t1 || 0) + (monthlyReport.data.sec11_m90_t2 || 0) + (monthlyReport.data.sec11_m90_t3 || 0) + (monthlyReport.data.sec11_m90_t4 || 0) + (monthlyReport.data.sec11_m90_t5 || 0) }}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; text-align: left; background: #fff;">มาตรการแก้ไข บำบัด ฟื้นฟู ตามมาตรา 132</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec11_m132_t1 || 0 }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec11_m132_t2 || 0 }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec11_m132_t3 || 0 }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec11_m132_t4 || 0 }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold;">{{ monthlyReport.data.sec11_m132_t5 || 0 }}</td>
+                      <td style="border: 1.2px solid #000; padding: 3px 5px; background-color: #fff; font-weight: bold; color: red;">
+                        {{ (monthlyReport.data.sec11_m132_t1 || 0) + (monthlyReport.data.sec11_m132_t2 || 0) + (monthlyReport.data.sec11_m132_t3 || 0) + (monthlyReport.data.sec11_m132_t4 || 0) + (monthlyReport.data.sec11_m132_t5 || 0) }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- 2. หน้า ม.90 (5 แผ่นงาน) -->
+            <div v-else-if="monthlyReport.activeTab === 'm90'" style="display: flex; flex-direction: column; gap: 30px;">
+              
+              <!-- แผ่นที่ 1: ข้อหา 1 - 8 (ข้อ 1 ถึง 27) -->
+              <div class="a4-sheet m90-sheet" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 8mm 12mm !important; font-size: 0.68rem !important; color: #000; line-height: 1.15; background-color: #fff; page-break-after: always; box-sizing: border-box; border-radius: 0; box-shadow: none; border: none; min-height: 296.5mm; height: 296.5mm; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; gap: 3px;">
+                <div style="text-align: center; font-size: 0.6rem; margin-bottom: 2px; color: #000; font-weight: normal;">หน้าที่ 1</div>
+                
+                <!-- หัวกระดาษคาดกล่องตาราง -->
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td style="border-right: 1.5px solid #000; padding: 5px 8px; text-align: center; font-weight: bold; width: 83%; font-size: 15px; color: #000;">
+                      แบบรายงานมาตรการพิเศษแทนการดำเนินคดีอาญา / ผลการปฏิบัติตาม มาตรการพิเศษแทนการดำเนินคดีอาญา
+                    </td>
+                    <td style="padding: 5px 8px; text-align: center; font-weight: bold; width: 17%; font-size: 16px; color: #000; background-color: #fff;">
+                      ชั้นศาล(ม.90)
+                    </td>
+                  </tr>
+                </table>
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; margin-top: 2px; margin-bottom: 3px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td rowspan="2" style="border-right: 1.5px solid #000; border-bottom: 1.5px solid #000; padding: 3px 6px; text-align: center; font-weight: bold; width: 48%; font-size: 13px; color: #000; vertical-align: middle;">
+                      ประจำเดือน {{ thaiMonths[monthlyReport.selectedMonth - 1] }} พ.ศ. {{ monthlyReport.selectedYear }}
+                    </td>
+                    <td style="border-bottom: 1px solid #000; padding: 2px 6px; font-size: 13px; color: #000; line-height: 1.2; width: 52%; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; font-size: 8px; font-weight: bold; flex-shrink: 0; background: #fff; line-height: 1;">✓</div>
+                        <span>ศาลเยาวชนและครอบครัวจังหวัดระยอง</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 2px 6px; border-bottom: 1.5px solid #000; font-size: 13px; color: #000; line-height: 1.2; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; flex-shrink: 0; background: #fff;"></div>
+                        <span>ศาลจังหวัด....................... แผนกคดีเยาวชนและครอบครัว</span>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <div style="font-weight: bold; font-size: 0.68rem; margin-bottom: 2px; color: #000;">ความผิดตามประมวลกฎหมายอาญา</div>
+                <table style="width: 100%; border-collapse: collapse; border: 1px solid #000; font-size: 0.58rem; text-align: center;">
+                  <thead>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th rowspan="2" style="border: 1px solid #000; padding: 2px 3px; text-align: left; width: 48%; vertical-align: middle;">ข้อหา</th>
+                      <th colspan="3" style="border: 1px solid #000; padding: 2px 3px; vertical-align: middle;">แผนแก้ไขบำบัดฟื้นฟู</th>
+                      <th rowspan="2" style="border: 1px solid #000; padding: 2px 3px; width: 13%; vertical-align: middle;">รวม</th>
+                    </tr>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th style="border: 1px solid #000; padding: 2px 3px; width: 13%;">ศาลไม่เห็นชอบด้วยกับแผนฯ</th>
+                      <th style="border: 1px solid #000; padding: 2px 3px; width: 13%;">ปฏิบัติตามแผนฯครบถ้วน</th>
+                      <th style="border: 1px solid #000; padding: 2px 3px; width: 13%;">ปฏิบัติตามแผนฯไม่ครบถ้วน</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template v-for="c in monthlyReport.charges" :key="c.charge_no">
+                      <tr v-if="c.charge_no >= 1 && c.charge_no <= 27" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                        <td style="border: 1px solid #000; padding: 2px 3px; text-align: left;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
+                          {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
+                        </td>
+                        <template v-if="isCategoryHeader(c.charge_no)">
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 1) || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 2) || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 3) || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #f1f5f9;">{{ getRowTotal('m90', c.charge_no) || '' }}</td>
+                        </template>
+                        <template v-else>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ monthlyReport.data['m90_c' + c.charge_no + '_1'] || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ monthlyReport.data['m90_c' + c.charge_no + '_2'] || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ monthlyReport.data['m90_c' + c.charge_no + '_3'] || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #f8fafc;">{{ getRowTotal('m90', c.charge_no) || '' }}</td>
+                        </template>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- แผ่นที่ 2: ข้อหา 9 - 17 (ข้อ 28 ถึง 59) -->
+              <div class="a4-sheet m90-sheet" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 8mm 12mm !important; font-size: 0.68rem !important; color: #000; line-height: 1.15; background-color: #fff; page-break-after: always; box-sizing: border-box; border-radius: 0; box-shadow: none; border: none; min-height: 296.5mm; height: 296.5mm; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; gap: 3px;">
+                <div style="text-align: center; font-size: 0.6rem; margin-bottom: 2px; color: #000; font-weight: normal;">หน้าที่ 2</div>
+                
+                <!-- หัวกระดาษคาดกล่องตาราง -->
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td style="border-right: 1.5px solid #000; padding: 5px 8px; text-align: center; font-weight: bold; width: 83%; font-size: 15px; color: #000;">
+                      แบบรายงานมาตรการพิเศษแทนการดำเนินคดีอาญา / ผลการปฏิบัติตาม มาตรการพิเศษแทนการดำเนินคดีอาญา
+                    </td>
+                    <td style="padding: 5px 8px; text-align: center; font-weight: bold; width: 17%; font-size: 16px; color: #000; background-color: #fff;">
+                      ชั้นศาล(ม.90)
+                    </td>
+                  </tr>
+                </table>
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; margin-top: 2px; margin-bottom: 3px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td rowspan="2" style="border-right: 1.5px solid #000; border-bottom: 1.5px solid #000; padding: 3px 6px; text-align: center; font-weight: bold; width: 48%; font-size: 13px; color: #000; vertical-align: middle;">
+                      ประจำเดือน {{ thaiMonths[monthlyReport.selectedMonth - 1] }} พ.ศ. {{ monthlyReport.selectedYear }}
+                    </td>
+                    <td style="border-bottom: 1px solid #000; padding: 2px 6px; font-size: 13px; color: #000; line-height: 1.2; width: 52%; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; font-size: 8px; font-weight: bold; flex-shrink: 0; background: #fff; line-height: 1;">✓</div>
+                        <span>ศาลเยาวชนและครอบครัวจังหวัดระยอง</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 2px 6px; border-bottom: 1.5px solid #000; font-size: 13px; color: #000; line-height: 1.2; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; flex-shrink: 0; background: #fff;"></div>
+                        <span>ศาลจังหวัด....................... แผนกคดีเยาวชนและครอบครัว</span>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <table style="width: 100%; border-collapse: collapse; border: 1px solid #000; font-size: 0.58rem; text-align: center;">
+                  <thead>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th rowspan="2" style="border: 1px solid #000; padding: 2px 3px; text-align: left; width: 48%; vertical-align: middle;">ข้อหา</th>
+                      <th colspan="3" style="border: 1px solid #000; padding: 2px 3px; vertical-align: middle;">แผนแก้ไขบำบัดฟื้นฟู</th>
+                      <th rowspan="2" style="border: 1px solid #000; padding: 2px 3px; width: 13%; vertical-align: middle;">รวม</th>
+                    </tr>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th style="border: 1px solid #000; padding: 2px 3px; width: 13%;">ศาลไม่เห็นชอบด้วยกับแผนฯ</th>
+                      <th style="border: 1px solid #000; padding: 2px 3px; width: 13%;">ปฏิบัติตามแผนฯครบถ้วน</th>
+                      <th style="border: 1px solid #000; padding: 2px 3px; width: 13%;">ปฏิบัติตามแผนฯไม่ครบถ้วน</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template v-for="c in monthlyReport.charges" :key="c.charge_no">
+                      <tr v-if="c.charge_no >= 28 && c.charge_no <= 59" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                        <td style="border: 1px solid #000; padding: 2px 3px; text-align: left;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
+                          {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
+                        </td>
+                        <template v-if="isCategoryHeader(c.charge_no)">
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 1) || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 2) || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 3) || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #f1f5f9;">{{ getRowTotal('m90', c.charge_no) || '' }}</td>
+                        </template>
+                        <template v-else>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ monthlyReport.data['m90_c' + c.charge_no + '_1'] || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ monthlyReport.data['m90_c' + c.charge_no + '_2'] || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ monthlyReport.data['m90_c' + c.charge_no + '_3'] || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #f8fafc;">{{ getRowTotal('m90', c.charge_no) || '' }}</td>
+                        </template>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- แผ่นที่ 3: ข้อหา พ.ร.บ. อาวุธปืน + ยาเสพติดบางส่วน (ข้อ 80, 81-89, 60, 61, 62, 90-104) -->
+              <div class="a4-sheet m90-sheet" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 8mm 12mm !important; font-size: 0.68rem !important; color: #000; line-height: 1.15; background-color: #fff; page-break-after: always; box-sizing: border-box; border-radius: 0; box-shadow: none; border: none; min-height: 296.5mm; height: 296.5mm; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; gap: 3px;">
+                <div style="text-align: center; font-size: 0.6rem; margin-bottom: 2px; color: #000; font-weight: normal;">หน้าที่ 3</div>
+                
+                <!-- หัวกระดาษคาดกล่องตาราง -->
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td style="border-right: 1.5px solid #000; padding: 5px 8px; text-align: center; font-weight: bold; width: 83%; font-size: 15px; color: #000;">
+                      แบบรายงานมาตรการพิเศษแทนการดำเนินคดีอาญา / ผลการปฏิบัติตาม มาตรการพิเศษแทนการดำเนินคดีอาญา
+                    </td>
+                    <td style="padding: 5px 8px; text-align: center; font-weight: bold; width: 17%; font-size: 16px; color: #000; background-color: #fff;">
+                      ชั้นศาล(ม.90)
+                    </td>
+                  </tr>
+                </table>
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; margin-top: 2px; margin-bottom: 3px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td rowspan="2" style="border-right: 1.5px solid #000; border-bottom: 1.5px solid #000; padding: 3px 6px; text-align: center; font-weight: bold; width: 48%; font-size: 13px; color: #000; vertical-align: middle;">
+                      ประจำเดือน {{ thaiMonths[monthlyReport.selectedMonth - 1] }} พ.ศ. {{ monthlyReport.selectedYear }}
+                    </td>
+                    <td style="border-bottom: 1px solid #000; padding: 2px 6px; font-size: 13px; color: #000; line-height: 1.2; width: 52%; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; font-size: 8px; font-weight: bold; flex-shrink: 0; background: #fff; line-height: 1;">✓</div>
+                        <span>ศาลเยาวชนและครอบครัวจังหวัดระยอง</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 2px 6px; border-bottom: 1.5px solid #000; font-size: 13px; color: #000; line-height: 1.2; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; flex-shrink: 0; background: #fff;"></div>
+                        <span>ศาลจังหวัด....................... แผนกคดีเยาวชนและครอบครัว</span>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <table style="width: 100%; border-collapse: collapse; border: 1px solid #000; font-size: 0.58rem; text-align: center;">
+                  <thead>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th rowspan="2" style="border: 1px solid #000; padding: 2px 3px; text-align: left; width: 48%; vertical-align: middle;">ข้อหา</th>
+                      <th colspan="3" style="border: 1px solid #000; padding: 2px 3px; vertical-align: middle;">แผนแก้ไขบำบัดฟื้นฟู</th>
+                      <th rowspan="2" style="border: 1px solid #000; padding: 2px 3px; width: 13%; vertical-align: middle;">รวม</th>
+                    </tr>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th style="border: 1px solid #000; padding: 2px 3px; width: 13%;">ศาลไม่เห็นชอบด้วยกับแผนฯ</th>
+                      <th style="border: 1px solid #000; padding: 2px 3px; width: 13%;">ปฏิบัติตามแผนฯครบถ้วน</th>
+                      <th style="border: 1px solid #000; padding: 2px 3px; width: 13%;">ปฏิบัติตามแผนฯไม่ครบถ้วน</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template v-for="c in monthlyReport.charges" :key="c.charge_no">
+                      <tr v-if="c.charge_no === 80 || (c.charge_no >= 81 && c.charge_no <= 89) || c.charge_no === 60 || c.charge_no === 61 || c.charge_no === 62 || (c.charge_no >= 90 && c.charge_no <= 104)" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                        <td style="border: 1px solid #000; padding: 2px 3px; text-align: left;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
+                          {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
+                        </td>
+                        <template v-if="isCategoryHeader(c.charge_no)">
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 1) || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 2) || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 3) || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #f1f5f9;">{{ getRowTotal('m90', c.charge_no) || '' }}</td>
+                        </template>
+                        <template v-else>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ monthlyReport.data['m90_c' + c.charge_no + '_1'] || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ monthlyReport.data['m90_c' + c.charge_no + '_2'] || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ monthlyReport.data['m90_c' + c.charge_no + '_3'] || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #f8fafc;">{{ getRowTotal('m90', c.charge_no) || '' }}</td>
+                        </template>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- แผ่นที่ 4: ยาเสพติดส่วนที่เหลือ + ความผิดตาม พ.ร.บ. อื่นๆ (ข้อ 105-119, 63, 64-79) -->
+              <div class="a4-sheet m90-sheet" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 8mm 12mm !important; font-size: 0.68rem !important; color: #000; line-height: 1.15; background-color: #fff; page-break-after: always; box-sizing: border-box; border-radius: 0; box-shadow: none; border: none; min-height: 296.5mm; height: 296.5mm; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; gap: 3px;">
+                <div style="text-align: center; font-size: 0.6rem; margin-bottom: 2px; color: #000; font-weight: normal;">หน้าที่ 4</div>
+                
+                <!-- หัวกระดาษคาดกล่องตาราง -->
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td style="border-right: 1.5px solid #000; padding: 5px 8px; text-align: center; font-weight: bold; width: 83%; font-size: 15px; color: #000;">
+                      แบบรายงานมาตรการพิเศษแทนการดำเนินคดีอาญา / ผลการปฏิบัติตาม มาตรการพิเศษแทนการดำเนินคดีอาญา
+                    </td>
+                    <td style="padding: 5px 8px; text-align: center; font-weight: bold; width: 17%; font-size: 16px; color: #000; background-color: #fff;">
+                      ชั้นศาล(ม.90)
+                    </td>
+                  </tr>
+                </table>
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; margin-top: 2px; margin-bottom: 3px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td rowspan="2" style="border-right: 1.5px solid #000; border-bottom: 1.5px solid #000; padding: 3px 6px; text-align: center; font-weight: bold; width: 48%; font-size: 13px; color: #000; vertical-align: middle;">
+                      ประจำเดือน {{ thaiMonths[monthlyReport.selectedMonth - 1] }} พ.ศ. {{ monthlyReport.selectedYear }}
+                    </td>
+                    <td style="border-bottom: 1px solid #000; padding: 2px 6px; font-size: 13px; color: #000; line-height: 1.2; width: 52%; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; font-size: 8px; font-weight: bold; flex-shrink: 0; background: #fff; line-height: 1;">✓</div>
+                        <span>ศาลเยาวชนและครอบครัวจังหวัดระยอง</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 2px 6px; border-bottom: 1.5px solid #000; font-size: 13px; color: #000; line-height: 1.2; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; flex-shrink: 0; background: #fff;"></div>
+                        <span>ศาลจังหวัด....................... แผนกคดีเยาวชนและครอบครัว</span>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <table style="width: 100%; border-collapse: collapse; border: 1px solid #000; font-size: 0.58rem; text-align: center;">
+                  <thead>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th rowspan="2" style="border: 1px solid #000; padding: 2px 3px; text-align: left; width: 48%; vertical-align: middle;">ข้อหา</th>
+                      <th colspan="3" style="border: 1px solid #000; padding: 2px 3px; vertical-align: middle;">แผนแก้ไขบำบัดฟื้นฟู</th>
+                      <th rowspan="2" style="border: 1px solid #000; padding: 2px 3px; width: 13%; vertical-align: middle;">รวม</th>
+                    </tr>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th style="border: 1px solid #000; padding: 2px 3px; width: 13%;">ศาลไม่เห็นชอบด้วยกับแผนฯ</th>
+                      <th style="border: 1px solid #000; padding: 2px 3px; width: 13%;">ปฏิบัติตามแผนฯครบถ้วน</th>
+                      <th style="border: 1px solid #000; padding: 2px 3px; width: 13%;">ปฏิบัติตามแผนฯไม่ครบถ้วน</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template v-for="c in monthlyReport.charges" :key="c.charge_no">
+                      <tr v-if="(c.charge_no >= 105 && c.charge_no <= 119) || c.charge_no === 63 || (c.charge_no >= 64 && c.charge_no <= 79)" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                        <td style="border: 1px solid #000; padding: 2px 3px; text-align: left;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
+                          {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
+                        </td>
+                        <template v-if="isCategoryHeader(c.charge_no)">
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 1) || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 2) || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 3) || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #f1f5f9;">{{ getRowTotal('m90', c.charge_no) || '' }}</td>
+                        </template>
+                        <template v-else>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ monthlyReport.data['m90_c' + c.charge_no + '_1'] || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ monthlyReport.data['m90_c' + c.charge_no + '_2'] || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ monthlyReport.data['m90_c' + c.charge_no + '_3'] || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #f8fafc;">{{ getRowTotal('m90', c.charge_no) || '' }}</td>
+                        </template>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- แผ่นที่ 5: ข้อหาอื่นนอกเหนือจากบัญชี + รวมทั้งสิ้น + ตารางผู้เสียหายไม่ยินยอม + ลายเซ็น -->
+              <div class="a4-sheet m90-sheet" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 8mm 12mm !important; font-size: 0.68rem !important; color: #000; line-height: 1.15; background-color: #fff; box-sizing: border-box; border-radius: 0; box-shadow: none; border: none; min-height: 296.5mm; height: 296.5mm; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; gap: 3px;">
+                <div style="text-align: center; font-size: 0.6rem; margin-bottom: 2px; color: #000; font-weight: normal;">หน้าที่ 5</div>
+                
+                <!-- หัวกระดาษคาดกล่องตาราง -->
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td style="border-right: 1.5px solid #000; padding: 5px 8px; text-align: center; font-weight: bold; width: 83%; font-size: 15px; color: #000;">
+                      แบบรายงานมาตรการพิเศษแทนการดำเนินคดีอาญา / ผลการปฏิบัติตาม มาตรการพิเศษแทนการดำเนินคดีอาญา
+                    </td>
+                    <td style="padding: 5px 8px; text-align: center; font-weight: bold; width: 17%; font-size: 16px; color: #000; background-color: #fff;">
+                      ชั้นศาล(ม.90)
+                    </td>
+                  </tr>
+                </table>
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; margin-top: 2px; margin-bottom: 3px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td rowspan="2" style="border-right: 1.5px solid #000; border-bottom: 1.5px solid #000; padding: 3px 6px; text-align: center; font-weight: bold; width: 48%; font-size: 13px; color: #000; vertical-align: middle;">
+                      ประจำเดือน {{ thaiMonths[monthlyReport.selectedMonth - 1] }} พ.ศ. {{ monthlyReport.selectedYear }}
+                    </td>
+                    <td style="border-bottom: 1px solid #000; padding: 2px 6px; font-size: 13px; color: #000; line-height: 1.2; width: 52%; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; font-size: 8px; font-weight: bold; flex-shrink: 0; background: #fff; line-height: 1;">✓</div>
+                        <span>ศาลเยาวชนและครอบครัวจังหวัดระยอง</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 2px 6px; border-bottom: 1.5px solid #000; font-size: 13px; color: #000; line-height: 1.2; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; flex-shrink: 0; background: #fff;"></div>
+                        <span>ศาลจังหวัด....................... แผนกคดีเยาวชนและครอบครัว</span>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- ตารางหลักส่วนสุดท้าย และรวมทั้งสิ้น -->
+                <table style="width: 100%; border-collapse: collapse; border: 1px solid #000; font-size: 0.58rem; text-align: center; margin-bottom: 4px;">
+                  <thead>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th rowspan="2" style="border: 1px solid #000; padding: 2px 3px; text-align: left; width: 48%; vertical-align: middle;">ข้อหา</th>
+                      <th colspan="3" style="border: 1px solid #000; padding: 2px 3px; vertical-align: middle;">แผนแก้ไขบำบัดฟื้นฟู</th>
+                      <th rowspan="2" style="border: 1px solid #000; padding: 2px 3px; width: 13%; vertical-align: middle;">รวม</th>
+                    </tr>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th style="border: 1px solid #000; padding: 2px 3px; width: 13%;">ศาลไม่เห็นชอบด้วยกับแผนฯ</th>
+                      <th style="border: 1px solid #000; padding: 2px 3px; width: 13%;">ปฏิบัติตามแผนฯครบถ้วน</th>
+                      <th style="border: 1px solid #000; padding: 2px 3px; width: 13%;">ปฏิบัติตามแผนฯไม่ครบถ้วน</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template v-for="c in monthlyReport.charges" :key="c.charge_no">
+                      <tr v-if="c.charge_no === 120 || (c.charge_no >= 121 && c.charge_no <= 131)" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                        <td style="border: 1px solid #000; padding: 2px 3px; text-align: left;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
+                          {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
+                        </td>
+                        <template v-if="isCategoryHeader(c.charge_no)">
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 1) || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 2) || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 3) || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #f1f5f9;">{{ getRowTotal('m90', c.charge_no) || '' }}</td>
+                        </template>
+                        <template v-else>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ monthlyReport.data['m90_c' + c.charge_no + '_1'] || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ monthlyReport.data['m90_c' + c.charge_no + '_2'] || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ monthlyReport.data['m90_c' + c.charge_no + '_3'] || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #f8fafc;">{{ getRowTotal('m90', c.charge_no) || '' }}</td>
+                        </template>
+                      </tr>
+                    </template>
+                    <tr style="font-weight: bold; background-color: #f1f5f9;">
+                      <td style="border: 1px solid #000; padding: 2px 3px; text-align: left;">ความผิดตามประมวลกฎหมายอาญา (ข้อ 1 - 20)</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCriminalCodeTotal('m90', 1) || '' }}</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCriminalCodeTotal('m90', 2) || '' }}</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCriminalCodeTotal('m90', 3) || '' }}</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #cbd5e1;">{{ getCriminalCodeRowTotal('m90') || '' }}</td>
+                    </tr>
+                    <tr style="font-weight: bold; background-color: #f1f5f9;">
+                      <td style="border: 1px solid #000; padding: 2px 3px; text-align: left;">ความผิดตามประมวลกฎหมายอื่น</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', 63, 1) || '' }}</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', 63, 2) || '' }}</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', 63, 3) || '' }}</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #cbd5e1;">{{ getRowTotal('m90', 63) || '' }}</td>
+                    </tr>
+                    <tr style="font-weight: bold; background-color: #f1f5f9;">
+                      <td style="border: 1px solid #000; padding: 2px 3px; text-align: left;">ข้อหาอื่นนอกเหนือจากบัญชี</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', 120, 1) || '' }}</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', 120, 2) || '' }}</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', 120, 3) || '' }}</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #cbd5e1;">{{ getRowTotal('m90', 120) || '' }}</td>
+                    </tr>
+                    <tr style="font-weight: bold; background-color: #cbd5e1;">
+                      <td style="border: 1px solid #000; padding: 2px 3px; text-align: left;">รวมทั้งสิ้น</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getTableGrandTotal('m90', 1) || '' }}</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getTableGrandTotal('m90', 2) || '' }}</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getTableGrandTotal('m90', 3) || '' }}</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #94a3b8;">{{ getTableGrandRowTotal('m90') || '' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div style="font-weight: bold; font-size: 0.68rem; margin-bottom: 2px; color: #000; margin-top: 2px;">จำนวนคดีที่ไม่อาจใช้มาตรการพิเศษแทนการดำเนินคดีอาญา ตามมาตรา 90</div>
+                <table style="width: 100%; border-collapse: collapse; border: 1px solid #000; font-size: 0.58rem; margin-bottom: 8px; text-align: center;">
+                  <thead>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th style="border: 1px solid #000; padding: 2px 3px; text-align: left; width: 75%;">รายการ</th>
+                      <th style="border: 1px solid #000; padding: 2px 3px; width: 25%;">จำนวนคดี</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style="border: 1px solid #000; padding: 2px 3px; text-align: left;">จำนวนคดีที่ผู้เสียหาย ไม่ยินยอม</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ monthlyReport.data['sec2_m90_noconsent_sum'] || 0 }}</td>
+                    </tr>
+                    <tr>
+                      <td style="border: 1px solid #000; padding: 2px 3px; text-align: left;">จำนวนคดีที่โจทก์คัดค้าน</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ monthlyReport.data['sec4_m90_failed_sum'] || 0 }}</td>
+                    </tr>
+                    <tr style="font-weight: bold; background-color: #f8fafc;">
+                      <td style="border: 1px solid #000; padding: 2px 3px; text-align: left;">รวม</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ (Number(monthlyReport.data['sec2_m90_noconsent_sum'] || 0) + Number(monthlyReport.data['sec4_m90_failed_sum'] || 0)) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <!-- ลายเซ็นตัวพิมพ์ปกติ ไม่หนา -->
+                <div style="display: flex; justify-content: center; gap: 60px; margin-top: 5px; page-break-inside: avoid; width: 100%;">
+                  <!-- Box 1: ลงนามผู้จัดทำ -->
+                  <div style="width: 320px; border: 1px solid #000; background: #fff; display: flex; flex-direction: column;">
+                    <div style="border-bottom: 1px solid #000; text-align: center; padding: 3px; font-size: 0.75rem; background-color: #f1f5f9; color: #000; font-weight: normal;">
+                      ลงนามผู้จัดทำ
+                    </div>
+                    <div style="border-bottom: 1px solid #000; height: 45px; display: flex; align-items: center; justify-content: center; padding: 0 10px;">
+                      <span style="color: #000; letter-spacing: 1px;">............................................................</span>
+                    </div>
+                    <div style="text-align: center; padding: 4px 5px; font-size: 0.75rem; color: #000; line-height: 1.25; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 45px; font-weight: normal;">
+                      <div style="margin-bottom: 2px; font-weight: normal;">( {{ session.fullName }} )</div>
+                      <div style="font-weight: normal;">{{ session.position || 'เจ้าหน้าที่ศูนย์ให้คำปรึกษา' }}</div>
+                    </div>
+                  </div>
+
+                  <!-- Box 2: ลงนามผู้อำนวยการ -->
+                  <div style="width: 320px; border: 1px solid #000; background: #fff; display: flex; flex-direction: column;">
+                    <div style="border-bottom: 1px solid #000; text-align: center; padding: 3px; font-size: 0.75rem; background-color: #f1f5f9; color: #000; font-weight: normal;">
+                      ลงนามผู้อำนวยการ
+                    </div>
+                    <div style="border-bottom: 1px solid #000; height: 45px; display: flex; align-items: center; justify-content: center; padding: 0 10px;">
+                      <span style="color: #000; letter-spacing: 1px;">............................................................</span>
+                    </div>
+                    <div style="text-align: center; padding: 4px 5px; font-size: 0.75rem; color: #000; line-height: 1.25; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 45px; font-weight: normal;">
+                      <div v-if="selectedDirectorObj" style="margin-bottom: 2px; font-weight: normal;">
+                        ( {{ selectedDirectorObj.counselorName }} )
+                      </div>
+                      <div v-else style="margin-bottom: 2px; font-weight: normal;">
+                        ( ........................................................ )
+                      </div>
+                      
+                      <template v-if="selectedDirectorObj">
+                        <template v-if="selectedDirectorObj.counselorPositionSecond">
+                          <div style="font-weight: normal;">{{ selectedDirectorObj.counselorPosition }}</div>
+                          <div style="font-size: 0.7rem; margin: 1px 0; font-weight: normal;">รักษาราชการแทน</div>
+                          <div style="font-weight: normal;">{{ selectedDirectorObj.counselorPositionSecond }}</div>
+                        </template>
+                        <template v-else>
+                          <div style="font-weight: normal;">{{ selectedDirectorObj.counselorPosition || 'ผู้อำนวยการสำนักงานประจำศาลฯ' }}</div>
+                        </template>
+                      </template>
+                      <template v-else>
+                        <div style="font-weight: normal;">ผู้อำนวยการสำนักงานประจำศาลฯ</div>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div><!-- 3. หน้า ม.132 (7 แผ่นงาน) -->
+            <div v-else-if="monthlyReport.activeTab === 'm132'" style="display: flex; flex-direction: column; gap: 30px;">
+              
+              <!-- แผ่นที่ 1: ข้อหา 1 - 5.4 (ข้อ 1 ถึง 16) -->
+              <div class="a4-sheet landscape" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 12mm 15mm; font-size: 0.74rem; color: #000; line-height: 1.25; background-color: #fff; page-break-after: always; box-sizing: border-box; border-radius: 0; box-shadow: none; border: none; min-height: 210mm; height: 210mm; overflow: hidden;">
+                <div style="text-align: center; font-size: 0.75rem; margin-bottom: 5px; color: #000; font-weight: normal;">หน้าที่ 1</div>
+                
+                <!-- หัวกระดาษคาดกล่องตาราง -->
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td style="border-right: 1.5px solid #000; padding: 8px 10px; text-align: center; font-weight: bold; width: 83%; font-size: 20px; color: #000;">
+                      แบบรายงานมาตรการแก้ไข บำบัด ฟื้นฟู ก่อนมีคำพิพากษา ตามมาตรา 132
+                    </td>
+                    <td style="padding: 8px 10px; text-align: center; font-weight: bold; width: 17%; font-size: 21px; color: #000; background-color: #fff;">
+                      ก่อนมีคำพิพากษา
+                    </td>
+                  </tr>
+                </table>
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; margin-top: 5px; margin-bottom: 12px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td rowspan="2" style="border-right: 1.5px solid #000; border-bottom: 1.5px solid #000; padding: 6px 10px; text-align: center; font-weight: bold; width: 48%; font-size: 17px; color: #000; vertical-align: middle;">
+                      ประจำเดือน {{ thaiMonths[monthlyReport.selectedMonth - 1] }} พ.ศ. {{ monthlyReport.selectedYear }}
+                    </td>
+                    <td style="border-bottom: 1px solid #000; padding: 4px 10px; font-size: 17px; color: #000; line-height: 1.45; width: 52%; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; font-size: 8px; font-weight: bold; flex-shrink: 0; background: #fff; line-height: 1;">✓</div>
+                        <span>ศาลเยาวชนและครอบครัวจังหวัดระยอง</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 4px 10px; border-bottom: 1.5px solid #000; font-size: 17px; color: #000; line-height: 1.45; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; flex-shrink: 0; background: #fff;"></div>
+                        <span>ศาลจังหวัด....................... แผนกคดีเยาวชนและครอบครัว</span>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <div style="font-weight: bold; font-size: 0.8rem; margin-bottom: 4px; color: #000;">ความผิดตามประมวลกฎหมายอาญา</div>
+                <table style="width: 100%; border-collapse: collapse; border: 1px solid #000; font-size: 0.72rem; text-align: center; table-layout: fixed;">
+                  <thead>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th rowspan="2" style="border: 1px solid #000; padding: 3px; text-align: left; width: 22%; vertical-align: middle;">ข้อหา</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">1.ให้มารายงานตัวต่อพนักงานคุมประพฤติ</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">2.เข้ารับการแก้ไขบำบัดฟื้นฟู</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">3.รับคำปรึกษาแนะนำ</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">4.ทำกิจกรรมบำบัดฯ</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">5.ใช้วิวัติการเพื่อความปลอดภัย</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">อื่นๆ</th>
+                      <th rowspan="2" style="border: 1px solid #000; padding: 3px; width: 6%; vertical-align: middle; font-weight: bold;">รวม</th>
+                    </tr>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template v-for="c in monthlyReport.charges" :key="c.charge_no">
+                      <tr v-if="c.charge_no >= 1 && c.charge_no <= 16" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                        <td style="border: 1px solid #000; padding: 3px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
+                          {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
+                        </td>
+                        <template v-if="isCategoryHeader(c.charge_no)">
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
+                            {{ getCategorySum('m132', c.charge_no, col) || '' }}
+                          </td>
+                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;">
+                            {{ getRowTotal('m132', c.charge_no) || '' }}
+                          </td>
+                        </template>
+                        <template v-else>
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
+                            {{ monthlyReport.data['m132_c' + c.charge_no + '_' + col] || '' }}
+                          </td>
+                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f8fafc;">
+                            {{ getRowTotal('m132', c.charge_no) || '' }}
+                          </td>
+                        </template>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- แผ่นที่ 2: ข้อหา 6 - 9.4 (ข้อ 17 ถึง 32) -->
+              <div class="a4-sheet landscape" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 12mm 15mm; font-size: 0.74rem; color: #000; line-height: 1.25; background-color: #fff; page-break-after: always; box-sizing: border-box; border-radius: 0; box-shadow: none; border: none; min-height: 210mm; height: 210mm; overflow: hidden;">
+                <div style="text-align: center; font-size: 0.75rem; margin-bottom: 5px; color: #000; font-weight: normal;">หน้าที่ 2</div>
+                
+                <!-- หัวกระดาษคาดกล่องตาราง -->
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td style="border-right: 1.5px solid #000; padding: 8px 10px; text-align: center; font-weight: bold; width: 83%; font-size: 20px; color: #000;">
+                      แบบรายงานมาตรการแก้ไข บำบัด ฟื้นฟู ก่อนมีคำพิพากษา ตามมาตรา 132
+                    </td>
+                    <td style="padding: 8px 10px; text-align: center; font-weight: bold; width: 17%; font-size: 21px; color: #000; background-color: #fff;">
+                      ก่อนมีคำพิพากษา
+                    </td>
+                  </tr>
+                </table>
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; margin-top: 5px; margin-bottom: 12px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td rowspan="2" style="border-right: 1.5px solid #000; border-bottom: 1.5px solid #000; padding: 6px 10px; text-align: center; font-weight: bold; width: 48%; font-size: 17px; color: #000; vertical-align: middle;">
+                      ประจำเดือน {{ thaiMonths[monthlyReport.selectedMonth - 1] }} พ.ศ. {{ monthlyReport.selectedYear }}
+                    </td>
+                    <td style="border-bottom: 1px solid #000; padding: 4px 10px; font-size: 17px; color: #000; line-height: 1.45; width: 52%; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; font-size: 8px; font-weight: bold; flex-shrink: 0; background: #fff; line-height: 1;">✓</div>
+                        <span>ศาลเยาวชนและครอบครัวจังหวัดระยอง</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 4px 10px; border-bottom: 1.5px solid #000; font-size: 17px; color: #000; line-height: 1.45; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; flex-shrink: 0; background: #fff;"></div>
+                        <span>ศาลจังหวัด....................... แผนกคดีเยาวชนและครอบครัว</span>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <table style="width: 100%; border-collapse: collapse; border: 1px solid #000; font-size: 0.72rem; text-align: center; table-layout: fixed;">
+                  <thead>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th rowspan="2" style="border: 1px solid #000; padding: 3px; text-align: left; width: 22%; vertical-align: middle;">ข้อหา</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">1.ให้มารายงานตัวต่อพนักงานคุมประพฤติ</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">2.เข้ารับการแก้ไขบำบัดฟื้นฟู</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">3.รับคำปรึกษาแนะนำ</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">4.ทำกิจกรรมบำบัดฯ</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">5.ใช้วิธีการเพื่อความปลอดภัย</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">อื่นๆ</th>
+                      <th rowspan="2" style="border: 1px solid #000; padding: 3px; width: 6%; vertical-align: middle; font-weight: bold;">รวม</th>
+                    </tr>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template v-for="c in monthlyReport.charges" :key="c.charge_no">
+                      <tr v-if="c.charge_no >= 17 && c.charge_no <= 32" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                        <td style="border: 1px solid #000; padding: 3px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
+                          {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
+                        </td>
+                        <template v-if="isCategoryHeader(c.charge_no)">
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
+                            {{ getCategorySum('m132', c.charge_no, col) || '' }}
+                          </td>
+                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;">
+                            {{ getRowTotal('m132', c.charge_no) || '' }}
+                          </td>
+                        </template>
+                        <template v-else>
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
+                            {{ monthlyReport.data['m132_c' + c.charge_no + '_' + col] || '' }}
+                          </td>
+                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f8fafc;">
+                            {{ getRowTotal('m132', c.charge_no) || '' }}
+                          </td>
+                        </template>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- แผ่นที่ 3: ข้อหา 9.5 - 13.4 (ข้อ 33 ถึง 54) -->
+              <div class="a4-sheet landscape" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 12mm 15mm; font-size: 0.74rem; color: #000; line-height: 1.25; background-color: #fff; page-break-after: always; box-sizing: border-box; border-radius: 0; box-shadow: none; border: none; min-height: 210mm; height: 210mm; overflow: hidden;">
+                <div style="text-align: center; font-size: 0.75rem; margin-bottom: 5px; color: #000; font-weight: normal;">หน้าที่ 3</div>
+                
+                <!-- หัวกระดาษคาดกล่องตาราง -->
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td style="border-right: 1.5px solid #000; padding: 8px 10px; text-align: center; font-weight: bold; width: 83%; font-size: 20px; color: #000;">
+                      แบบรายงานมาตรการแก้ไข บำบัด ฟื้นฟู ก่อนมีคำพิพากษา ตามมาตรา 132
+                    </td>
+                    <td style="padding: 8px 10px; text-align: center; font-weight: bold; width: 17%; font-size: 21px; color: #000; background-color: #fff;">
+                      ก่อนมีคำพิพากษา
+                    </td>
+                  </tr>
+                </table>
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; margin-top: 5px; margin-bottom: 12px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td rowspan="2" style="border-right: 1.5px solid #000; border-bottom: 1.5px solid #000; padding: 6px 10px; text-align: center; font-weight: bold; width: 48%; font-size: 17px; color: #000; vertical-align: middle;">
+                      ประจำเดือน {{ thaiMonths[monthlyReport.selectedMonth - 1] }} พ.ศ. {{ monthlyReport.selectedYear }}
+                    </td>
+                    <td style="border-bottom: 1px solid #000; padding: 4px 10px; font-size: 17px; color: #000; line-height: 1.45; width: 52%; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; font-size: 8px; font-weight: bold; flex-shrink: 0; background: #fff; line-height: 1;">✓</div>
+                        <span>ศาลเยาวชนและครอบครัวจังหวัดระยอง</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 4px 10px; border-bottom: 1.5px solid #000; font-size: 17px; color: #000; line-height: 1.45; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; flex-shrink: 0; background: #fff;"></div>
+                        <span>ศาลจังหวัด....................... แผนกคดีเยาวชนและครอบครัว</span>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <table style="width: 100%; border-collapse: collapse; border: 1px solid #000; font-size: 0.72rem; text-align: center; table-layout: fixed;">
+                  <thead>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th rowspan="2" style="border: 1px solid #000; padding: 3px; text-align: left; width: 22%; vertical-align: middle;">ข้อหา</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">1.ให้มารายงานตัวต่อพนักงานคุมประพฤติ</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">2.เข้ารับการแก้ไขบำบัดฟื้นฟู</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">3.รับคำปรึกษาแนะนำ</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">4.ทำกิจกรรมบำบัดฯ</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">5.ใช้วิธีการเพื่อความปลอดภัย</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">อื่นๆ</th>
+                      <th rowspan="2" style="border: 1px solid #000; padding: 3px; width: 6%; vertical-align: middle; font-weight: bold;">รวม</th>
+                    </tr>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template v-for="c in monthlyReport.charges" :key="c.charge_no">
+                      <tr v-if="c.charge_no >= 33 && c.charge_no <= 54" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                        <td style="border: 1px solid #000; padding: 3px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
+                          {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
+                        </td>
+                        <template v-if="isCategoryHeader(c.charge_no)">
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
+                            {{ getCategorySum('m132', c.charge_no, col) || '' }}
+                          </td>
+                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;">
+                            {{ getRowTotal('m132', c.charge_no) || '' }}
+                          </td>
+                        </template>
+                        <template v-else>
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
+                            {{ monthlyReport.data['m132_c' + c.charge_no + '_' + col] || '' }}
+                          </td>
+                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f8fafc;">
+                            {{ getRowTotal('m132', c.charge_no) || '' }}
+                          </td>
+                        </template>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- แผ่นที่ 4: ข้อหา 13.5 - 17.9 + บุกรุก ลหุโทษ ยาเสพติด (ข้อ 55 ถึง 59, 60, 61, 62, 80, 81-89, 90-95) -->
+              <div class="a4-sheet landscape" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 12mm 15mm; font-size: 0.74rem; color: #000; line-height: 1.25; background-color: #fff; page-break-after: always; box-sizing: border-box; border-radius: 0; box-shadow: none; border: none; min-height: 210mm; height: 210mm; overflow: hidden;">
+                <div style="text-align: center; font-size: 0.75rem; margin-bottom: 5px; color: #000; font-weight: normal;">หน้าที่ 4</div>
+                
+                <!-- หัวกระดาษคาดกล่องตาราง -->
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td style="border-right: 1.5px solid #000; padding: 8px 10px; text-align: center; font-weight: bold; width: 83%; font-size: 20px; color: #000;">
+                      แบบรายงานมาตรการแก้ไข บำบัด ฟื้นฟู ก่อนมีคำพิพากษา ตามมาตรา 132
+                    </td>
+                    <td style="padding: 8px 10px; text-align: center; font-weight: bold; width: 17%; font-size: 21px; color: #000; background-color: #fff;">
+                      ก่อนมีคำพิพากษา
+                    </td>
+                  </tr>
+                </table>
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; margin-top: 5px; margin-bottom: 12px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td rowspan="2" style="border-right: 1.5px solid #000; border-bottom: 1.5px solid #000; padding: 6px 10px; text-align: center; font-weight: bold; width: 48%; font-size: 17px; color: #000; vertical-align: middle;">
+                      ประจำเดือน {{ thaiMonths[monthlyReport.selectedMonth - 1] }} พ.ศ. {{ monthlyReport.selectedYear }}
+                    </td>
+                    <td style="border-bottom: 1px solid #000; padding: 4px 10px; font-size: 17px; color: #000; line-height: 1.45; width: 52%; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; font-size: 8px; font-weight: bold; flex-shrink: 0; background: #fff; line-height: 1;">✓</div>
+                        <span>ศาลเยาวชนและครอบครัวจังหวัดระยอง</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 4px 10px; border-bottom: 1.5px solid #000; font-size: 17px; color: #000; line-height: 1.45; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; flex-shrink: 0; background: #fff;"></div>
+                        <span>ศาลจังหวัด....................... แผนกคดีเยาวชนและครอบครัว</span>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <table style="width: 100%; border-collapse: collapse; border: 1px solid #000; font-size: 0.72rem; text-align: center; table-layout: fixed;">
+                  <thead>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th rowspan="2" style="border: 1px solid #000; padding: 3px; text-align: left; width: 22%; vertical-align: middle;">ข้อหา</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">1.ให้มารายงานตัวต่อพนักงานคุมประพฤติ</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">2.เข้ารับการแก้ไขบำบัดฟื้นฟู</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">3.รับคำปรึกษาแนะนำ</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">4.ทำกิจกรรมบำบัดฯ</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">5.ใช้วิธีการเพื่อความปลอดภัย</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">อื่นๆ</th>
+                      <th rowspan="2" style="border: 1px solid #000; padding: 3px; width: 6%; vertical-align: middle; font-weight: bold;">รวม</th>
+                    </tr>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template v-for="c in monthlyReport.charges" :key="c.charge_no">
+                      <tr v-if="(c.charge_no >= 55 && c.charge_no <= 59) || c.charge_no === 60 || c.charge_no === 61 || c.charge_no === 62 || c.charge_no === 80 || (c.charge_no >= 81 && c.charge_no <= 89) || (c.charge_no >= 90 && c.charge_no <= 95)" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                        <td style="border: 1px solid #000; padding: 3px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
+                          {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
+                        </td>
+                        <template v-if="isCategoryHeader(c.charge_no)">
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
+                            {{ getCategorySum('m132', c.charge_no, col) || '' }}
+                          </td>
+                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;">
+                            {{ getRowTotal('m132', c.charge_no) || '' }}
+                          </td>
+                        </template>
+                        <template v-else>
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
+                            {{ monthlyReport.data['m132_c' + c.charge_no + '_' + col] || '' }}
+                          </td>
+                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f8fafc;">
+                            {{ getRowTotal('m132', c.charge_no) || '' }}
+                          </td>
+                        </template>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- แผ่นที่ 5: ข้อหา 18 - 47 (ข้อ 96 ถึง 119) -->
+              <div class="a4-sheet landscape" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 12mm 15mm; font-size: 0.74rem; color: #000; line-height: 1.25; background-color: #fff; page-break-after: always; box-sizing: border-box; border-radius: 0; box-shadow: none; border: none; min-height: 210mm; height: 210mm; overflow: hidden;">
+                <div style="text-align: center; font-size: 0.75rem; margin-bottom: 5px; color: #000; font-weight: normal;">หน้าที่ 5</div>
+                
+                <!-- หัวกระดาษคาดกล่องตาราง -->
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td style="border-right: 1.5px solid #000; padding: 8px 10px; text-align: center; font-weight: bold; width: 83%; font-size: 20px; color: #000;">
+                      แบบรายงานมาตรการแก้ไข บำบัด ฟื้นฟู ก่อนมีคำพิพากษา ตามมาตรา 132
+                    </td>
+                    <td style="padding: 8px 10px; text-align: center; font-weight: bold; width: 17%; font-size: 21px; color: #000; background-color: #fff;">
+                      ก่อนมีคำพิพากษา
+                    </td>
+                  </tr>
+                </table>
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; margin-top: 5px; margin-bottom: 12px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td rowspan="2" style="border-right: 1.5px solid #000; border-bottom: 1.5px solid #000; padding: 6px 10px; text-align: center; font-weight: bold; width: 48%; font-size: 17px; color: #000; vertical-align: middle;">
+                      ประจำเดือน {{ thaiMonths[monthlyReport.selectedMonth - 1] }} พ.ศ. {{ monthlyReport.selectedYear }}
+                    </td>
+                    <td style="border-bottom: 1px solid #000; padding: 4px 10px; font-size: 17px; color: #000; line-height: 1.45; width: 52%; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; font-size: 8px; font-weight: bold; flex-shrink: 0; background: #fff; line-height: 1;">✓</div>
+                        <span>ศาลเยาวชนและครอบครัวจังหวัดระยอง</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 4px 10px; border-bottom: 1.5px solid #000; font-size: 17px; color: #000; line-height: 1.45; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; flex-shrink: 0; background: #fff;"></div>
+                        <span>ศาลจังหวัด....................... แผนกคดีเยาวชนและครอบครัว</span>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <table style="width: 100%; border-collapse: collapse; border: 1px solid #000; font-size: 0.72rem; text-align: center; table-layout: fixed;">
+                  <thead>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th rowspan="2" style="border: 1px solid #000; padding: 3px; text-align: left; width: 22%; vertical-align: middle;">ข้อหา</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">1.ให้มารายงานตัวต่อพนักงานคุมประพฤติ</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">2.เข้ารับการแก้ไขบำบัดฟื้นฟู</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">3.รับคำปรึกษาแนะนำ</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">4.ทำกิจกรรมบำบัดฯ</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">5.ใช้วิธีการเพื่อความปลอดภัย</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">อื่นๆ</th>
+                      <th rowspan="2" style="border: 1px solid #000; padding: 3px; width: 6%; vertical-align: middle; font-weight: bold;">รวม</th>
+                    </tr>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template v-for="c in monthlyReport.charges" :key="c.charge_no">
+                      <tr v-if="c.charge_no >= 96 && c.charge_no <= 119" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                        <td style="border: 1px solid #000; padding: 3px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
+                          {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
+                        </td>
+                        <template v-if="isCategoryHeader(c.charge_no)">
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
+                            {{ getCategorySum('m132', c.charge_no, col) || '' }}
+                          </td>
+                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;">
+                            {{ getRowTotal('m132', c.charge_no) || '' }}
+                          </td>
+                        </template>
+                        <template v-else>
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
+                            {{ monthlyReport.data['m132_c' + c.charge_no + '_' + col] || '' }}
+                          </td>
+                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f8fafc;">
+                            {{ getRowTotal('m132', c.charge_no) || '' }}
+                          </td>
+                        </template>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- แผ่นที่ 6: กฎหมายอื่น + นอกบัญชี (ข้อ 63, 64-70, 120, 121-127) -->
+              <div class="a4-sheet landscape" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 12mm 15mm; font-size: 0.74rem; color: #000; line-height: 1.25; background-color: #fff; page-break-after: always; box-sizing: border-box; border-radius: 0; box-shadow: none; border: none; min-height: 210mm; height: 210mm; overflow: hidden;">
+                <div style="text-align: center; font-size: 0.75rem; margin-bottom: 5px; color: #000; font-weight: normal;">หน้าที่ 6</div>
+                
+                <!-- หัวกระดาษคาดกล่องตาราง -->
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td style="border-right: 1.5px solid #000; padding: 8px 10px; text-align: center; font-weight: bold; width: 83%; font-size: 20px; color: #000;">
+                      แบบรายงานมาตรการแก้ไข บำบัด ฟื้นฟู ก่อนมีคำพิพากษา ตามมาตรา 132
+                    </td>
+                    <td style="padding: 8px 10px; text-align: center; font-weight: bold; width: 17%; font-size: 21px; color: #000; background-color: #fff;">
+                      ก่อนมีคำพิพากษา
+                    </td>
+                  </tr>
+                </table>
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; margin-top: 5px; margin-bottom: 12px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td rowspan="2" style="border-right: 1.5px solid #000; border-bottom: 1.5px solid #000; padding: 6px 10px; text-align: center; font-weight: bold; width: 48%; font-size: 17px; color: #000; vertical-align: middle;">
+                      ประจำเดือน {{ thaiMonths[monthlyReport.selectedMonth - 1] }} พ.ศ. {{ monthlyReport.selectedYear }}
+                    </td>
+                    <td style="border-bottom: 1px solid #000; padding: 4px 10px; font-size: 17px; color: #000; line-height: 1.45; width: 52%; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; font-size: 8px; font-weight: bold; flex-shrink: 0; background: #fff; line-height: 1;">✓</div>
+                        <span>ศาลเยาวชนและครอบครัวจังหวัดระยอง</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 4px 10px; border-bottom: 1.5px solid #000; font-size: 17px; color: #000; line-height: 1.45; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; flex-shrink: 0; background: #fff;"></div>
+                        <span>ศาลจังหวัด....................... แผนกคดีเยาวชนและครอบครัว</span>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <table style="width: 100%; border-collapse: collapse; border: 1px solid #000; font-size: 0.72rem; text-align: center; table-layout: fixed;">
+                  <thead>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th rowspan="2" style="border: 1px solid #000; padding: 3px; text-align: left; width: 22%; vertical-align: middle;">ข้อหา</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">1.ให้มารายงานตัวต่อพนักงานคุมประพฤติ</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">2.เข้ารับการแก้ไขบำบัดฟื้นฟู</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">3.รับคำปรึกษาแนะนำ</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">4.ทำกิจกรรมบำบัดฯ</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">5.ใช้วิธีการเพื่อความปลอดภัย</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">อื่นๆ</th>
+                      <th rowspan="2" style="border: 1px solid #000; padding: 3px; width: 6%; vertical-align: middle; font-weight: bold;">รวม</th>
+                    </tr>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template v-for="c in monthlyReport.charges" :key="c.charge_no">
+                      <tr v-if="c.charge_no === 63 || (c.charge_no >= 64 && c.charge_no <= 70) || c.charge_no === 120 || (c.charge_no >= 121 && c.charge_no <= 127)" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                        <td style="border: 1px solid #000; padding: 3px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
+                          {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
+                        </td>
+                        <template v-if="isCategoryHeader(c.charge_no)">
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
+                            {{ getCategorySum('m132', c.charge_no, col) || '' }}
+                          </td>
+                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;">
+                            {{ getRowTotal('m132', c.charge_no) || '' }}
+                          </td>
+                        </template>
+                        <template v-else>
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
+                            {{ monthlyReport.data['m132_c' + c.charge_no + '_' + col] || '' }}
+                          </td>
+                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f8fafc;">
+                            {{ getRowTotal('m132', c.charge_no) || '' }}
+                          </td>
+                        </template>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- แผ่นที่ 7: กฎหมายอื่นที่เหลือ + นอกบัญชีที่เหลือ + รวมทั้งสิ้น + ลายเซ็น (ข้อ 71-79, 128-131) -->
+              <div class="a4-sheet landscape" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 12mm 15mm; font-size: 0.74rem; color: #000; line-height: 1.25; background-color: #fff; box-sizing: border-box; border-radius: 0; box-shadow: none; border: none; min-height: 210mm; height: 210mm; overflow: hidden;">
+                <div style="text-align: center; font-size: 0.75rem; margin-bottom: 5px; color: #000; font-weight: normal;">หน้าที่ 7</div>
+                
+                <!-- หัวกระดาษคาดกล่องตาราง -->
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td style="border-right: 1.5px solid #000; padding: 8px 10px; text-align: center; font-weight: bold; width: 83%; font-size: 20px; color: #000;">
+                      แบบรายงานมาตรการแก้ไข บำบัด ฟื้นฟู ก่อนมีคำพิพากษา ตามมาตรา 132
+                    </td>
+                    <td style="padding: 8px 10px; text-align: center; font-weight: bold; width: 17%; font-size: 21px; color: #000; background-color: #fff;">
+                      ก่อนมีคำพิพากษา
+                    </td>
+                  </tr>
+                </table>
+                <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000; margin-top: 5px; margin-bottom: 12px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <tr>
+                    <td rowspan="2" style="border-right: 1.5px solid #000; border-bottom: 1.5px solid #000; padding: 6px 10px; text-align: center; font-weight: bold; width: 48%; font-size: 17px; color: #000; vertical-align: middle;">
+                      ประจำเดือน {{ thaiMonths[monthlyReport.selectedMonth - 1] }} พ.ศ. {{ monthlyReport.selectedYear }}
+                    </td>
+                    <td style="border-bottom: 1px solid #000; padding: 4px 10px; font-size: 17px; color: #000; line-height: 1.45; width: 52%; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; font-size: 8px; font-weight: bold; flex-shrink: 0; background: #fff; line-height: 1;">✓</div>
+                        <span>ศาลเยาวชนและครอบครัวจังหวัดระยอง</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 4px 10px; border-bottom: 1.5px solid #000; font-size: 17px; color: #000; line-height: 1.45; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="width: 11px; height: 11px; border: 1.2px solid #000; display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; flex-shrink: 0; background: #fff;"></div>
+                        <span>ศาลจังหวัด....................... แผนกคดีเยาวชนและครอบครัว</span>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <table style="width: 100%; border-collapse: collapse; border: 1px solid #000; font-size: 0.72rem; text-align: center; table-layout: fixed; margin-bottom: 12px;">
+                  <thead>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th rowspan="2" style="border: 1px solid #000; padding: 3px; text-align: left; width: 22%; vertical-align: middle;">ข้อหา</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">1.ให้มารายงานตัวต่อพนักงานคุมประพฤติ</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">2.เข้ารับการแก้ไขบำบัดฟื้นฟู</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">3.รับคำปรึกษาแนะนำ</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">4.ทำกิจกรรมบำบัดฯ</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">5.ใช้วิธีการเพื่อความปลอดภัย</th>
+                      <th colspan="2" style="border: 1px solid #000; padding: 2px; font-size: 0.65rem;">อื่นๆ</th>
+                      <th rowspan="2" style="border: 1px solid #000; padding: 3px; width: 6%; vertical-align: middle; font-weight: bold;">รวม</th>
+                    </tr>
+                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #000; font-weight: bold;">
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติตามเงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 2px; width: 6%;">ปฏิบัติผิดเงื่อนไข</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template v-for="c in monthlyReport.charges" :key="c.charge_no">
+                      <tr v-if="(c.charge_no >= 71 && c.charge_no <= 79) || (c.charge_no >= 128 && c.charge_no <= 131)" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                        <td style="border: 1px solid #000; padding: 2px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
+                          {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
+                        </td>
+                        <template v-if="isCategoryHeader(c.charge_no)">
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 2px;">
+                            {{ getCategorySum('m132', c.charge_no, col) || '' }}
+                          </td>
+                          <td style="border: 1px solid #000; padding: 2px; font-weight: bold; background-color: #f1f5f9;">
+                            {{ getRowTotal('m132', c.charge_no) || '' }}
+                          </td>
+                        </template>
+                        <template v-else>
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 2px;">
+                            {{ monthlyReport.data['m132_c' + c.charge_no + '_' + col] || '' }}
+                          </td>
+                          <td style="border: 1px solid #000; padding: 2px; font-weight: bold; background-color: #f8fafc;">
+                            {{ getRowTotal('m132', c.charge_no) || '' }}
+                          </td>
+                        </template>
+                      </tr>
+                    </template>
+                    <tr style="font-weight: bold; background-color: #f1f5f9;">
+                      <td style="border: 1px solid #000; padding: 3px; text-align: left;">ความผิดตามประมวลกฎหมายอาญา (ข้อ 1 - 20)</td>
+                      <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
+                        {{ getCriminalCodeTotal('m132', col) || '' }}
+                      </td>
+                      <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #cbd5e1;">{{ getCriminalCodeRowTotal('m132') || '' }}</td>
+                    </tr>
+                    <tr style="font-weight: bold; background-color: #f1f5f9;">
+                      <td style="border: 1px solid #000; padding: 3px; text-align: left;">ความผิดตามประมวลกฎหมายอื่น</td>
+                      <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
+                        {{ getCategorySum('m132', 63, col) || '' }}
+                      </td>
+                      <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #cbd5e1;">{{ getRowTotal('m132', 63) || '' }}</td>
+                    </tr>
+                    <tr style="font-weight: bold; background-color: #f1f5f9;">
+                      <td style="border: 1px solid #000; padding: 3px; text-align: left;">ข้อหาอื่นนอกเหนือจากบัญชี</td>
+                      <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
+                        {{ getCategorySum('m132', 120, col) || '' }}
+                      </td>
+                      <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #cbd5e1;">{{ getRowTotal('m132', 120) || '' }}</td>
+                    </tr>
+                    <tr style="font-weight: bold; background-color: #cbd5e1;">
+                      <td style="border: 1px solid #000; padding: 3px; text-align: left;">รวมทั้งสิ้น</td>
+                      <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
+                        {{ getTableGrandTotal('m132', col) || '' }}
+                      </td>
+                      <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #94a3b8;">{{ getTableGrandRowTotal('m132') || '' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <!-- ลายเซ็นตัวพิมพ์ปกติ ไม่หนา -->
+                <div style="display: flex; justify-content: center; gap: 60px; margin-top: 15px; page-break-inside: avoid; width: 100%;">
+                  <!-- Box 1: ลงนามผู้จัดทำ -->
+                  <div style="width: 320px; border: 1px solid #000; background: #fff; display: flex; flex-direction: column;">
+                    <div style="border-bottom: 1px solid #000; text-align: center; padding: 5px; font-size: 0.8rem; background-color: #f1f5f9; color: #000; font-weight: normal;">
+                      ลงนามผู้จัดทำ
+                    </div>
+                    <div style="border-bottom: 1px solid #000; height: 60px; display: flex; align-items: center; justify-content: center; padding: 0 10px;">
+                      <span style="color: #000; letter-spacing: 1px;">............................................................</span>
+                    </div>
+                    <div style="text-align: center; padding: 6px 5px; font-size: 0.8rem; color: #000; line-height: 1.35; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 55px; font-weight: normal;">
+                      <div style="margin-bottom: 3px; font-weight: normal;">( {{ session.fullName }} )</div>
+                      <div style="font-weight: normal;">{{ session.position || 'เจ้าหน้าที่ศูนย์ให้คำปรึกษา' }}</div>
+                    </div>
+                  </div>
+
+                  <!-- Box 2: ลงนามผู้อำนวยการ -->
+                  <div style="width: 320px; border: 1px solid #000; background: #fff; display: flex; flex-direction: column;">
+                    <div style="border-bottom: 1px solid #000; text-align: center; padding: 5px; font-size: 0.8rem; background-color: #f1f5f9; color: #000; font-weight: normal;">
+                      ลงนามผู้อำนวยการ
+                    </div>
+                    <div style="border-bottom: 1px solid #000; height: 60px; display: flex; align-items: center; justify-content: center; padding: 0 10px;">
+                      <span style="color: #000; letter-spacing: 1px;">............................................................</span>
+                    </div>
+                    <div style="text-align: center; padding: 6px 5px; font-size: 0.8rem; color: #000; line-height: 1.35; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 55px; font-weight: normal;">
+                      <div v-if="selectedDirectorObj" style="margin-bottom: 3px; font-weight: normal;">
+                        ( {{ selectedDirectorObj.counselorName }} )
+                      </div>
+                      <div v-else style="margin-bottom: 3px; font-weight: normal;">
+                        ( ........................................................ )
+                      </div>
+                      
+                      <template v-if="selectedDirectorObj">
+                        <template v-if="selectedDirectorObj.counselorPositionSecond">
+                          <div style="font-weight: normal;">{{ selectedDirectorObj.counselorPosition }}</div>
+                          <div style="font-size: 0.75rem; margin: 2px 0; font-weight: normal;">รักษาราชการแทน</div>
+                          <div style="font-weight: normal;">{{ selectedDirectorObj.counselorPositionSecond }}</div>
+                        </template>
+                        <template v-else>
+                          <div style="font-weight: normal;">{{ selectedDirectorObj.counselorPosition || 'ผู้อำนวยการสำนักงานประจำศาลฯ' }}</div>
+                        </template>
+                      </template>
+                      <template v-else>
+                        <div style="font-weight: normal;">ผู้อำนวยการสำนักงานประจำศาลฯ</div>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
           
         </div>
       </div>
