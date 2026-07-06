@@ -2210,13 +2210,15 @@
       }
       
       .a4-sheet.landscape {
-        width: 296.5mm !important;
-        height: auto !important;
-        min-height: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 100% !important;
+        max-height: 100% !important;
         zoom: 1 !important;
-        margin: 0 auto !important;
+        margin: 0 !important;
         page-break-after: always !important;
         break-after: page !important;
+        overflow: hidden !important;
       }
       
       .a4-sheet:last-child,
@@ -2443,6 +2445,8 @@
       table-layout: fixed !important;
       width: 100% !important;
       border-collapse: collapse !important;
+      flex: 1 1 auto !important; /* Stretch table vertically to fill remaining page height */
+      height: 100% !important;  /* Force table height to stretch */
     }
     
     .print-modal-overlay .m132-data-table th,
