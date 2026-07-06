@@ -1999,27 +1999,7 @@
                   </template>
                   
                   <!-- Grand Totals -->
-                  <tr style="font-weight: 700; background: rgba(255,255,255,0.05); border-top: 2px solid var(--card-border);">
-                    <td style="padding: 12px 10px; border: 1px solid var(--card-border);">ความผิดตามประมวลกฎหมายอาญา (ข้อ 1 - 20)</td>
-                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getCriminalCodeTotal('m90', 1) || '' }}</td>
-                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getCriminalCodeTotal('m90', 2) || '' }}</td>
-                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getCriminalCodeTotal('m90', 3) || '' }}</td>
-                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border); background: rgba(0,0,0,0.05);">{{ getCriminalCodeRowTotal('m90') || '' }}</td>
-                  </tr>
-                  <tr style="font-weight: 700; background: rgba(255,255,255,0.05);">
-                    <td style="padding: 12px 10px; border: 1px solid var(--card-border);">ความผิดตามประมวลกฎหมายอื่น</td>
-                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getCategorySum('m90', 63, 1) || '' }}</td>
-                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getCategorySum('m90', 63, 2) || '' }}</td>
-                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getCategorySum('m90', 63, 3) || '' }}</td>
-                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border); background: rgba(0,0,0,0.05);">{{ getRowTotal('m90', 63) || '' }}</td>
-                  </tr>
-                  <tr style="font-weight: 700; background: rgba(255,255,255,0.05);">
-                    <td style="padding: 12px 10px; border: 1px solid var(--card-border);">ข้อหาอื่นนอกเหนือจากบัญชี</td>
-                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getCategorySum('m90', 120, 1) || '' }}</td>
-                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getCategorySum('m90', 120, 2) || '' }}</td>
-                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getCategorySum('m90', 120, 3) || '' }}</td>
-                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border); background: rgba(0,0,0,0.05);">{{ getRowTotal('m90', 120) || '' }}</td>
-                  </tr>
+                  
                   <tr style="font-weight: 800; background: var(--bg-hover); border-top: 2px solid var(--card-border);">
                     <td style="padding: 12px 10px; border: 1px solid var(--card-border); color: var(--primary);">รวมทั้งสิ้น</td>
                     <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getTableGrandTotal('m90', 1) || '' }}</td>
@@ -2119,27 +2099,7 @@
                     </template>
                     
                     <!-- Grand Totals -->
-                    <tr style="font-weight: 700; background: rgba(255,255,255,0.05); border-top: 2px solid var(--card-border);">
-                      <td style="padding: 10px 8px; border: 1px solid var(--card-border);">ความผิดตามประมวลกฎหมายอาญา (ข้อ 1 - 20)</td>
-                      <td v-for="col in 12" :key="col" style="padding: 8px; text-align: center; border: 1px solid var(--card-border);">
-                        {{ getCriminalCodeTotal('m132', col) || '' }}
-                      </td>
-                      <td style="padding: 8px; text-align: center; border: 1px solid var(--card-border); background: rgba(0,0,0,0.05);">{{ getCriminalCodeRowTotal('m132') || '' }}</td>
-                    </tr>
-                    <tr style="font-weight: 700; background: rgba(255,255,255,0.05);">
-                      <td style="padding: 10px 8px; border: 1px solid var(--card-border);">ความผิดตามประมวลกฎหมายอื่น</td>
-                      <td v-for="col in 12" :key="col" style="padding: 8px; text-align: center; border: 1px solid var(--card-border);">
-                        {{ getCategorySum('m132', 63, col) || '' }}
-                      </td>
-                      <td style="padding: 8px; text-align: center; border: 1px solid var(--card-border); background: rgba(0,0,0,0.05);">{{ getRowTotal('m132', 63) || '' }}</td>
-                    </tr>
-                    <tr style="font-weight: 700; background: rgba(255,255,255,0.05);">
-                      <td style="padding: 10px 8px; border: 1px solid var(--card-border);">ข้อหาอื่นนอกเหนือจากบัญชี</td>
-                      <td v-for="col in 12" :key="col" style="padding: 8px; text-align: center; border: 1px solid var(--card-border);">
-                        {{ getCategorySum('m132', 120, col) || '' }}
-                      </td>
-                      <td style="padding: 8px; text-align: center; border: 1px solid var(--card-border); background: rgba(0,0,0,0.05);">{{ getRowTotal('m132', 120) || '' }}</td>
-                    </tr>
+                    
                     <tr style="font-weight: 800; background: var(--bg-hover); border-top: 2px solid var(--card-border);">
                       <td style="padding: 10px 8px; border: 1px solid var(--card-border); color: var(--primary);">รวมทั้งสิ้น</td>
                       <td v-for="col in 12" :key="col" style="padding: 8px; text-align: center; border: 1px solid var(--card-border);">
@@ -3753,27 +3713,7 @@
                         </template>
                       </tr>
                     </template>
-                    <tr style="font-weight: bold; background-color: #f1f5f9;">
-                      <td style="border: 1px solid #000; padding: 2px 3px; text-align: left;">ความผิดตามประมวลกฎหมายอาญา (ข้อ 1 - 20)</td>
-                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCriminalCodeTotal('m90', 1) || '' }}</td>
-                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCriminalCodeTotal('m90', 2) || '' }}</td>
-                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCriminalCodeTotal('m90', 3) || '' }}</td>
-                      <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #cbd5e1;">{{ getCriminalCodeRowTotal('m90') || '' }}</td>
-                    </tr>
-                    <tr style="font-weight: bold; background-color: #f1f5f9;">
-                      <td style="border: 1px solid #000; padding: 2px 3px; text-align: left;">ความผิดตามประมวลกฎหมายอื่น</td>
-                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', 63, 1) || '' }}</td>
-                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', 63, 2) || '' }}</td>
-                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', 63, 3) || '' }}</td>
-                      <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #cbd5e1;">{{ getRowTotal('m90', 63) || '' }}</td>
-                    </tr>
-                    <tr style="font-weight: bold; background-color: #f1f5f9;">
-                      <td style="border: 1px solid #000; padding: 2px 3px; text-align: left;">ข้อหาอื่นนอกเหนือจากบัญชี</td>
-                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', 120, 1) || '' }}</td>
-                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', 120, 2) || '' }}</td>
-                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', 120, 3) || '' }}</td>
-                      <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #cbd5e1;">{{ getRowTotal('m90', 120) || '' }}</td>
-                    </tr>
+
                     <tr style="font-weight: bold; background-color: #cbd5e1;">
                       <td style="border: 1px solid #000; padding: 2px 3px; text-align: left;">รวมทั้งสิ้น</td>
                       <td style="border: 1px solid #000; padding: 2px 3px;">{{ getTableGrandTotal('m90', 1) || '' }}</td>
@@ -4501,27 +4441,6 @@
                         </template>
                       </tr>
                     </template>
-                    <tr style="font-weight: bold; background-color: #f1f5f9;">
-                      <td style="border: 1px solid #000; padding: 3px; text-align: left;">ความผิดตามประมวลกฎหมายอาญา (ข้อ 1 - 20)</td>
-                      <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
-                        {{ getCriminalCodeTotal('m132', col) || '' }}
-                      </td>
-                      <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #cbd5e1;">{{ getCriminalCodeRowTotal('m132') || '' }}</td>
-                    </tr>
-                    <tr style="font-weight: bold; background-color: #f1f5f9;">
-                      <td style="border: 1px solid #000; padding: 3px; text-align: left;">ความผิดตามประมวลกฎหมายอื่น</td>
-                      <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
-                        {{ getCategorySum('m132', 63, col) || '' }}
-                      </td>
-                      <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #cbd5e1;">{{ getRowTotal('m132', 63) || '' }}</td>
-                    </tr>
-                    <tr style="font-weight: bold; background-color: #f1f5f9;">
-                      <td style="border: 1px solid #000; padding: 3px; text-align: left;">ข้อหาอื่นนอกเหนือจากบัญชี</td>
-                      <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
-                        {{ getCategorySum('m132', 120, col) || '' }}
-                      </td>
-                      <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #cbd5e1;">{{ getRowTotal('m132', 120) || '' }}</td>
-                    </tr>
                     <tr style="font-weight: bold; background-color: #cbd5e1;">
                       <td style="border: 1px solid #000; padding: 3px; text-align: left;">รวมทั้งสิ้น</td>
                       <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
