@@ -3739,14 +3739,18 @@
             styleEl.id = 'dynamic-print-style';
             document.head.appendChild(styleEl);
           }
+          const isLandscape = monthlyReport.activeTab === 'm132';
           if (monthlyReport.activeTab === 'summary') {
             styleEl.innerHTML = '@media print { @page { size: portrait; margin: 15mm !important; } }';
+          } else if (monthlyReport.activeTab === 'm90') {
+            styleEl.innerHTML = '@media print { @page { size: portrait; margin: 8mm !important; } }';
           } else {
             styleEl.innerHTML = '@media print { @page { size: landscape; margin: 8mm !important; } }';
           }
           
           const width = window.innerWidth;
-          const zoomFactor = Math.min(1, (width - 16) / 794);
+          const targetWidth = isLandscape ? 1123 : 794;
+          const zoomFactor = Math.min(1, (width - 16) / targetWidth);
           manualZoom.value = Math.max(0.35, Math.round(zoomFactor * 100) / 100);
           
           setTimeout(() => {
