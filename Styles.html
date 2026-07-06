@@ -2447,7 +2447,12 @@
     .a4-sheet.landscape .m132-data-table th,
     .a4-sheet.landscape .m132-data-table td {
       font-size: 0.60rem !important; /* Smaller size for maximum fit and beauty */
-      line-height: 1.15 !important;
+      line-height: 1.35 !important;  /* Increased line-height to prevent text overlap */
+    }
+    
+    .print-modal-overlay .m132-data-table th,
+    .a4-sheet.landscape .m132-data-table th {
+      font-weight: 500 !important;   /* Thinner/Medium weight for table headers to look thin and clean */
     }
     
     /* First column: Charge Name (rowspan=2 in first header row) */
