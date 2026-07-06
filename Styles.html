@@ -2449,9 +2449,9 @@
     .print-modal-overlay .m132-data-table td,
     .a4-sheet.landscape .m132-data-table th,
     .a4-sheet.landscape .m132-data-table td {
-      font-size: 0.56rem !important; /* Slightly smaller to prevent overflow */
-      line-height: 1.20 !important;  /* Tighter line-height to fit all rows on A4 landscape */
-      padding: 1.8px 3px !important;  /* Tighter padding to prevent page overflow at 100% scale */
+      font-size: 0.60rem !important; /* Reverted to original font size */
+      line-height: 1.22 !important;  /* Reverted to original line-height */
+      padding: 2.2px 3px !important;  /* Reverted to original padding */
     }
     
     .print-modal-overlay .m132-data-table th,
@@ -2487,27 +2487,9 @@
       width: 5% !important;
     }
 
-    /* Tighter padding and margins for M132 landscape pages in print */
+    /* Appropriate padding for M132 landscape pages in print */
     .print-modal-overlay .a4-sheet.landscape,
     .a4-sheet.landscape {
-      padding: 5mm 15mm !important;
-    }
-    
-    /* Compact header tables in print mode to prevent overflow */
-    .print-modal-overlay .a4-sheet.landscape table:first-of-type td,
-    .a4-sheet.landscape table:first-of-type td {
-      padding: 4px 6px !important;
-      font-size: 14px !important;
-    }
-    
-    .print-modal-overlay .a4-sheet.landscape table:nth-of-type(2) td,
-    .a4-sheet.landscape table:nth-of-type(2) td {
-      padding: 3px 6px !important;
-      font-size: 12px !important;
-    }
-    
-    .print-modal-overlay .a4-sheet.landscape table:nth-of-type(2) td span,
-    .a4-sheet.landscape table:nth-of-type(2) td span {
-      font-size: 12px !important;
+      padding: 8mm 12mm !important;
     }
 </style>
