@@ -2002,10 +2002,10 @@
                   
                   <tr style="font-weight: 800; background: var(--bg-hover); border-top: 2px solid var(--card-border);">
                     <td style="padding: 12px 10px; border: 1px solid var(--card-border); color: var(--primary);">รวมทั้งสิ้น</td>
-                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getTableGrandTotal('m90', 1) || '' }}</td>
-                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getTableGrandTotal('m90', 2) || '' }}</td>
-                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getTableGrandTotal('m90', 3) || '' }}</td>
-                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border); background: rgba(0,0,0,0.08); color: var(--primary);">{{ getTableGrandRowTotal('m90') || '' }}</td>
+                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getTableGrandTotal('m90', 1) }}</td>
+                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getTableGrandTotal('m90', 2) }}</td>
+                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getTableGrandTotal('m90', 3) }}</td>
+                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border); background: rgba(0,0,0,0.08); color: var(--primary);">{{ getTableGrandRowTotal('m90') }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -2103,9 +2103,9 @@
                     <tr style="font-weight: 800; background: var(--bg-hover); border-top: 2px solid var(--card-border);">
                       <td style="padding: 10px 8px; border: 1px solid var(--card-border); color: var(--primary);">รวมทั้งสิ้น</td>
                       <td v-for="col in 12" :key="col" style="padding: 8px; text-align: center; border: 1px solid var(--card-border);">
-                        {{ getTableGrandTotal('m132', col) || '' }}
+                        {{ getTableGrandTotal('m132', col) }}
                       </td>
-                      <td style="padding: 8px; text-align: center; border: 1px solid var(--card-border); background: rgba(0,0,0,0.08); color: var(--primary);">{{ getTableGrandRowTotal('m132') || '' }}</td>
+                      <td style="padding: 8px; text-align: center; border: 1px solid var(--card-border); background: rgba(0,0,0,0.08); color: var(--primary);">{{ getTableGrandRowTotal('m132') }}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -3716,10 +3716,10 @@
 
                     <tr style="font-weight: bold; background-color: #cbd5e1;">
                       <td style="border: 1px solid #000; padding: 2px 3px; text-align: left;">รวมทั้งสิ้น</td>
-                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getTableGrandTotal('m90', 1) || '' }}</td>
-                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getTableGrandTotal('m90', 2) || '' }}</td>
-                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getTableGrandTotal('m90', 3) || '' }}</td>
-                      <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #94a3b8;">{{ getTableGrandRowTotal('m90') || '' }}</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getTableGrandTotal('m90', 1) }}</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getTableGrandTotal('m90', 2) }}</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px;">{{ getTableGrandTotal('m90', 3) }}</td>
+                      <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #94a3b8;">{{ getTableGrandRowTotal('m90') }}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -4444,9 +4444,9 @@
                     <tr style="font-weight: bold; background-color: #cbd5e1;">
                       <td style="border: 1px solid #000; padding: 3px; text-align: left;">รวมทั้งสิ้น</td>
                       <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
-                        {{ getTableGrandTotal('m132', col) || '' }}
+                        {{ getTableGrandTotal('m132', col) }}
                       </td>
-                      <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #94a3b8;">{{ getTableGrandRowTotal('m132') || '' }}</td>
+                      <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #94a3b8;">{{ getTableGrandRowTotal('m132') }}</td>
                     </tr>
                   </tbody>
                 </table>
