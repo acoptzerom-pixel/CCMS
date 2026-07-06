@@ -3512,7 +3512,7 @@
                   </thead>
                   <tbody>
                     <template v-for="c in monthlyReport.charges" :key="c.charge_no">
-                      <tr v-if="c.charge_no >= 28 && c.charge_no <= 59" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                      <tr v-if="c.charge_no >= 28 && c.charge_no <= 58" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
                         <td style="border: 1px solid #000; padding: 2px 3px; text-align: left;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
@@ -3586,7 +3586,7 @@
                   </thead>
                   <tbody>
                     <template v-for="c in monthlyReport.charges" :key="c.charge_no">
-                      <tr v-if="c.charge_no === 80 || (c.charge_no >= 81 && c.charge_no <= 89) || c.charge_no === 60 || c.charge_no === 61 || c.charge_no === 62 || (c.charge_no >= 90 && c.charge_no <= 104)" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                      <tr v-if="c.charge_no === 59 || c.charge_no === 80 || (c.charge_no >= 81 && c.charge_no <= 89) || c.charge_no === 60 || c.charge_no === 61 || c.charge_no === 62 || (c.charge_no >= 90 && c.charge_no <= 104)" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
                         <td style="border: 1px solid #000; padding: 2px 3px; text-align: left;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
