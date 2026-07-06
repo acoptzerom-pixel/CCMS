@@ -2218,7 +2218,7 @@
         width: 296.5mm !important;
         height: 210mm !important;
         min-height: 210mm !important;
-        zoom: 0.96 !important;
+        zoom: 1 !important;
         margin: 0 auto !important;
         page-break-after: always !important;
         break-after: page !important;
@@ -2449,7 +2449,8 @@
     .a4-sheet.landscape .m132-data-table th,
     .a4-sheet.landscape .m132-data-table td {
       font-size: 0.60rem !important; /* Smaller size for maximum fit and beauty */
-      line-height: 1.35 !important;  /* Increased line-height to prevent text overlap */
+      line-height: 1.22 !important;  /* Slightly tighter line-height to prevent page overflow at 100% scale */
+      padding: 2.2px 3px !important;  /* Tighter padding to fit all rows on A4 landscape */
     }
     
     .print-modal-overlay .m132-data-table th,
