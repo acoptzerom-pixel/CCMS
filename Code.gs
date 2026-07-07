@@ -2036,8 +2036,16 @@ function getFormSelectLists(token) {
     var subCaseTypes = getSheetData("tb_subcasetype");
     var users = getSheetData("tb_user");
     
-    var chargeList = charges.map(function(c) {
-      return { id: c.charge_no, name: c.charge_statistics };
+    var chargeList = charges.filter(function(c) {
+      return c.charge_no !== undefined && c.charge_no !== null && c.charge_no.toString().trim() !== "";
+    }).map(function(c) {
+      return { 
+        id: parseFloat(c.charge_no), 
+        name: c.charge_statistics ? c.charge_statistics.toString().trim() : "" 
+      };
+    });
+    chargeList.sort(function(a, b) {
+      return a.id - b.id;
     });
     
     var caseTypeList = caseTypes.map(function(ct) {
@@ -2921,12 +2929,17 @@ function getMonthlyReport(monthYearStr, token) {
     var defaults = {};
     
     var charges = getSheetData("tb_charge");
-    var chargeList = charges.map(function(c) {
+    var chargeList = charges.filter(function(c) {
+      return c.charge_no !== undefined && c.charge_no !== null && c.charge_no.toString().trim() !== "";
+    }).map(function(c) {
       return {
-        charge_no: c.charge_no,
-        charge_statistics: c.charge_statistics,
-        charge_statistics_no: c.charge_statistics_no
+        charge_no: parseFloat(c.charge_no),
+        charge_statistics: c.charge_statistics ? c.charge_statistics.toString().trim() : "",
+        charge_statistics_no: c.charge_statistics_no ? c.charge_statistics_no.toString().trim() : ""
       };
+    });
+    chargeList.sort(function(a, b) {
+      return a.charge_no - b.charge_no;
     });
 
     // Initialize default keys

@@ -3951,6 +3951,26 @@
 
         function getCategorySum(prefix, chargeNo, colIndex) {
           if (!monthlyReport.data) return 0;
+          if (chargeNo === 120) {
+            // Dynamically sum all charges from 121 onwards
+            let sum = 0;
+            monthlyReport.charges.forEach(c => {
+              if (c.charge_no > 120) {
+                sum += getCategorySum(prefix, c.charge_no, colIndex);
+              }
+            });
+            return sum;
+          }
+          if (chargeNo === 63) {
+            // Dynamically sum all charges between 64 and 119
+            let sum = 0;
+            monthlyReport.charges.forEach(c => {
+              if (c.charge_no >= 64 && c.charge_no <= 119) {
+                sum += getCategorySum(prefix, c.charge_no, colIndex);
+              }
+            });
+            return sum;
+          }
           if (chargeGroups[chargeNo]) {
             let sum = 0;
             chargeGroups[chargeNo].forEach(childNo => {
