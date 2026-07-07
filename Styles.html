@@ -2585,18 +2585,44 @@
       font-family: 'TH Sarabun New', 'Sarabun', 'TH Sarabun PSK', sans-serif !important;
     }
 
-    /* Reduce table text size in M90 and M132 sheets to match signature box text (0.75rem) */
-    .print-modal-overlay .a4-sheet.m90-sheet table td,
-    .print-modal-overlay .a4-sheet.m90-sheet table th,
-    .a4-sheet.m90-sheet table td,
-    .a4-sheet.m90-sheet table th {
-      font-size: 0.75rem !important;
+    /* Page main titles (was 0.95rem inline) */
+    .a4-sheet div[style*="font-size: 0.95rem"],
+    .a4-sheet span[style*="font-size: 0.95rem"],
+    .a4-sheet td[style*="font-size: 0.95rem"],
+    .print-modal-overlay .a4-sheet div[style*="font-size: 0.95rem"],
+    .print-modal-overlay .a4-sheet span[style*="font-size: 0.95rem"] {
+      font-size: 20px !important;
+      font-weight: bold !important;
     }
-    
-    .print-modal-overlay .m132-data-table td,
-    .print-modal-overlay .m132-data-table th,
-    .a4-sheet.landscape .m132-data-table td,
-    .a4-sheet.landscape .m132-data-table th {
-      font-size: 0.75rem !important;
+
+    /* Page section titles & subheadings (was 0.68rem inline) */
+    .a4-sheet div[style*="font-size: 0.68rem"],
+    .a4-sheet span[style*="font-size: 0.68rem"],
+    .print-modal-overlay .a4-sheet div[style*="font-size: 0.68rem"],
+    .print-modal-overlay .a4-sheet span[style*="font-size: 0.68rem"] {
+      font-size: 18px !important;
+    }
+
+    /* Table header cells (th) */
+    .a4-sheet table th,
+    .print-modal-overlay .a4-sheet table th {
+      font-size: 18px !important;
+      font-weight: bold !important;
+    }
+
+    /* Table data cells (td) */
+    .a4-sheet table td,
+    .print-modal-overlay .a4-sheet table td {
+      font-size: 17px !important;
+    }
+
+    /* Signature boxes (was 0.75rem/0.70rem inline) */
+    .a4-sheet div[style*="font-size: 0.75rem"],
+    .a4-sheet div[style*="font-size: 0.70rem"],
+    .a4-sheet div[style*="font-size: 0.7rem"],
+    .print-modal-overlay .a4-sheet div[style*="font-size: 0.75rem"],
+    .print-modal-overlay .a4-sheet div[style*="font-size: 0.70rem"],
+    .print-modal-overlay .a4-sheet div[style*="font-size: 0.7rem"] {
+      font-size: 17px !important;
     }
 </style>
