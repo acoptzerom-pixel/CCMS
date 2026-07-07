@@ -2625,4 +2625,88 @@
     .print-modal-overlay .a4-sheet div[style*="font-size: 0.7rem"] {
       font-size: 17px !important;
     }
+
+    /* Force print preview modal background to slate, like day mode */
+    .print-modal-overlay,
+    .dark-mode .print-modal-overlay {
+      background-color: #0f172a !important;
+    }
+    .print-modal-overlay .print-preview-scroll-container,
+    .dark-mode .print-modal-overlay .print-preview-scroll-container {
+      background-color: #0f172a !important;
+    }
+
+    /* Force all sheet pages inside the print preview to look identical in day and night modes */
+    .print-modal-overlay .a4-sheet,
+    .a4-sheet,
+    .dark-mode .print-modal-overlay .a4-sheet,
+    .dark-mode .a4-sheet {
+      background-color: #ffffff !important;
+      background: #ffffff !important;
+      color: #000000 !important;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4) !important;
+    }
+
+    .print-modal-overlay .a4-sheet *:not(.fa-solid):not(.fa-regular):not(.fa-brands):not(.fas):not(.far):not(.fab),
+    .a4-sheet *:not(.fa-solid):not(.fa-regular):not(.fa-brands):not(.fas):not(.far):not(.fab),
+    .dark-mode .print-modal-overlay .a4-sheet *:not(.fa-solid):not(.fa-regular):not(.fa-brands):not(.fas):not(.far):not(.fab),
+    .dark-mode .a4-sheet *:not(.fa-solid):not(.fa-regular):not(.fa-brands):not(.fas):not(.far):not(.fab) {
+      color: #000000 !important;
+      border-color: #000000 !important;
+    }
+
+    /* Keep gray backgrounds on table headers and signature box headers in day and night modes */
+    .print-modal-overlay .a4-sheet tr[style*="background-color: #f1f5f9"],
+    .print-modal-overlay .a4-sheet tr[style*="background-color: #f8fafc"],
+    .print-modal-overlay .a4-sheet div[style*="background-color: #f1f5f9"],
+    .a4-sheet tr[style*="background-color: #f1f5f9"],
+    .a4-sheet tr[style*="background-color: #f8fafc"],
+    .a4-sheet div[style*="background-color: #f1f5f9"],
+    .dark-mode .print-modal-overlay .a4-sheet tr[style*="background-color: #f1f5f9"],
+    .dark-mode .print-modal-overlay .a4-sheet tr[style*="background-color: #f8fafc"],
+    .dark-mode .print-modal-overlay .a4-sheet div[style*="background-color: #f1f5f9"],
+    .dark-mode .a4-sheet tr[style*="background-color: #f1f5f9"],
+    .dark-mode .a4-sheet tr[style*="background-color: #f8fafc"],
+    .dark-mode .a4-sheet div[style*="background-color: #f1f5f9"] {
+      background-color: #f1f5f9 !important;
+    }
+    
+    /* Ensure KPI card backgrounds stay light gray */
+    .print-modal-overlay .report-kpi-card,
+    .a4-sheet .report-kpi-card,
+    .dark-mode .print-modal-overlay .report-kpi-card,
+    .dark-mode .a4-sheet .report-kpi-card {
+      background-color: #f8fafc !important;
+      background: #f8fafc !important;
+      border-color: #e2e8f0 !important;
+    }
+
+    /* Ensure borders are black for all tables */
+    .print-modal-overlay .a4-sheet table,
+    .print-modal-overlay .a4-sheet td,
+    .print-modal-overlay .a4-sheet th,
+    .a4-sheet table,
+    .a4-sheet td,
+    .a4-sheet th,
+    .dark-mode .print-modal-overlay .a4-sheet table,
+    .dark-mode .print-modal-overlay .a4-sheet td,
+    .dark-mode .print-modal-overlay .a4-sheet th,
+    .dark-mode .a4-sheet table,
+    .dark-mode .a4-sheet td,
+    .dark-mode .a4-sheet th {
+      border-color: #000000 !important;
+    }
+
+    /* Print media query overrides to remove box-shadow and border for printing */
+    @media print {
+      .print-modal-overlay .a4-sheet,
+      .a4-sheet,
+      .dark-mode .print-modal-overlay .a4-sheet,
+      .dark-mode .a4-sheet {
+        border: none !important;
+        box-shadow: none !important;
+        background-color: #ffffff !important;
+        background: #ffffff !important;
+      }
+    }
 </style>
