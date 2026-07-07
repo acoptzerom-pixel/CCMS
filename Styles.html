@@ -2576,4 +2576,27 @@
         display: none !important;
       }
     }
+
+    /* Force TH Sarabun New font for print preview and print sheets, protecting icons */
+    .print-modal-overlay .a4-sheet,
+    .print-modal-overlay .a4-sheet *:not(.fa-solid):not(.fa-regular):not(.fa-brands):not(.fas):not(.far):not(.fab),
+    .a4-sheet,
+    .a4-sheet *:not(.fa-solid):not(.fa-regular):not(.fa-brands):not(.fas):not(.far):not(.fab) {
+      font-family: 'TH Sarabun New', 'Sarabun', 'TH Sarabun PSK', sans-serif !important;
+    }
+
+    /* Reduce table text size in M90 and M132 sheets to match signature box text (0.75rem) */
+    .print-modal-overlay .a4-sheet.m90-sheet table td,
+    .print-modal-overlay .a4-sheet.m90-sheet table th,
+    .a4-sheet.m90-sheet table td,
+    .a4-sheet.m90-sheet table th {
+      font-size: 0.75rem !important;
+    }
+    
+    .print-modal-overlay .m132-data-table td,
+    .print-modal-overlay .m132-data-table th,
+    .a4-sheet.landscape .m132-data-table td,
+    .a4-sheet.landscape .m132-data-table th {
+      font-size: 0.75rem !important;
+    }
 </style>
