@@ -2706,7 +2706,16 @@
         border: none !important;
         box-shadow: none !important;
         background-color: #ffffff !important;
-        background: #ffffff !important;
+      }
+    }
+
+    /* On screen preview: allow M90 sheets to adjust height and padding to fit all contents perfectly without truncation */
+    @media screen {
+      .print-modal-overlay .a4-sheet.m90-sheet {
+        padding: 8mm 12mm !important; /* Matches inline print padding */
+        height: auto !important;
+        min-height: 296.5mm !important;
+        box-sizing: border-box !important;
       }
     }
 </style>
