@@ -3761,7 +3761,7 @@
                 </div>
               </div>            </div><!-- 3. หน้า ม.132 (6 แผ่นงาน) -->
             <div v-else-if="monthlyReport.activeTab === 'm132'" style="display: flex; flex-direction: column; gap: 30px;">
-              <!-- แผ่นที่ 1: ข้อหา 1 - 16 -->
+              <!-- แผ่นที่ 1: ข้อหา 1 - 15 -->
               <div class="a4-sheet landscape" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 10mm 6mm !important; font-size: 0.74rem; color: #000; line-height: 1.25; background-color: #fff; page-break-after: always; box-sizing: border-box; border-radius: 0; box-shadow: none; border: none; min-height: 210mm; height: auto; overflow: visible;">
                 <div style="text-align: center; font-size: 0.75rem; margin-bottom: 5px; color: #000; font-weight: normal;">หน้าที่ 1</div>
                 
@@ -3827,7 +3827,7 @@
                   </thead>
                   <tbody>
                     <template v-for="c in monthlyReport.charges" :key="c.charge_no">
-                      <tr v-if="c.charge_no >= 1 && c.charge_no <= 16" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                      <tr v-if="c.charge_no >= 1 && c.charge_no <= 15" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
                         <td style="border: 1px solid #000; padding: 3px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
@@ -3853,7 +3853,7 @@
                 </table>
                 
               </div>
-              <!-- แผ่นที่ 2: ข้อหา 17 - 31 -->
+              <!-- แผ่นที่ 2: ข้อหา 16 - 29 -->
               <div class="a4-sheet landscape" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 10mm 6mm !important; font-size: 0.74rem; color: #000; line-height: 1.25; background-color: #fff; page-break-after: always; box-sizing: border-box; border-radius: 0; box-shadow: none; border: none; min-height: 210mm; height: auto; overflow: visible;">
                 <div style="text-align: center; font-size: 0.75rem; margin-bottom: 5px; color: #000; font-weight: normal;">หน้าที่ 2</div>
                 
@@ -3919,7 +3919,7 @@
                   </thead>
                   <tbody>
                     <template v-for="c in monthlyReport.charges" :key="c.charge_no">
-                      <tr v-if="c.charge_no >= 17 && c.charge_no <= 31" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                      <tr v-if="c.charge_no >= 16 && c.charge_no <= 29" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
                         <td style="border: 1px solid #000; padding: 3px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
@@ -3945,7 +3945,7 @@
                 </table>
                 
               </div>
-              <!-- แผ่นที่ 3: ข้อหา 32 - 48 -->
+              <!-- แผ่นที่ 3: ข้อหา 30 - 45 -->
               <div class="a4-sheet landscape" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 10mm 6mm !important; font-size: 0.74rem; color: #000; line-height: 1.25; background-color: #fff; page-break-after: always; box-sizing: border-box; border-radius: 0; box-shadow: none; border: none; min-height: 210mm; height: auto; overflow: visible;">
                 <div style="text-align: center; font-size: 0.75rem; margin-bottom: 5px; color: #000; font-weight: normal;">หน้าที่ 3</div>
                 
@@ -4011,7 +4011,7 @@
                   </thead>
                   <tbody>
                     <template v-for="c in monthlyReport.charges" :key="c.charge_no">
-                      <tr v-if="c.charge_no >= 32 && c.charge_no <= 48" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                      <tr v-if="c.charge_no >= 30 && c.charge_no <= 45" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
                         <td style="border: 1px solid #000; padding: 3px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
@@ -4037,7 +4037,7 @@
                 </table>
                 
               </div>
-              <!-- แผ่นที่ 4: ข้อหา 49 - 65 -->
+              <!-- แผ่นที่ 4: ข้อหา 46 - 61 -->
               <div class="a4-sheet landscape" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 10mm 6mm !important; font-size: 0.74rem; color: #000; line-height: 1.25; background-color: #fff; page-break-after: always; box-sizing: border-box; border-radius: 0; box-shadow: none; border: none; min-height: 210mm; height: auto; overflow: visible;">
                 <div style="text-align: center; font-size: 0.75rem; margin-bottom: 5px; color: #000; font-weight: normal;">หน้าที่ 4</div>
                 
@@ -4103,7 +4103,7 @@
                   </thead>
                   <tbody>
                     <template v-for="c in monthlyReport.charges" :key="c.charge_no">
-                      <tr v-if="c.charge_no >= 49 && c.charge_no <= 65" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                      <tr v-if="c.charge_no >= 46 && c.charge_no <= 61" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
                         <td style="border: 1px solid #000; padding: 3px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
@@ -4129,7 +4129,7 @@
                 </table>
                 
               </div>
-              <!-- แผ่นที่ 5: ข้อหา 66 - 82 -->
+              <!-- แผ่นที่ 5: ข้อหา 62 - 77 -->
               <div class="a4-sheet landscape" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 10mm 6mm !important; font-size: 0.74rem; color: #000; line-height: 1.25; background-color: #fff; page-break-after: always; box-sizing: border-box; border-radius: 0; box-shadow: none; border: none; min-height: 210mm; height: auto; overflow: visible;">
                 <div style="text-align: center; font-size: 0.75rem; margin-bottom: 5px; color: #000; font-weight: normal;">หน้าที่ 5</div>
                 
@@ -4195,7 +4195,7 @@
                   </thead>
                   <tbody>
                     <template v-for="c in monthlyReport.charges" :key="c.charge_no">
-                      <tr v-if="c.charge_no >= 66 && c.charge_no <= 82" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                      <tr v-if="c.charge_no >= 62 && c.charge_no <= 77" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
                         <td style="border: 1px solid #000; padding: 3px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
@@ -4221,7 +4221,7 @@
                 </table>
                 
               </div>
-              <!-- แผ่นที่ 6: ข้อหา 83 - 99 -->
+              <!-- แผ่นที่ 6: ข้อหา 78 - 93 -->
               <div class="a4-sheet landscape" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 10mm 6mm !important; font-size: 0.74rem; color: #000; line-height: 1.25; background-color: #fff; page-break-after: always; box-sizing: border-box; border-radius: 0; box-shadow: none; border: none; min-height: 210mm; height: auto; overflow: visible;">
                 <div style="text-align: center; font-size: 0.75rem; margin-bottom: 5px; color: #000; font-weight: normal;">หน้าที่ 6</div>
                 
@@ -4287,7 +4287,7 @@
                   </thead>
                   <tbody>
                     <template v-for="c in monthlyReport.charges" :key="c.charge_no">
-                      <tr v-if="c.charge_no >= 83 && c.charge_no <= 99" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                      <tr v-if="c.charge_no >= 78 && c.charge_no <= 93" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
                         <td style="border: 1px solid #000; padding: 3px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
@@ -4313,7 +4313,7 @@
                 </table>
                 
               </div>
-              <!-- แผ่นที่ 7: ข้อหา 100 - 116 -->
+              <!-- แผ่นที่ 7: ข้อหา 94 - 109 -->
               <div class="a4-sheet landscape" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 10mm 6mm !important; font-size: 0.74rem; color: #000; line-height: 1.25; background-color: #fff; page-break-after: always; box-sizing: border-box; border-radius: 0; box-shadow: none; border: none; min-height: 210mm; height: auto; overflow: visible;">
                 <div style="text-align: center; font-size: 0.75rem; margin-bottom: 5px; color: #000; font-weight: normal;">หน้าที่ 7</div>
                 
@@ -4379,7 +4379,7 @@
                   </thead>
                   <tbody>
                     <template v-for="c in monthlyReport.charges" :key="c.charge_no">
-                      <tr v-if="c.charge_no >= 100 && c.charge_no <= 116" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                      <tr v-if="c.charge_no >= 94 && c.charge_no <= 109" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
                         <td style="border: 1px solid #000; padding: 3px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
@@ -4405,7 +4405,7 @@
                 </table>
                 
               </div>
-              <!-- แผ่นที่ 8: ข้อหา 117 - 133 -->
+              <!-- แผ่นที่ 8: ข้อหา 110 - 125 -->
               <div class="a4-sheet landscape" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 10mm 6mm !important; font-size: 0.74rem; color: #000; line-height: 1.25; background-color: #fff; page-break-after: always; box-sizing: border-box; border-radius: 0; box-shadow: none; border: none; min-height: 210mm; height: auto; overflow: visible;">
                 <div style="text-align: center; font-size: 0.75rem; margin-bottom: 5px; color: #000; font-weight: normal;">หน้าที่ 8</div>
                 
@@ -4471,7 +4471,7 @@
                   </thead>
                   <tbody>
                     <template v-for="c in monthlyReport.charges" :key="c.charge_no">
-                      <tr v-if="c.charge_no >= 117 && c.charge_no <= 133" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                      <tr v-if="c.charge_no >= 110 && c.charge_no <= 125" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
                         <td style="border: 1px solid #000; padding: 3px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
@@ -4497,7 +4497,7 @@
                 </table>
                 
               </div>
-              <!-- แผ่นที่ 9: ข้อหา 134 ขึ้นไป -->
+              <!-- แผ่นที่ 9: ข้อหา 126 ขึ้นไป -->
               <div class="a4-sheet landscape" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 10mm 6mm !important; font-size: 0.74rem; color: #000; line-height: 1.25; background-color: #fff;  box-sizing: border-box; border-radius: 0; box-shadow: none; border: none; min-height: 210mm; height: auto; overflow: visible;">
                 <div style="text-align: center; font-size: 0.75rem; margin-bottom: 5px; color: #000; font-weight: normal;">หน้าที่ 9</div>
                 
@@ -4563,7 +4563,7 @@
                   </thead>
                   <tbody>
                     <template v-for="c in monthlyReport.charges" :key="c.charge_no">
-                      <tr v-if="c.charge_no >= 134" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
+                      <tr v-if="c.charge_no >= 126" :style="isCategoryHeader(c.charge_no) ? { backgroundColor: '#f8fafc', fontWeight: 'bold' } : {}">
                         <td style="border: 1px solid #000; padding: 3px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :style="!isCategoryHeader(c.charge_no) ? { paddingLeft: '12px' } : {}">
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
@@ -4595,17 +4595,17 @@
                   </tbody>
                 </table>
                 
-                <!-- ลายเซ็นตัวพิมพ์ปกติ ไม่หนา -->
+                <!-- ลายเซ็นตัวพิมพ์ปกติ ไม่หนา ปรับขนาดตัวอักษรเป็น 17px เพื่อให้เท่ากับตารางข้อหา -->
                 <div style="display: flex; justify-content: center; gap: 60px; margin-top: 15px; page-break-inside: avoid; width: 100%;">
                   <!-- Box 1: ลงนามผู้จัดทำ -->
                   <div style="width: 320px; border: 1px solid #000; background: #fff; display: flex; flex-direction: column;">
-                    <div style="border-bottom: 1px solid #000; text-align: center; padding: 5px; font-size: 0.8rem; background-color: #f1f5f9; color: #000; font-weight: normal;">
+                    <div style="border-bottom: 1px solid #000; text-align: center; padding: 5px; font-size: 17px; background-color: #f1f5f9; color: #000; font-weight: normal;">
                       ลงนามผู้จัดทำ
                     </div>
                     <div style="border-bottom: 1px solid #000; height: 60px; display: flex; align-items: center; justify-content: center; padding: 0 10px;">
                       <span style="color: #000; letter-spacing: 1px;">............................................................</span>
                     </div>
-                    <div style="text-align: center; padding: 6px 5px; font-size: 0.8rem; color: #000; line-height: 1.35; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 55px; font-weight: normal;">
+                    <div style="text-align: center; padding: 6px 5px; font-size: 17px; color: #000; line-height: 1.35; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 55px; font-weight: normal;">
                       <div style="margin-bottom: 3px; font-weight: normal;">( {{ session.fullName }} )</div>
                       <div style="font-weight: normal;">{{ session.position || 'เจ้าหน้าที่ศูนย์ให้คำปรึกษา' }}</div>
                     </div>
@@ -4613,13 +4613,13 @@
 
                   <!-- Box 2: ลงนามผู้อำนวยการ -->
                   <div style="width: 420px; border: 1px solid #000; background: #fff; display: flex; flex-direction: column;">
-                    <div style="border-bottom: 1px solid #000; text-align: center; padding: 5px; font-size: 0.8rem; background-color: #f1f5f9; color: #000; font-weight: normal;">
+                    <div style="border-bottom: 1px solid #000; text-align: center; padding: 5px; font-size: 17px; background-color: #f1f5f9; color: #000; font-weight: normal;">
                       ลงนามผู้อำนวยการ
                     </div>
                     <div style="border-bottom: 1px solid #000; height: 60px; display: flex; align-items: center; justify-content: center; padding: 0 10px;">
                       <span style="color: #000; letter-spacing: 1px;">............................................................</span>
                     </div>
-                    <div style="text-align: center; padding: 6px 5px; font-size: 0.8rem; color: #000; line-height: 1.35; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 55px; font-weight: normal;">
+                    <div style="text-align: center; padding: 6px 5px; font-size: 17px; color: #000; line-height: 1.35; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 55px; font-weight: normal;">
                       <div v-if="selectedDirectorObj" style="margin-bottom: 3px; font-weight: normal;">
                         ( {{ selectedDirectorObj.counselorName }} )
                       </div>
@@ -4630,7 +4630,7 @@
                       <template v-if="selectedDirectorObj">
                         <template v-if="selectedDirectorObj.counselorPositionSecond">
                           <div style="font-weight: normal;">{{ selectedDirectorObj.counselorPosition }}</div>
-                          <div style="font-size: 0.75rem; margin: 2px 0; font-weight: normal;">รักษาราชการแทน</div>
+                          <div style="font-size: 15px; margin: 2px 0; font-weight: normal;">รักษาราชการแทน</div>
                           <div style="font-weight: normal;">{{ selectedDirectorObj.counselorPositionSecond }}</div>
                         </template>
                         <template v-else>
