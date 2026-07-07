@@ -2473,10 +2473,20 @@
       font-weight: 500 !important;   /* Thinner/Medium weight for table headers to look thin and clean */
     }
     
-    /* First column: Charge Name (rowspan=2 in first header row) */
+    /* First column header: Charge Name (rowspan=2 in first header row) */
     .print-modal-overlay .m132-data-table thead tr:first-child th:first-child,
+    .a4-sheet.landscape .m132-data-table thead tr:first-child th:first-child {
+      width: 35% !important;
+      white-space: normal !important;
+      word-wrap: break-word !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+      text-align: center !important;
+      padding-left: 0 !important;
+    }
+    
+    /* First column data cells: Charge Name */
     .print-modal-overlay .m132-data-table tbody td:first-child,
-    .a4-sheet.landscape .m132-data-table thead tr:first-child th:first-child,
     .a4-sheet.landscape .m132-data-table tbody td:first-child {
       width: 35% !important;
       white-space: normal !important;
@@ -2501,10 +2511,10 @@
       width: 5% !important;
     }
 
-    /* Tighter padding for M132 landscape pages in print to prevent blank page overflow */
+    /* Set landscape page margins: Top/Bottom 10mm (1cm), Left/Right 6mm */
     .print-modal-overlay .a4-sheet.landscape,
     .a4-sheet.landscape {
-      padding: 3mm 10mm !important;
+      padding: 10mm 6mm !important;
     }
 
     /* Back to Top (Scroll to Top) Styles */
@@ -2709,12 +2719,18 @@
       }
     }
 
-    /* On screen preview: allow M90 sheets to adjust height and padding to fit all contents perfectly without truncation */
+    /* On screen preview: allow M90 (portrait) and M132 (landscape) sheets to adjust height dynamically to fit all contents perfectly without truncation */
     @media screen {
       .print-modal-overlay .a4-sheet.m90-sheet {
         padding: 8mm 12mm !important; /* Matches inline print padding */
         height: auto !important;
         min-height: 296.5mm !important;
+        box-sizing: border-box !important;
+      }
+      .print-modal-overlay .a4-sheet.landscape {
+        padding: 10mm 6mm !important; /* Matches landscape padding */
+        height: auto !important;
+        min-height: 210mm !important;
         box-sizing: border-box !important;
       }
     }
