@@ -2506,4 +2506,74 @@
     .a4-sheet.landscape {
       padding: 3mm 10mm !important;
     }
+
+    /* Back to Top (Scroll to Top) Styles */
+    .scroll-to-top {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      width: 48px;
+      height: 48px;
+      background: rgba(124, 58, 237, 0.25); /* violet accent with low opacity */
+      border: 1px solid rgba(124, 58, 237, 0.4); /* border overlay */
+      backdrop-filter: blur(12px) saturate(180%);
+      -webkit-backdrop-filter: blur(12px) saturate(180%);
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 2900; /* below normal modals (3000), but above content */
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      box-shadow: 0 8px 32px rgba(124, 58, 237, 0.15);
+      color: #ffffff;
+      font-family: 'Inter', 'Sarabun', sans-serif;
+    }
+    .scroll-to-top:hover {
+      transform: translateY(-5px) scale(1.08);
+      background: rgba(124, 58, 237, 0.55);
+      border-color: rgba(167, 139, 250, 0.8);
+      box-shadow: 0 12px 40px rgba(124, 58, 237, 0.4);
+    }
+    .scroll-to-top:active {
+      transform: translateY(0) scale(0.95);
+    }
+    .scroll-to-top .arrow-icon {
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-bottom: 8px solid #ffffff;
+      margin-bottom: 2px;
+      margin-top: 1px;
+      transition: transform 0.3s ease;
+    }
+    .scroll-to-top:hover .arrow-icon {
+      transform: translateY(-2px);
+    }
+    .scroll-to-top .top-label {
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      color: rgba(255, 255, 255, 0.9);
+      text-transform: uppercase;
+      line-height: 1;
+    }
+    
+    /* Vue transition classes for fade-in/out */
+    .fade-enter-active, .fade-leave-active {
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    .fade-enter-from, .fade-leave-to {
+      opacity: 0;
+      transform: translateY(15px) scale(0.85);
+    }
+    
+    /* Hide in print mode */
+    @media print {
+      .scroll-to-top {
+        display: none !important;
+      }
+    }
 </style>

@@ -50,6 +50,8 @@
         const currentThaiDate = ref('');
         const systemTodayDateStr = ref(formatLocalDateString(new Date()));
         
+        const showBackToTop = ref(false);
+
         // Mobile Menu Gesture States
         const isMobileMenuOpen = ref(false);
         const currentTranslateX = ref(-280);
@@ -683,6 +685,9 @@
         // Startup Hooks
         onMounted(() => {
           checkSavedSession();
+          window.addEventListener('scroll', () => {
+            showBackToTop.value = window.scrollY > 300;
+          });
           fetchAdminProfileImage();
           
           // Mobile Menu Swipe Gestures & Resize Handler
@@ -4029,7 +4034,12 @@
           return sum;
         }
 
+        function scrollToTop() {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
         return {
+          showBackToTop, scrollToTop,
           session, currentView, authView, loading, errorMsg, cacheTime, isOffline, authAlert, adminProfileImage, isEditingProfile, cancelEditingProfile,
           searchId, searchDone, currentDef, linkedCases, newDefFormActive, usersList, counselorsList,
           confirmDeleteCounselorModalActive, deleteCounselorPassword, counselorToDelete,

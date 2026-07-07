@@ -4506,6 +4506,14 @@
       </div>
     </div>
 
+          <!-- Back to Top Button -->
+          <transition name="fade">
+            <div v-if="showBackToTop && !printModalActive" class="scroll-to-top" @click="scrollToTop" title="เลื่อนขึ้นบนสุด">
+              <div class="arrow-icon"></div>
+              <span class="top-label">TOP</span>
+            </div>
+          </transition>
+
   </div>
 
   <!-- Vue.js 3 Global Global CDN -->
