@@ -1272,11 +1272,7 @@
                 <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600; margin-left: 85px;">
                   พบข้อมูลคดีทั้งหมดในระบบ: {{ caseInfoData.cases.length }} คดี (มาตรานี้: {{ filteredCases.length }} คดี)
                 </div>
-                <!-- Debug Raw Data Box -->
-                <div style="margin-left: 85px; margin-top: 5px; font-size: 0.8rem; background: rgba(0,0,0,0.05); padding: 8px; border-radius: 6px; color: var(--text-main); font-family: monospace; max-height: 180px; overflow-y: auto; line-height: 1.4;">
-                  DEBUG RAW CASES: {{ JSON.stringify(caseInfoData.cases.slice(0, 3)) }}<br>
-                  DIAGNOSTICS: {{ JSON.stringify(caseInfoData.diagnostics || {}) }}
-                </div>
+
               </div>
               <div style="display: flex; gap: 10px;">
                 <button v-if="session.role === 'admin' || session.role === 'psychologist'" class="btn btn-primary" @click="triggerNewCaseFromInfo" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none;">

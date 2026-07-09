@@ -1041,8 +1041,8 @@
                     isOffline.value = false;
                     
                     applyAppState(res);
-                    if (currentView.value === 'case_info') {
-                      loadCaseInfoModule(true); // โหลดข้อมูลคดีอัตโนมัติหากหน้าจอค้างอยู่ที่หน้านี้
+                    if (currentView.value === 'case_info' && caseInfoData.cases.length === 0) {
+                      loadCaseInfoModule(true); // โหลดข้อมูลคดีเฉพาะครั้งแรก เพื่อป้องกันการรีเฟรชรบกวนหน้าจอที่ผู้ใช้กำลังดูอยู่
                     }
                   } else {
                     if (handleAuthError(res.message)) return;
