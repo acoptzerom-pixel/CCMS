@@ -2192,8 +2192,8 @@
 
         function formatThaiLongDate(dateStr) {
           if (!dateStr) return "-";
-          var d = new Date(dateStr);
-          if (isNaN(d.getTime())) return dateStr;
+          var d = parseDateSafe(dateStr);
+          if (!d) return dateStr;
           
           var months = [
             "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
@@ -2208,8 +2208,8 @@
 
         function formatThaiFullMonthDate(dateStr) {
           if (!dateStr) return "-";
-          var d = new Date(dateStr);
-          if (isNaN(d.getTime())) return dateStr;
+          var d = parseDateSafe(dateStr);
+          if (!d) return dateStr;
           
           var months = [
             "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
@@ -3123,10 +3123,44 @@
           isDarkTheme.value = !isDarkTheme.value;
         }
 
+        function parseDateSafe(dateVal) {
+          if (!dateVal) return null;
+          if (dateVal instanceof Date) return dateVal;
+          
+          var dateStr = String(dateVal).trim();
+          if (!dateStr) return null;
+          
+          // Try parsing ISO format YYYY-MM-DD
+          var match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(.*))?$/);
+          if (match) {
+            var y = parseInt(match[1], 10);
+            var m = parseInt(match[2], 10) - 1;
+            var d = parseInt(match[3], 10);
+            return new Date(y, m, d);
+          }
+          
+          // Try parsing DD/MM/YYYY or DD/MM/YY
+          match = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+          if (match) {
+            var d = parseInt(match[1], 10);
+            var m = parseInt(match[2], 10) - 1;
+            var y = parseInt(match[3], 10);
+            if (y < 100) {
+              y = y < 50 ? 2000 + y : 1900 + y;
+            }
+            return new Date(y, m, d);
+          }
+          
+          var parsed = new Date(dateStr);
+          if (!isNaN(parsed.getTime())) return parsed;
+          
+          return null;
+        }
+
         function formatThaiDate(dateStr) {
           if (!dateStr) return "-";
-          var d = new Date(dateStr);
-          if (isNaN(d.getTime())) return dateStr;
+          var d = parseDateSafe(dateStr);
+          if (!d) return dateStr;
           
           var months = [
             "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
@@ -3141,8 +3175,8 @@
 
         function getAge(birthDateStr) {
           if (!birthDateStr) return { years: 0, months: 0 };
-          const birthDate = new Date(birthDateStr);
-          if (isNaN(birthDate.getTime())) return { years: 0, months: 0 };
+          const birthDate = parseDateSafe(birthDateStr);
+          if (!birthDate) return { years: 0, months: 0 };
           
           const today = new Date();
           const todayYear = today.getFullYear() > 2400 ? today.getFullYear() - 543 : today.getFullYear();
@@ -4272,9 +4306,10 @@
 
         function toISODateString(val) {
           if (!val) return '';
-          const d = new Date(val);
-          if (isNaN(d.getTime())) return '';
-          const y = d.getFullYear();
+          const d = parseDateSafe(val);
+          if (!d) return '';
+          let y = d.getFullYear();
+          if (y > 2400) y -= 543;
           const m = String(d.getMonth() + 1).padStart(2, '0');
           const day = String(d.getDate()).padStart(2, '0');
           return `${y}-${m}-${day}`;

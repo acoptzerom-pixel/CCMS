@@ -1754,7 +1754,7 @@ function upsertDefendant(defData, token) {
       }
     }
     
-    var birthDateVal = defData.birth_date ? new Date(defData.birth_date) : "";
+    var birthDateVal = parseDateCE(defData.birth_date);
     if (birthDateVal) {
       birthDateVal.setHours(12, 0, 0, 0);
     }
@@ -1887,10 +1887,10 @@ function upsertCase(caseData, token) {
       }
     }
     
-    var blackDateVal = caseData.black_date ? new Date(caseData.black_date) : "";
+    var blackDateVal = parseDateCE(caseData.black_date);
     if (blackDateVal) blackDateVal.setHours(12, 0, 0, 0);
     
-    var redDateVal = caseData.red_date ? new Date(caseData.red_date) : "";
+    var redDateVal = parseDateCE(caseData.red_date);
     if (redDateVal) redDateVal.setHours(12, 0, 0, 0);
     
     var caseRow = {};
@@ -3451,7 +3451,7 @@ function saveCaseAppointments(blackCase, list, token) {
     // เพิ่มแถวใหม่ตามลิสต์
     for (var i = 0; i < list.length; i++) {
       var item = list[i];
-      var aptDate = item.appointment_date ? new Date(item.appointment_date) : "";
+      var aptDate = parseDateCE(item.appointment_date);
       if (aptDate) aptDate.setHours(12, 0, 0, 0);
       
       var row = [
@@ -3533,9 +3533,9 @@ function saveCaseActivities(blackCase, list, token) {
     
     for (var i = 0; i < list.length; i++) {
       var item = list[i];
-      var startDate = item.activity_start_date ? new Date(item.activity_start_date) : "";
+      var startDate = parseDateCE(item.activity_start_date);
       if (startDate) startDate.setHours(12, 0, 0, 0);
-      var finishDate = item.activity_finish_date ? new Date(item.activity_finish_date) : "";
+      var finishDate = parseDateCE(item.activity_finish_date);
       if (finishDate) finishDate.setHours(12, 0, 0, 0);
       
       var row = [
@@ -3556,4 +3556,14 @@ function saveCaseActivities(blackCase, list, token) {
   } catch (e) {
     return { success: false, message: "เกิดข้อผิดพลาดในการบันทึกตารางกิจกรรม: " + e.toString() };
   }
+}
+
+function parseDateCE(val) {
+  if (!val) return "";
+  var d = new Date(val);
+  if (isNaN(d.getTime())) return "";
+  if (d.getFullYear() > 2400) {
+    d.setFullYear(d.getFullYear() - 543);
+  }
+  return d;
 }
