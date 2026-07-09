@@ -1273,8 +1273,9 @@
                   พบข้อมูลคดีทั้งหมดในระบบ: {{ caseInfoData.cases.length }} คดี (มาตรานี้: {{ filteredCases.length }} คดี)
                 </div>
                 <!-- Debug Raw Data Box -->
-                <div style="margin-left: 85px; margin-top: 5px; font-size: 0.8rem; background: rgba(0,0,0,0.05); padding: 8px; border-radius: 6px; color: var(--text-main); font-family: monospace; max-height: 100px; overflow-y: auto;">
-                  DEBUG RAW CASES: {{ JSON.stringify(caseInfoData.cases.slice(0, 3)) }}
+                <div style="margin-left: 85px; margin-top: 5px; font-size: 0.8rem; background: rgba(0,0,0,0.05); padding: 8px; border-radius: 6px; color: var(--text-main); font-family: monospace; max-height: 180px; overflow-y: auto; line-height: 1.4;">
+                  DEBUG RAW CASES: {{ JSON.stringify(caseInfoData.cases.slice(0, 3)) }}<br>
+                  DIAGNOSTICS: {{ JSON.stringify(caseInfoData.diagnostics || {}) }}
                 </div>
               </div>
               <div style="display: flex; gap: 10px;">

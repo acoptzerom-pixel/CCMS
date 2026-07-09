@@ -154,7 +154,7 @@
         // Paginated Card list states
         const defendantsList = ref([]);
         // Case Info Module States
-        const caseInfoData = reactive({ cases: [], appointments: [], conditions: [], activities: [] });
+        const caseInfoData = reactive({ cases: [], appointments: [], conditions: [], activities: [], diagnostics: {} });
         const caseSearchQuery = ref('');
         const isCaseSearchDropdownOpen = ref(false);
         const caseCardSearchQuery = ref('');
@@ -4254,6 +4254,16 @@
                   caseInfoData.appointments = res.appointments || [];
                   caseInfoData.conditions = res.conditions || [];
                   caseInfoData.activities = res.activities || [];
+                  caseInfoData.diagnostics = {
+                    debugCasesLength: res.debugCasesLength,
+                    debugDefendantsLength: res.debugDefendantsLength,
+                    debugAppointmentsLength: res.debugAppointmentsLength,
+                    debugConditionsLength: res.debugConditionsLength,
+                    debugActivitiesLength: res.debugActivitiesLength,
+                    userRole: res.userRole,
+                    userId: res.userId,
+                    userFullName: res.userFullName
+                  };
                   
                   // แสดงหน้ารวมการ์ดคดีเสมอในตอนเริ่มต้น ไม่สุ่มดึงคดีขึ้นมาบังสายตา
                   if (selectedCaseId.value) {

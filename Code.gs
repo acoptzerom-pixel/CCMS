@@ -3324,6 +3324,14 @@ function getCaseInfoModuleData(token) {
     
     return {
       success: true,
+      debugCasesLength: cases.length,
+      debugDefendantsLength: defendants.length,
+      debugAppointmentsLength: appointments.length,
+      debugConditionsLength: conditions.length,
+      debugActivitiesLength: activities.length,
+      userRole: userSession.role,
+      userId: userSession.userId,
+      userFullName: userSession.fullName,
       cases: linkedCases,
       appointments: appointments,
       conditions: conditions,
