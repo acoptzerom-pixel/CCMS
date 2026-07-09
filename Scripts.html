@@ -245,12 +245,23 @@
               const charge = String(c.charge || '').toLowerCase();
               const citizenId = String(c.citizen_id || '').toLowerCase();
               const prosecutor = String(c.prosecutor || '').toLowerCase();
+              
+              // เลขคดีอาญาดำ และเลขคดีอาญาแดง (ทั้งแบบติดกันและเว้นวรรค)
+              const blackCrim = `${c.abb_black_criminal || ''}${c.black_criminal_no || ''}/${c.black_criminal_year || ''}`.toLowerCase();
+              const blackCrimSpace = `${c.abb_black_criminal || ''} ${c.black_criminal_no || ''}/${c.black_criminal_year || ''}`.toLowerCase();
+              const redCrim = `${c.abb_red_criminal || ''}${c.red_criminal_no || ''}/${c.red_criminal_year || ''}`.toLowerCase();
+              const redCrimSpace = `${c.abb_red_criminal || ''} ${c.red_criminal_no || ''}/${c.red_criminal_year || ''}`.toLowerCase();
+
               return fullName.includes(query) || 
                      blackCase.includes(query) || 
                      redCase.includes(query) || 
                      charge.includes(query) || 
                      citizenId.includes(query) || 
-                     prosecutor.includes(query);
+                     prosecutor.includes(query) ||
+                     blackCrim.includes(query) ||
+                     blackCrimSpace.includes(query) ||
+                     redCrim.includes(query) ||
+                     redCrimSpace.includes(query);
             });
           }
           
@@ -290,11 +301,22 @@
             const normBlackCase = normalizeText(blackCase);
             const citizenId = (c.citizen_id || '').toLowerCase();
             const charge = (c.charge || '').toLowerCase();
+            
+            // เลขคดีอาญาดำ และเลขคดีอาญาแดง (ทั้งแบบติดกันและเว้นวรรค)
+            const blackCrim = `${c.abb_black_criminal || ''}${c.black_criminal_no || ''}/${c.black_criminal_year || ''}`.toLowerCase();
+            const blackCrimSpace = `${c.abb_black_criminal || ''} ${c.black_criminal_no || ''}/${c.black_criminal_year || ''}`.toLowerCase();
+            const redCrim = `${c.abb_red_criminal || ''}${c.red_criminal_no || ''}/${c.red_criminal_year || ''}`.toLowerCase();
+            const redCrimSpace = `${c.abb_red_criminal || ''} ${c.red_criminal_no || ''}/${c.red_criminal_year || ''}`.toLowerCase();
+
             return fullName.includes(query) || 
                    blackCase.includes(query) || 
                    normBlackCase.includes(normQuery) || 
                    citizenId.includes(query) || 
-                   charge.includes(query);
+                   charge.includes(query) ||
+                   blackCrim.includes(query) ||
+                   blackCrimSpace.includes(query) ||
+                   redCrim.includes(query) ||
+                   redCrimSpace.includes(query);
           });
         });
 
