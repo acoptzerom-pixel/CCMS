@@ -3205,6 +3205,12 @@
           return day + " " + month + " " + year;
         }
 
+        function formatThaiDateForInput(dateStr) {
+          if (!dateStr) return "";
+          var formatted = formatThaiDate(dateStr);
+          return formatted === "-" ? "" : formatted;
+        }
+
         function getAge(birthDateStr) {
           if (!birthDateStr) return { years: 0, months: 0 };
           const birthDate = parseDateSafe(birthDateStr);
@@ -4828,7 +4834,7 @@
           caseModalActive, caseFormMode, editDefModalActive, settingsModalActive, settingsTab,
           settingsForm, pwdForm, dashboardFilter, selectLists, stats, loginForm, registerForm, forgotForm,
           showPasswordLogin, showPasswordRegister, showPasswordForgot,
-          defForm, caseForm, handleLogin, handleRegister, handleForgotPassword, handleLogout, toggleTheme, formatThaiDate,
+          defForm, caseForm, handleLogin, handleRegister, handleForgotPassword, handleLogout, toggleTheme, formatThaiDate, formatThaiDateForInput,
           searchDefendant, saveNewDefendant, openEditDefModal, saveEditDefendant,
           confirmDeleteDefModalActive, deleteConfirmPassword, confirmDeleteDef, cancelDeleteDef, submitDeleteDef,
           openAddCaseModal, openEditCaseModal, saveCase, handleDeleteCase, closeCaseModal,
