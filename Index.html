@@ -1281,7 +1281,7 @@
                   <div v-if="isCaseSearchDropdownOpen && caseSearchFilteredList.length > 0" 
                        style="position: absolute; top: 100%; left: 0; right: 0; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); max-height: 250px; overflow-y: auto; z-index: 999; margin-top: 5px;">
                     <div v-for="c in caseSearchFilteredList" :key="c.rowNum" 
-                         @mousedown="selectCaseFromSearch(c)"
+                         @mousedown.prevent="selectCaseFromSearch(c)"
                          style="padding: 10px 15px; cursor: pointer; border-bottom: 1px solid var(--card-border); transition: background 0.2s; text-align: left;"
                          onmouseover="this.style.background='var(--bg-hover)'"
                          onmouseout="this.style.background='transparent'">

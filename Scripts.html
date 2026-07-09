@@ -4216,7 +4216,11 @@
         }
 
         function onSelectCase() {
-          const caseObj = selectedCaseObj.value;
+          if (!selectedCaseId.value) {
+            clearCaseInfoForm();
+            return;
+          }
+          const caseObj = caseInfoData.cases.find(c => c.rowNum == selectedCaseId.value);
           if (!caseObj) {
             selectedCaseId.value = '';
             caseSearchQuery.value = '';
@@ -4518,7 +4522,7 @@
             }
           });
           
-          selectedCaseId.value = latestCase.rowNum;
+          selectedCaseId.value = latestCase.rowNum.toString();
           onSelectCase();
         }
 
