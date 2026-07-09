@@ -3273,19 +3273,45 @@ function getCaseInfoModuleData(token) {
           black_date: safeStr(c.black_date),
           black_case: safeStr(c.black_case),
           case_type_id: safeNum(c.case_type_id),
+          sub_case_type_id: safeNum(c.sub_case_type_id),
           case_type_abb: safeStr(c.case_type_abb),
           black_case_no: safeNum(c.black_case_no),
           black_case_year: safeNum(c.black_case_year),
+          prosecutor: safeStr(c.prosecutor),
           charge: safeStr(c.charge),
+          charge_no: safeNum(c.charge_no),
+          age_at_offense: safeNum(c.age_at_offense),
+          red_date: safeStr(c.red_date),
           red_case_no: safeNum(c.red_case_no),
           red_case_year: safeNum(c.red_case_year),
+          red_because: safeStr(c.red_because),
           recidivism: safeStr(c.recidivism) || "ไม่ซ้ำ",
+          previous_case_no: safeStr(c.previous_case_no),
+          abb_black_criminal: safeStr(c.abb_black_criminal),
+          black_criminal_no: safeNum(c.black_criminal_no),
+          black_criminal_year: safeNum(c.black_criminal_year),
+          abb_red_criminal: safeStr(c.abb_red_criminal),
+          red_criminal_no: safeNum(c.red_criminal_no),
+          red_criminal_year: safeNum(c.red_criminal_year),
           counselor: safeStr(c.counselor),
-          prosecutor: safeStr(c.prosecutor),
+          user_id: safeStr(c.user_id),
+          judge: safeStr(c.judge),
+          officer: safeStr(c.officer),
+          mediator: safeStr(c.mediator),
+          mediator_add_date: safeStr(c.mediator_add_date),
+          court_date_plan: safeStr(c.court_date_plan),
+          plan_days: safeStr(c.plan_days),
+          court_order_plan: safeStr(c.court_order_plan),
+          note: safeStr(c.note),
           def_first_name: safeStr(def.first_name),
           def_last_name: safeStr(def.last_name),
           def_nick_name: safeStr(def.nick_name),
-          def_title_name: safeStr(def.title_name)
+          def_title_name: safeStr(def.title_name),
+          def_birth_date: safeStr(def.birth_date),
+          def_parent_name: safeStr(def.parent_name),
+          def_parent_relation: safeStr(def.parent_relation),
+          def_address: safeStr(def.address),
+          def_phone_number: safeStr(def.phone_number)
         });
       }
     }
@@ -3335,30 +3361,9 @@ function getCaseDetailData(rowNum, blackCase, token) {
   var userSession = verifySessionToken(token);
   if (!userSession) return { success: false, message: "สิทธิ์ล็อกอินหมดอายุ" };
   try {
-    var cases = getSheetData("tb_cases");
-    var defendants = getSheetData("tb_defendants");
     var appointments = getSheetData("tb_appointment");
     var conditions = getSheetData("tb_condition");
     var activities = getSheetData("tb_activity");
-    
-    var caseData = null;
-    for (var i = 0; i < cases.length; i++) {
-      if (cases[i].rowNum === rowNum) {
-        caseData = cases[i];
-        break;
-      }
-    }
-    if (!caseData) return { success: false, message: "ไม่พบข้อมูลคดีที่ระบุ" };
-    
-    var cid = cleanCitizenId(caseData.citizen_id);
-    var def = null;
-    for (var i = 0; i < defendants.length; i++) {
-      if (cleanCitizenId(defendants[i].citizen_id) === cid) {
-        def = defendants[i];
-        break;
-      }
-    }
-    def = def || {};
     
     var bcStr = (blackCase || "").toString().trim();
     
@@ -3413,52 +3418,6 @@ function getCaseDetailData(rowNum, blackCase, token) {
     
     return {
       success: true,
-      caseDetail: {
-        rowNum: caseData.rowNum,
-        citizen_id: safeStr(caseData.citizen_id),
-        black_date: safeStr(caseData.black_date),
-        black_case: safeStr(caseData.black_case),
-        case_type_id: safeNum(caseData.case_type_id),
-        sub_case_type_id: safeNum(caseData.sub_case_type_id),
-        case_type_abb: safeStr(caseData.case_type_abb),
-        black_case_no: safeNum(caseData.black_case_no),
-        black_case_year: safeNum(caseData.black_case_year),
-        prosecutor: safeStr(caseData.prosecutor),
-        charge: safeStr(caseData.charge),
-        charge_no: safeNum(caseData.charge_no),
-        age_at_offense: safeNum(caseData.age_at_offense),
-        red_date: safeStr(caseData.red_date),
-        red_case_no: safeNum(caseData.red_case_no),
-        red_case_year: safeNum(caseData.red_case_year),
-        red_because: safeStr(caseData.red_because),
-        recidivism: safeStr(caseData.recidivism) || "ไม่ซ้ำ",
-        previous_case_no: safeStr(caseData.previous_case_no),
-        abb_black_criminal: safeStr(caseData.abb_black_criminal),
-        black_criminal_no: safeNum(caseData.black_criminal_no),
-        black_criminal_year: safeNum(caseData.black_criminal_year),
-        abb_red_criminal: safeStr(caseData.abb_red_criminal),
-        red_criminal_no: safeNum(caseData.red_criminal_no),
-        red_criminal_year: safeNum(caseData.red_criminal_year),
-        counselor: safeStr(caseData.counselor),
-        user_id: safeStr(caseData.user_id),
-        judge: safeStr(caseData.judge),
-        officer: safeStr(caseData.officer),
-        mediator: safeStr(caseData.mediator),
-        mediator_add_date: safeStr(caseData.mediator_add_date),
-        court_date_plan: safeStr(caseData.court_date_plan),
-        plan_days: safeStr(caseData.plan_days),
-        court_order_plan: safeStr(caseData.court_order_plan),
-        note: safeStr(caseData.note),
-        def_first_name: safeStr(def.first_name),
-        def_last_name: safeStr(def.last_name),
-        def_nick_name: safeStr(def.nick_name),
-        def_title_name: safeStr(def.title_name),
-        def_birth_date: safeStr(def.birth_date),
-        def_parent_name: safeStr(def.parent_name),
-        def_parent_relation: safeStr(def.parent_relation),
-        def_address: safeStr(def.address),
-        def_phone_number: safeStr(def.phone_number)
-      },
       appointments: caseAppointments,
       conditions: caseConditions,
       activities: caseActivities
