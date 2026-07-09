@@ -1403,13 +1403,34 @@
           <template v-else>
             <!-- ฟอร์มรายละเอียดคดีหลัก -->
             <div class="glass-card shadow" style="padding: 25px; border-radius: 16px; margin-bottom: 25px;">
-              <!-- ปุ่มย้อนกลับไปหน้ารวมและการ์ด -->
-              <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
-                <button type="button" class="btn btn-secondary" @click="clearCaseSelection" style="border-radius: 10px; background: rgba(0,0,0,0.05); color: var(--text-main); border: 1px solid var(--card-border); font-weight: 600;">
-                  <i class="fa-solid fa-arrow-left"></i> ย้อนกลับไปรายการคดี
-                </button>
-                <div style="font-weight: 600; color: var(--text-muted); font-size: 0.95rem;">
-                  เลขดำที่กำลังแสดง: <span style="font-weight: 700; color: var(--accent-color);">{{ selectedCaseObj?.black_case }}</span>
+              <!-- ปุ่มย้อนกลับไปหน้ารวมและการ์ด พร้อมปุ่มนำทางชิดขอบขวาบนของการ์ด -->
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+                <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                  <button type="button" class="btn btn-secondary" @click="clearCaseSelection" style="border-radius: 10px; background: rgba(0,0,0,0.05); color: var(--text-main); border: 1px solid var(--card-border); font-weight: 600;">
+                    <i class="fa-solid fa-arrow-left"></i> ย้อนกลับไปรายการคดี
+                  </button>
+                  <div style="font-weight: 600; color: var(--text-muted); font-size: 0.95rem;">
+                    เลขดำที่กำลังแสดง: <span style="font-weight: 700; color: var(--accent-color);">{{ selectedCaseObj?.black_case }}</span>
+                  </div>
+                </div>
+
+                <!-- ปุ่มเลื่อนคดีถัดไป/ก่อนหน้า (ชิดขอบขวาบนของการ์ด) -->
+                <div style="display: flex; align-items: center; gap: 15px;">
+                  <!-- ปุ่มซ้าย (คดีถัดไป - เลขสูงกว่า) -->
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 3px;">
+                    <button type="button" class="btn-icon-nav" @click="goToHigherCase" :disabled="!hasHigherCase" title="เลื่อนไปคดีถัดไปที่มีเลขคดีดำสูงกว่า" style="padding: 4px 10px; font-size: 0.8rem; border-radius: 6px;">
+                      <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <span style="font-size: 0.65rem; font-weight: 700; color: var(--text-muted); text-align: center; white-space: nowrap; letter-spacing: 0.2px;">คดีถัดไป</span>
+                  </div>
+                  
+                  <!-- ปุ่มขวา (คดีก่อนหน้า - เลขต่ำกว่า) -->
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 3px;">
+                    <button type="button" class="btn-icon-nav" @click="goToLowerCase" :disabled="!hasLowerCase" title="เลื่อนไปคดีก่อนหน้าที่มีเลขคดีดำต่ำกว่า" style="padding: 4px 10px; font-size: 0.8rem; border-radius: 6px;">
+                      <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                    <span style="font-size: 0.65rem; font-weight: 700; color: var(--text-muted); text-align: center; white-space: nowrap; letter-spacing: 0.2px;">คดีก่อนหน้า</span>
+                  </div>
                 </div>
               </div>
 
@@ -1417,30 +1438,10 @@
                 <h3 style="font-family: var(--font-display); font-weight: 700; margin: 0; color: var(--text-main);">
                   <i class="fa-solid fa-folder-open" style="color: #4f46e5;"></i> ข้อมูลหลักของสำนวน/คดี
                 </h3>
-                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
-                  <!-- ปุ่มเลื่อนคดีถัดไป/ก่อนหน้า (ซ้าย=คดีถัดไปที่มีเลขคดีดำสูงกว่า, ขวา=คดีก่อนหน้าที่มีเลขคดีดำต่ำกว่า) -->
-                  <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 2px;">
-                    <!-- ปุ่มซ้าย (คดีถัดไป - เลขสูงกว่า) -->
-                    <div style="display: flex; flex-direction: column; align-items: center; gap: 3px;">
-                      <button type="button" class="btn-icon-nav" @click="goToHigherCase" :disabled="!hasHigherCase" title="เลื่อนไปคดีถัดไปที่มีเลขคดีดำสูงกว่า" style="padding: 4px 10px; font-size: 0.8rem; border-radius: 6px;">
-                        <i class="fa-solid fa-chevron-left"></i>
-                      </button>
-                      <span style="font-size: 0.65rem; font-weight: 700; color: var(--text-muted); text-align: center; white-space: nowrap; letter-spacing: 0.2px;">คดีถัดไป</span>
-                    </div>
-                    
-                    <!-- ปุ่มขวา (คดีก่อนหน้า - เลขต่ำกว่า) -->
-                    <div style="display: flex; flex-direction: column; align-items: center; gap: 3px;">
-                      <button type="button" class="btn-icon-nav" @click="goToLowerCase" :disabled="!hasLowerCase" title="เลื่อนไปคดีก่อนหน้าที่มีเลขคดีดำต่ำกว่า" style="padding: 4px 10px; font-size: 0.8rem; border-radius: 6px;">
-                        <i class="fa-solid fa-chevron-right"></i>
-                      </button>
-                      <span style="font-size: 0.65rem; font-weight: 700; color: var(--text-muted); text-align: center; white-space: nowrap; letter-spacing: 0.2px;">คดีก่อนหน้า</span>
-                    </div>
-                  </div>
-                  <!-- ปุ่มเอกสารในคดี -->
-                  <button type="button" class="btn btn-primary" @click="openCaseDocumentPrint" :disabled="!selectedCaseId" style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); border: none; border-radius: 10px; padding: 6px 14px; font-size: 0.88rem; font-weight: 600; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);">
-                    <i class="fa-solid fa-file-pdf"></i> เอกสารในคดี
-                  </button>
-                </div>
+                <!-- ปุ่มเอกสารในคดี -->
+                <button type="button" class="btn btn-primary" @click="openCaseDocumentPrint" :disabled="!selectedCaseId" style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); border: none; border-radius: 10px; padding: 8px 18px; font-weight: 600; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);">
+                  <i class="fa-solid fa-file-pdf"></i> เอกสารในคดี
+                </button>
               </div>
               
               <form @submit.prevent="saveCaseDetails">
