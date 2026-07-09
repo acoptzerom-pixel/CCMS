@@ -409,17 +409,23 @@
           <div class="glass-card date-filter-panel">
             <div class="form-group">
               <label class="form-label">ตั้งแต่วันที่</label>
-              <input type="text" class="form-control" 
-                     :value="formatBETextDate(dashboardFilter.start)" 
-                     @change="dashboardFilter.start = parseBETextDate($event.target.value)" 
-                     placeholder="วว/ดด/พ.ศ. (เช่น 01/01/2568)">
+              <div class="be-date-picker-wrapper">
+                <input type="text" class="form-control" 
+                       :value="formatBETextDate(dashboardFilter.start)" 
+                       readonly placeholder="วัน/เดือน/ปี">
+                <span class="be-date-picker-icon"><i class="fa-regular fa-calendar"></i></span>
+                <input type="date" class="be-date-picker-native" v-model="dashboardFilter.start">
+              </div>
             </div>
             <div class="form-group">
               <label class="form-label">ถึงวันที่</label>
-              <input type="text" class="form-control" 
-                     :value="formatBETextDate(dashboardFilter.end)" 
-                     @change="dashboardFilter.end = parseBETextDate($event.target.value)" 
-                     placeholder="วว/ดด/พ.ศ. (เช่น 31/12/2568)">
+              <div class="be-date-picker-wrapper">
+                <input type="text" class="form-control" 
+                       :value="formatBETextDate(dashboardFilter.end)" 
+                       readonly placeholder="วัน/เดือน/ปี">
+                <span class="be-date-picker-icon"><i class="fa-regular fa-calendar"></i></span>
+                <input type="date" class="be-date-picker-native" v-model="dashboardFilter.end">
+              </div>
             </div>
             <div class="form-group">
               <label class="form-label">เรียงตามรายมาตรา</label>
@@ -1091,10 +1097,13 @@
 
                 <div class="form-group">
                   <label class="form-label">วัน/เดือน/ปี เกิด</label>
-                  <input type="text" class="form-control" 
-                         :value="formatBETextDate(defForm.birth_date)" 
-                         @change="defForm.birth_date = parseBETextDate($event.target.value)" 
-                         placeholder="วว/ดด/พ.ศ. (เช่น 16/06/2550)" required>
+                  <div class="be-date-picker-wrapper">
+                    <input type="text" class="form-control" 
+                           :value="formatBETextDate(defForm.birth_date)" 
+                           readonly placeholder="วัน/เดือน/ปี" required>
+                    <span class="be-date-picker-icon"><i class="fa-regular fa-calendar"></i></span>
+                    <input type="date" class="be-date-picker-native" v-model="defForm.birth_date" required>
+                  </div>
                 </div>
 
                 <div class="form-group">
@@ -1434,24 +1443,33 @@
                   </div>
                   <div class="form-group">
                     <label class="form-label">วันอนุมัติ/ให้คำปรึกษา</label>
-                    <input type="text" class="form-control" 
-                           :value="formatBETextDate(caseInfoForm.court_date_plan)" 
-                           @change="caseInfoForm.court_date_plan = parseBETextDate($event.target.value)" 
-                           placeholder="วว/ดด/พ.ศ. (เช่น 16/06/2568)" :disabled="isDirector">
+                    <div class="be-date-picker-wrapper">
+                      <input type="text" class="form-control" 
+                             :value="formatBETextDate(caseInfoForm.court_date_plan)" 
+                             readonly placeholder="วัน/เดือน/ปี" :disabled="isDirector">
+                      <span class="be-date-picker-icon"><i class="fa-regular fa-calendar"></i></span>
+                      <input type="date" class="be-date-picker-native" v-model="caseInfoForm.court_date_plan" :disabled="isDirector" :style="isDirector ? { pointerEvents: 'none' } : {}">
+                    </div>
                   </div>
                   <div class="form-group">
                     <label class="form-label">วันเข้ารับคำปรึกษา</label>
-                    <input type="text" class="form-control" 
-                           :value="formatBETextDate(caseInfoForm.black_date)" 
-                           @change="caseInfoForm.black_date = parseBETextDate($event.target.value)" 
-                           placeholder="วว/ดด/พ.ศ. (เช่น 16/06/2568)" :disabled="isDirector">
+                    <div class="be-date-picker-wrapper">
+                      <input type="text" class="form-control" 
+                             :value="formatBETextDate(caseInfoForm.black_date)" 
+                             readonly placeholder="วัน/เดือน/ปี" :disabled="isDirector">
+                      <span class="be-date-picker-icon"><i class="fa-regular fa-calendar"></i></span>
+                      <input type="date" class="be-date-picker-native" v-model="caseInfoForm.black_date" :disabled="isDirector" :style="isDirector ? { pointerEvents: 'none' } : {}">
+                    </div>
                   </div>
                   <div class="form-group">
                     <label class="form-label">วันยุติให้คำปรึกษา</label>
-                    <input type="text" class="form-control" 
-                           :value="formatBETextDate(caseInfoForm.red_date)" 
-                           @change="caseInfoForm.red_date = parseBETextDate($event.target.value)" 
-                           placeholder="วว/ดด/พ.ศ. (เช่น 16/06/2568)" :disabled="isDirector">
+                    <div class="be-date-picker-wrapper">
+                      <input type="text" class="form-control" 
+                             :value="formatBETextDate(caseInfoForm.red_date)" 
+                             readonly placeholder="วัน/เดือน/ปี" :disabled="isDirector">
+                      <span class="be-date-picker-icon"><i class="fa-regular fa-calendar"></i></span>
+                      <input type="date" class="be-date-picker-native" v-model="caseInfoForm.red_date" :disabled="isDirector" :style="isDirector ? { pointerEvents: 'none' } : {}">
+                    </div>
                   </div>
                   <div class="form-group">
                     <label class="form-label">ผลการปฏิบัติตามแผน</label>
@@ -1605,10 +1623,13 @@
                         <input type="text" class="form-control table-input" v-model="apt.appointment_reason" :disabled="isDirector">
                       </td>
                       <td style="border: 1px solid var(--card-border);">
-                        <input type="text" class="form-control table-input" 
-                               :value="formatBETextDate(apt.appointment_date)" 
-                               @change="apt.appointment_date = parseBETextDate($event.target.value)" 
-                               placeholder="วว/ดด/พ.ศ." :disabled="isDirector">
+                        <div class="be-date-picker-wrapper">
+                          <input type="text" class="form-control table-input" 
+                                 :value="formatBETextDate(apt.appointment_date)" 
+                                 readonly placeholder="วัน/เดือน/ปี" :disabled="isDirector">
+                          <span class="be-date-picker-icon"><i class="fa-regular fa-calendar"></i></span>
+                          <input type="date" class="be-date-picker-native" v-model="apt.appointment_date" :disabled="isDirector" :style="isDirector ? { pointerEvents: 'none' } : {}">
+                        </div>
                       </td>
                       <td style="border: 1px solid var(--card-border);">
                         <input type="text" class="form-control table-input" v-model="apt.appointment_time" placeholder="09.00" :disabled="isDirector">
@@ -1741,16 +1762,22 @@
                         <input type="text" class="form-control table-input" v-model="act.activity_name" :disabled="isDirector">
                       </td>
                       <td style="border: 1px solid var(--card-border);">
-                        <input type="text" class="form-control table-input" 
-                               :value="formatBETextDate(act.activity_start_date)" 
-                               @change="act.activity_start_date = parseBETextDate($event.target.value)" 
-                               placeholder="วว/ดด/พ.ศ." :disabled="isDirector">
+                        <div class="be-date-picker-wrapper">
+                          <input type="text" class="form-control table-input" 
+                                 :value="formatBETextDate(act.activity_start_date)" 
+                                 readonly placeholder="วัน/เดือน/ปี" :disabled="isDirector">
+                          <span class="be-date-picker-icon"><i class="fa-regular fa-calendar"></i></span>
+                          <input type="date" class="be-date-picker-native" v-model="act.activity_start_date" :disabled="isDirector" :style="isDirector ? { pointerEvents: 'none' } : {}">
+                        </div>
                       </td>
                       <td style="border: 1px solid var(--card-border);">
-                        <input type="text" class="form-control table-input" 
-                               :value="formatBETextDate(act.activity_finish_date)" 
-                               @change="act.activity_finish_date = parseBETextDate($event.target.value)" 
-                               placeholder="วว/ดด/พ.ศ." :disabled="isDirector">
+                        <div class="be-date-picker-wrapper">
+                          <input type="text" class="form-control table-input" 
+                                 :value="formatBETextDate(act.activity_finish_date)" 
+                                 readonly placeholder="วัน/เดือน/ปี" :disabled="isDirector">
+                          <span class="be-date-picker-icon"><i class="fa-regular fa-calendar"></i></span>
+                          <input type="date" class="be-date-picker-native" v-model="act.activity_finish_date" :disabled="isDirector" :style="isDirector ? { pointerEvents: 'none' } : {}">
+                        </div>
                       </td>
                       <td style="border: 1px solid var(--card-border);">
                         <input type="text" class="form-control table-input" v-model="act.activity_responsible_agency" :disabled="isDirector">
@@ -2710,10 +2737,13 @@
 
             <div class="form-group">
               <label class="form-label">วันที่รับคดีดำ (black_date)</label>
-              <input type="text" class="form-control" 
-                     :value="formatBETextDate(caseForm.black_date)" 
-                     @change="caseForm.black_date = parseBETextDate($event.target.value)" 
-                     placeholder="วว/ดด/พ.ศ. (เช่น 16/06/2568)" required>
+              <div class="be-date-picker-wrapper">
+                <input type="text" class="form-control" 
+                       :value="formatBETextDate(caseForm.black_date)" 
+                       readonly placeholder="วัน/เดือน/ปี" required>
+                <span class="be-date-picker-icon"><i class="fa-regular fa-calendar"></i></span>
+                <input type="date" class="be-date-picker-native" v-model="caseForm.black_date" required>
+              </div>
             </div>
 
             <div class="form-group">
@@ -2771,10 +2801,13 @@
 
             <div class="form-group">
               <label class="form-label">วันที่มีคำสั่งคดีแดง (ถ้ามี)</label>
-              <input type="text" class="form-control" 
-                     :value="formatBETextDate(caseForm.red_date)" 
-                     @change="caseForm.red_date = parseBETextDate($event.target.value)" 
-                     placeholder="วว/ดด/พ.ศ. (เช่น 16/06/2569)">
+              <div class="be-date-picker-wrapper">
+                <input type="text" class="form-control" 
+                       :value="formatBETextDate(caseForm.red_date)" 
+                       readonly placeholder="วัน/เดือน/ปี">
+                <span class="be-date-picker-icon"><i class="fa-regular fa-calendar"></i></span>
+                <input type="date" class="be-date-picker-native" v-model="caseForm.red_date">
+              </div>
             </div>
 
             <div class="form-group">
@@ -2883,10 +2916,13 @@
 
             <div class="form-group">
               <label class="form-label">วัน/เดือน/ปี เกิด</label>
-              <input type="text" class="form-control" 
-                     :value="formatBETextDate(defForm.birth_date)" 
-                     @change="defForm.birth_date = parseBETextDate($event.target.value)" 
-                     placeholder="วว/ดด/พ.ศ. (เช่น 16/06/2550)" required>
+              <div class="be-date-picker-wrapper">
+                <input type="text" class="form-control" 
+                       :value="formatBETextDate(defForm.birth_date)" 
+                       readonly placeholder="วัน/เดือน/ปี" required>
+                <span class="be-date-picker-icon"><i class="fa-regular fa-calendar"></i></span>
+                <input type="date" class="be-date-picker-native" v-model="defForm.birth_date" required>
+              </div>
             </div>
 
             <div class="form-group">

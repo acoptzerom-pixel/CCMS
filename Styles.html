@@ -180,11 +180,56 @@
       min-width: 0 !important;
       margin: 0 !important;
     }
-    input[type="date"].form-control::-webkit-date-and-time-value {
-      margin: 0 !important;
-      padding: 0 !important;
-      min-height: 1.5em;
-      text-align: center;
+    /* BE Custom Date Picker Wrapper */
+    .be-date-picker-wrapper {
+      position: relative;
+      display: block;
+      width: 100%;
+    }
+    .be-date-picker-wrapper .form-control {
+      padding-right: 40px !important;
+    }
+    .be-date-picker-wrapper .table-input {
+      padding-right: 28px !important;
+    }
+    .be-date-picker-icon {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+      z-index: 1;
+      font-size: 1rem;
+    }
+    .be-date-picker-wrapper .table-input + .be-date-picker-icon {
+      right: 10px;
+      font-size: 0.85rem;
+    }
+    .be-date-picker-native {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+      z-index: 2;
+      border: none;
+      outline: none;
+      background: transparent;
+      box-sizing: border-box;
+    }
+    .be-date-picker-native::-webkit-calendar-picker-indicator {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      opacity: 0;
+      cursor: pointer;
     }
     
     .form-control:focus {
