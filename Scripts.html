@@ -1401,6 +1401,10 @@
           if (trendData.value) renderTrendLineChart();
         });
 
+        watch(activeCaseTab, (newTab) => {
+          autoSelectLatestCaseForTab(newTab);
+        });
+
         function renderSectionComparisonChart(newCases, closedCases, pendingCases) {
           const chartEl = document.querySelector("#section-comparison-chart");
           if (!chartEl) return;
@@ -4137,14 +4141,16 @@
                   caseInfoData.conditions = res.conditions || [];
                   caseInfoData.activities = res.activities || [];
                   
-                  // รีเฟรชคดีหลักและตารางย่อยหากเลือกคดีค้างไว้
+                  // ดึงคดีล่าสุดเป็นค่าเริ่มต้นหากไม่ได้เลือกคดีอยู่
                   if (selectedCaseId.value) {
                     const found = caseInfoData.cases.find(c => c.rowNum === selectedCaseId.value);
                     if (found) {
                       onSelectCase();
                     } else {
-                      selectedCaseId.value = '';
+                      autoSelectLatestCaseForTab(activeCaseTab.value);
                     }
+                  } else {
+                    autoSelectLatestCaseForTab(activeCaseTab.value);
                   }
                 } else {
                   if (handleAuthError(res.message)) return;
@@ -4442,6 +4448,87 @@
         function openCaseDocumentPrint() {
           if (!selectedCaseId.value) return;
           openPrintPreview('case_document');
+        }
+
+        function autoSelectLatestCaseForTab(tab) {
+          if (!caseInfoData.cases || caseInfoData.cases.length === 0) {
+            selectedCaseId.value = '';
+            clearCaseInfoForm();
+            return;
+          }
+          
+          // กรองคดีของแท็บนี้
+          const tabCases = caseInfoData.cases.filter(c => {
+            const typeId = parseInt(c.case_type_id, 10);
+            if (tab === 'm73') return typeId === 1;
+            if (tab === 'm90') return typeId === 2;
+            if (tab === 'm132') return typeId === 3;
+            if (tab === 'court_other') return [5, 6, 7].includes(typeId);
+            if (tab === 'other_cases') return [4, 8, 9, 10, 11].includes(typeId);
+            return false;
+          });
+          
+          if (tabCases.length === 0) {
+            selectedCaseId.value = '';
+            clearCaseInfoForm();
+            return;
+          }
+          
+          // ค้นหาตัวที่มี black_date ล่าสุด
+          let latestCase = tabCases[0];
+          let latestTime = 0;
+          
+          tabCases.forEach(c => {
+            if (c.black_date) {
+              const t = new Date(c.black_date).getTime();
+              if (!isNaN(t) && t > latestTime) {
+                latestTime = t;
+                latestCase = c;
+              }
+            }
+          });
+          
+          selectedCaseId.value = latestCase.rowNum;
+          onSelectCase();
+        }
+
+        function clearCaseInfoForm() {
+          caseInfoForm.rowNum = '';
+          caseInfoForm.citizen_id = '';
+          caseInfoForm.black_case = '';
+          caseInfoForm.case_type_id = '';
+          caseInfoForm.sub_case_type_id = '';
+          caseInfoForm.case_type_abb = '';
+          caseInfoForm.black_case_no = '';
+          caseInfoForm.black_case_year = '';
+          caseInfoForm.prosecutor = '';
+          caseInfoForm.charge = '';
+          caseInfoForm.charge_no = '';
+          caseInfoForm.age_at_offense = 0;
+          caseInfoForm.red_date = '';
+          caseInfoForm.red_case_no = '';
+          caseInfoForm.red_case_year = '';
+          caseInfoForm.red_because = '';
+          caseInfoForm.recidivism = 'ไม่ซ้ำ';
+          caseInfoForm.previous_case_no = '';
+          caseInfoForm.abb_black_criminal = '';
+          caseInfoForm.black_criminal_no = '';
+          caseInfoForm.black_criminal_year = '';
+          caseInfoForm.abb_red_criminal = '';
+          caseInfoForm.red_criminal_no = '';
+          caseInfoForm.red_criminal_year = '';
+          caseInfoForm.counselor = '';
+          caseInfoForm.user_id = '';
+          caseInfoForm.judge = '';
+          caseInfoForm.officer = '';
+          caseInfoForm.mediator = '';
+          caseInfoForm.note = '';
+          caseInfoForm.black_date = '';
+          caseInfoForm.court_date_plan = '';
+          
+          tempAppointments.value = [];
+          tempConditions.value = [];
+          tempActivities.value = [];
         }
 
 

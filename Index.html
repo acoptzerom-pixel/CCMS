@@ -1226,9 +1226,9 @@
           </div>
 
           <!-- หัวข้อโมดูล -->
-          <div class="page-header header-case-info" style="border-left: 5px solid #7c3aed;">
+          <div class="page-header header-case-info" style="border-left: 5px solid #4f46e5;">
             <div style="display: flex; align-items: center; gap: 15px;">
-              <div class="page-header-icon" style="background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%);">
+              <div class="page-header-icon" style="background: linear-gradient(135deg, #4f46e5 0%, #818cf8 100%);">
                 <i class="fa-solid fa-scale-balanced" style="color: #ffffff;"></i>
               </div>
               <div>
@@ -1273,9 +1273,6 @@
                 <button v-if="session.role === 'admin' || session.role === 'psychologist'" class="btn btn-primary" @click="triggerNewCaseFromInfo" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none;">
                   <i class="fa-solid fa-folder-plus"></i> กรอกคดีใหม่
                 </button>
-                <button class="btn btn-primary" @click="openCaseDocumentPrint" :disabled="!selectedCaseId" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border: none;">
-                  <i class="fa-solid fa-file-pdf"></i> เอกสารในคดี
-                </button>
               </div>
             </div>
           </div>
@@ -1290,9 +1287,14 @@
           <template v-else>
             <!-- ฟอร์มรายละเอียดคดีหลัก -->
             <div class="glass-card shadow" style="padding: 25px; border-radius: 16px; margin-bottom: 25px;">
-              <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 20px; border-bottom: 1px solid var(--card-border); padding-bottom: 10px; color: var(--text-main);">
-                <i class="fa-solid fa-folder-open" style="color: #7c3aed;"></i> ข้อมูลหลักของสำนวน/คดี
-              </h3>
+              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border); padding-bottom: 12px; margin-bottom: 20px;">
+                <h3 style="font-family: var(--font-display); font-weight: 700; margin: 0; color: var(--text-main);">
+                  <i class="fa-solid fa-folder-open" style="color: #4f46e5;"></i> ข้อมูลหลักของสำนวน/คดี
+                </h3>
+                <button type="button" class="btn btn-primary" @click="openCaseDocumentPrint" :disabled="!selectedCaseId" style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); border: none; border-radius: 10px; padding: 8px 18px; font-weight: 600; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);">
+                  <i class="fa-solid fa-file-pdf"></i> เอกสารในคดี
+                </button>
+              </div>
               
               <form @submit.prevent="saveCaseDetails">
                 <!-- GRID ข้อมูลหลัก -->
