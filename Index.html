@@ -1262,12 +1262,11 @@
             <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between;">
               <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 300px; position: relative;">
                 <span style="font-weight: 600; color: var(--text-main); white-space: nowrap;"><i class="fa-solid fa-magnifying-glass"></i> ค้นหาสำนวน:</span>
-                <div style="position: relative; flex: 1;">
+                <div class="case-search-container" style="position: relative; flex: 1;">
                   <input type="text" class="form-control" 
                          placeholder="พิมพ์ค้นหา ชื่อ, นามสกุล, เลขคดีดำ..." 
                          v-model="caseSearchQuery" 
                          @focus="isCaseSearchDropdownOpen = true"
-                         @blur="setTimeout(() => { isCaseSearchDropdownOpen = false; }, 250)"
                          @click="$event.target.select()"
                          style="background: rgba(var(--accent-rgb), 0.05); font-weight: 500; padding-right: 35px; width: 100%;">
                   
@@ -1281,7 +1280,8 @@
                   <div v-if="isCaseSearchDropdownOpen && caseSearchFilteredList.length > 0" 
                        style="position: absolute; top: 100%; left: 0; right: 0; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); max-height: 250px; overflow-y: auto; z-index: 999; margin-top: 5px;">
                     <div v-for="c in caseSearchFilteredList" :key="c.rowNum" 
-                         @mousedown.prevent="selectCaseFromSearch(c)"
+                         @click="selectCaseFromSearch(c)"
+                         @touchstart.prevent="selectCaseFromSearch(c)"
                          style="padding: 10px 15px; cursor: pointer; border-bottom: 1px solid var(--card-border); transition: background 0.2s; text-align: left;"
                          onmouseover="this.style.background='var(--bg-hover)'"
                          onmouseout="this.style.background='transparent'">
