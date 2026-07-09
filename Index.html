@@ -1260,13 +1260,18 @@
           <!-- บล็อกค้นหาและกรองการ์ดคดี (แสดงเฉพาะเมื่อยังไม่ได้เลือกคดี) -->
           <div v-if="!selectedCaseId" class="glass-card shadow" style="padding: 20px; border-radius: 16px; margin-bottom: 25px;">
             <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between;">
-              <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 300px;">
-                <span style="font-weight: 600; color: var(--text-main); white-space: nowrap;"><i class="fa-solid fa-magnifying-glass"></i> ค้นหาคดี:</span>
-                <input type="text" class="form-control" 
-                       placeholder="ค้นหาคดีตามชื่อ, นามสกุล, ชื่อเล่น, เลขคดีดำ, เลขคดีแดง, ข้อหา..." 
-                       v-model="caseCardSearchQuery" 
-                       @input="caseCardCurrentPage = 1"
-                       style="background: rgba(var(--accent-rgb), 0.05); font-weight: 500; width: 100%;">
+              <div style="display: flex; flex-direction: column; flex: 1; min-width: 300px; gap: 5px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="font-weight: 600; color: var(--text-main); white-space: nowrap;"><i class="fa-solid fa-magnifying-glass"></i> ค้นหาคดี:</span>
+                  <input type="text" class="form-control" 
+                         placeholder="ค้นหาคดีตามชื่อ, นามสกุล, ชื่อเล่น, เลขคดีดำ, เลขคดีแดง, ข้อหา..." 
+                         v-model="caseCardSearchQuery" 
+                         @input="caseCardCurrentPage = 1"
+                         style="background: rgba(var(--accent-rgb), 0.05); font-weight: 500; width: 100%;">
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600; margin-left: 85px;">
+                  พบข้อมูลคดีทั้งหมดในระบบ: {{ caseInfoData.cases.length }} คดี (มาตรานี้: {{ filteredCases.length }} คดี)
+                </div>
               </div>
               <div style="display: flex; gap: 10px;">
                 <button v-if="session.role === 'admin' || session.role === 'psychologist'" class="btn btn-primary" @click="triggerNewCaseFromInfo" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none;">
