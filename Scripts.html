@@ -155,6 +155,8 @@
         const defendantsList = ref([]);
         // Case Info Module States
         const caseInfoData = reactive({ cases: [], appointments: [], conditions: [], activities: [] });
+        const caseSearchQuery = ref('');
+        const isCaseSearchDropdownOpen = ref(false);
         const activeCaseTab = ref('m73');
         const selectedCaseId = ref('');
         const tempAppointments = ref([]);
@@ -207,7 +209,25 @@
         // Computed properties for filtering cards list
         const selectedCaseObj = computed(() => {
           if (!selectedCaseId.value) return null;
-          return caseInfoData.cases.find(c => c.rowNum === selectedCaseId.value) || null;
+          return caseInfoData.cases.find(c => c.rowNum.toString() === selectedCaseId.value.toString()) || null;
+        });
+
+        const caseSearchFilteredList = computed(() => {
+          const query = caseSearchQuery.value.trim().toLowerCase();
+          
+          // กรองตามมาตราแท็บก่อน
+          const tabCases = filteredCases.value;
+          
+          // ถ้าไม่มีการค้นหา ให้แสดงผลตามแท็บมาตราทั้งหมด
+          if (!query || query.startsWith('[')) return tabCases;
+          
+          return tabCases.filter(c => {
+            const fullName = `${c.def_title_name || ''}${c.def_first_name || ''} ${c.def_last_name || ''}`.toLowerCase();
+            const blackCase = (c.black_case || '').toLowerCase();
+            const citizenId = (c.citizen_id || '').toLowerCase();
+            const charge = (c.charge || '').toLowerCase();
+            return fullName.includes(query) || blackCase.includes(query) || citizenId.includes(query) || charge.includes(query);
+          });
         });
 
         const filteredCases = computed(() => {
@@ -1402,7 +1422,9 @@
         });
 
         watch(activeCaseTab, (newTab) => {
-          autoSelectLatestCaseForTab(newTab);
+          nextTick(() => {
+            autoSelectLatestCaseForTab(newTab);
+          });
         });
 
         function renderSectionComparisonChart(newCases, closedCases, pendingCases) {
@@ -4143,14 +4165,18 @@
                   
                   // ดึงคดีล่าสุดเป็นค่าเริ่มต้นหากไม่ได้เลือกคดีอยู่
                   if (selectedCaseId.value) {
-                    const found = caseInfoData.cases.find(c => c.rowNum === selectedCaseId.value);
+                    const found = caseInfoData.cases.find(c => c.rowNum.toString() === selectedCaseId.value.toString());
                     if (found) {
                       onSelectCase();
                     } else {
-                      autoSelectLatestCaseForTab(activeCaseTab.value);
+                      nextTick(() => {
+                        autoSelectLatestCaseForTab(activeCaseTab.value);
+                      });
                     }
                   } else {
-                    autoSelectLatestCaseForTab(activeCaseTab.value);
+                    nextTick(() => {
+                      autoSelectLatestCaseForTab(activeCaseTab.value);
+                    });
                   }
                 } else {
                   if (handleAuthError(res.message)) return;
@@ -4193,8 +4219,12 @@
           const caseObj = selectedCaseObj.value;
           if (!caseObj) {
             selectedCaseId.value = '';
+            caseSearchQuery.value = '';
             return;
           }
+          
+          // ตั้งค่ากล่องพิมพ์ค้นหาให้สอดคล้องกับคดีที่กำลังแสดงอยู่
+          caseSearchQuery.value = `[${caseObj.black_case || 'ไม่มีเลขดำ'}] - ${caseObj.def_title_name || ''}${caseObj.def_first_name || ''} ${caseObj.def_last_name || ''}`;
           
           // โหลดค่าลง Case Form
           caseInfoForm.rowNum = caseObj.rowNum;
@@ -4531,6 +4561,18 @@
           tempActivities.value = [];
         }
 
+        function selectCaseFromSearch(c) {
+          selectedCaseId.value = c.rowNum.toString();
+          onSelectCase();
+          isCaseSearchDropdownOpen.value = false;
+        }
+
+        function clearCaseSelection() {
+          selectedCaseId.value = '';
+          caseSearchQuery.value = '';
+          clearCaseInfoForm();
+        }
+
 
         return {
           showBackToTop, scrollToTop,
@@ -4590,6 +4632,7 @@
               selectedCaseObj, filteredCases, isDirector, loadCaseInfoModule, onSelectCase, addTempRow,
               deleteTempRow, saveCaseDetails, saveAppointmentsGrid, saveConditionsGrid, saveActivitiesGrid,
               triggerNewCaseFromInfo, openCaseDocumentPrint, toISODateString, caseInfoForm,
+              caseSearchQuery, isCaseSearchDropdownOpen, caseSearchFilteredList, selectCaseFromSearch, clearCaseSelection,
               
               monthlyReport, activePrintType, loadMonthlyReport, saveMonthlyReport, useAutoCalculatedValues, openMonthlyPrintPreview,
              showMonthYearPicker, tempSelectedMonth, tempSelectedYear, thaiMonthsShort, availableReportYears, selectMonthYear,

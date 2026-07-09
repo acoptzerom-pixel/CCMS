@@ -1260,14 +1260,44 @@
           <!-- บล็อกดำเนินการ & ค้นหาสำนวน -->
           <div class="glass-card shadow" style="padding: 20px; border-radius: 16px; margin-bottom: 25px;">
             <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between;">
-              <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 300px;">
+              <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 300px; position: relative;">
                 <span style="font-weight: 600; color: var(--text-main); white-space: nowrap;"><i class="fa-solid fa-magnifying-glass"></i> ค้นหาสำนวน:</span>
-                <select class="form-control" v-model="selectedCaseId" @change="onSelectCase" style="background: rgba(var(--accent-rgb), 0.05); font-weight: 500;">
-                  <option value="">-- ค้นหา/เลือกคดีของเด็กและเยาวชน --</option>
-                  <option v-for="c in filteredCases" :key="c.rowNum" :value="c.rowNum">
-                    [{{ c.black_case || 'ไม่มีเลขดำ' }}] - {{ c.def_title_name }}{{ c.def_first_name }} {{ c.def_last_name }} ({{ c.charge || 'ไม่ระบุข้อหา' }})
-                  </option>
-                </select>
+                <div style="position: relative; flex: 1;">
+                  <input type="text" class="form-control" 
+                         placeholder="พิมพ์ค้นหา ชื่อ, นามสกุล, เลขคดีดำ..." 
+                         v-model="caseSearchQuery" 
+                         @focus="isCaseSearchDropdownOpen = true"
+                         @blur="setTimeout(() => { isCaseSearchDropdownOpen = false; }, 250)"
+                         @click="$event.target.select()"
+                         style="background: rgba(var(--accent-rgb), 0.05); font-weight: 500; padding-right: 35px; width: 100%;">
+                  
+                  <!-- ปุ่มล้างข้อมูลค้นหา -->
+                  <button v-if="caseSearchQuery" type="button" @click="clearCaseSelection" 
+                          style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px;">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+
+                  <!-- รายการผลลัพธ์การค้นหาเมื่อ Focus หรือพิมพ์ค้างไว้ -->
+                  <div v-if="isCaseSearchDropdownOpen && caseSearchFilteredList.length > 0" 
+                       style="position: absolute; top: 100%; left: 0; right: 0; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); max-height: 250px; overflow-y: auto; z-index: 999; margin-top: 5px;">
+                    <div v-for="c in caseSearchFilteredList" :key="c.rowNum" 
+                         @mousedown="selectCaseFromSearch(c)"
+                         style="padding: 10px 15px; cursor: pointer; border-bottom: 1px solid var(--card-border); transition: background 0.2s; text-align: left;"
+                         onmouseover="this.style.background='var(--bg-hover)'"
+                         onmouseout="this.style.background='transparent'">
+                      <div style="font-weight: 600; color: var(--text-main); font-size: 0.9rem;">
+                        [{{ c.black_case || 'ไม่มีเลขดำ' }}] - {{ c.def_title_name }}{{ c.def_first_name }} {{ c.def_last_name }}
+                      </div>
+                      <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">
+                        ข้อหา: {{ c.charge || 'ไม่ระบุ' }} | บัตรประชาชน: {{ c.citizen_id || '-' }}
+                      </div>
+                    </div>
+                  </div>
+                  <div v-else-if="isCaseSearchDropdownOpen" 
+                       style="position: absolute; top: 100%; left: 0; right: 0; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); padding: 15px; text-align: center; color: var(--text-muted); z-index: 999; margin-top: 5px; font-style: italic; font-size: 0.9rem;">
+                    ไม่พบคดีที่ตรงตามคำค้นหา
+                  </div>
+                </div>
               </div>
               <div style="display: flex; gap: 10px;">
                 <button v-if="session.role === 'admin' || session.role === 'psychologist'" class="btn btn-primary" @click="triggerNewCaseFromInfo" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none;">
