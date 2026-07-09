@@ -300,18 +300,27 @@
 
         const filteredCases = computed(() => {
           if (!caseInfoData.cases) return [];
+          const tab = activeCaseTab.value;
+          console.log("DEBUG: caseInfoData.cases count = " + caseInfoData.cases.length + ", active tab = " + tab);
           return caseInfoData.cases.filter(c => {
-            const typeId = parseInt(c.case_type_id, 10);
-            if (activeCaseTab.value === 'm73') {
-              return typeId === 1;
-            } else if (activeCaseTab.value === 'm90') {
-              return typeId === 2;
-            } else if (activeCaseTab.value === 'm132') {
-              return typeId === 3;
-            } else if (activeCaseTab.value === 'court_other') {
-              return [5, 6, 7].includes(typeId);
-            } else if (activeCaseTab.value === 'other_cases') {
-              return [4, 8, 9, 10, 11].includes(typeId);
+            const rawType = String(c.case_type_id || '').trim().toLowerCase();
+            const typeId = parseInt(rawType, 10);
+            
+            // ตรวจสอบทั้งรหัสตัวเลข ID และข้อความภาษาไทยเพื่อรองรับการกรอกข้อมูลในชีทสดที่หลากหลาย
+            if (tab === 'm73') {
+              return typeId === 1 || rawType.includes('73') || rawType.includes('ปรึกษา') || rawType === '1';
+            }
+            if (tab === 'm90') {
+              return (typeId === 2 || rawType.includes('90') || rawType === '2') && !rawType.includes('แทน');
+            }
+            if (tab === 'm132') {
+              return (typeId === 3 || rawType.includes('132') || rawType === '3') && !rawType.includes('แทน');
+            }
+            if (tab === 'court_other') {
+              return [5, 6, 7].includes(typeId) || rawType.includes('แทน') || rawType.includes('ศาลอื่น') || ['5', '6', '7'].includes(rawType);
+            }
+            if (tab === 'other_cases') {
+              return [4, 8, 9, 10, 11].includes(typeId) || rawType.includes('138') || rawType.includes('อื่น') || rawType.includes('คุ้มครอง') || rawType.includes('พิพากษา') || ['4', '8', '9', '10', '11'].includes(rawType);
             }
             return false;
           });
@@ -1500,9 +1509,7 @@
         watch(activeCaseTab, (newTab) => {
           caseCardSearchQuery.value = '';
           caseCardCurrentPage.value = 1;
-          nextTick(() => {
-            autoSelectLatestCaseForTab(newTab);
-          });
+          selectedCaseId.value = ''; // เคลียร์คดีที่เลือกเพื่อแสดงรายการการ์ดคดีหน้ารวมเสมอเมื่อสลับแท็บ
         });
 
         function renderSectionComparisonChart(newCases, closedCases, pendingCases) {
@@ -4248,20 +4255,16 @@
                   caseInfoData.conditions = res.conditions || [];
                   caseInfoData.activities = res.activities || [];
                   
-                  // ดึงคดีล่าสุดเป็นค่าเริ่มต้นหากไม่ได้เลือกคดีอยู่
+                  // แสดงหน้ารวมการ์ดคดีเสมอในตอนเริ่มต้น ไม่สุ่มดึงคดีขึ้นมาบังสายตา
                   if (selectedCaseId.value) {
                     const found = caseInfoData.cases.find(c => c.rowNum.toString() === selectedCaseId.value.toString());
                     if (found) {
                       onSelectCase();
                     } else {
-                      nextTick(() => {
-                        autoSelectLatestCaseForTab(activeCaseTab.value);
-                      });
+                      selectedCaseId.value = '';
                     }
                   } else {
-                    nextTick(() => {
-                      autoSelectLatestCaseForTab(activeCaseTab.value);
-                    });
+                    selectedCaseId.value = '';
                   }
                 } else {
                   if (handleAuthError(res.message)) return;
