@@ -569,6 +569,18 @@
           e.target.value = cardCurrentPage.value;
         }
 
+        function onCasePageInputChange(e) {
+          let val = parseInt(e.target.value, 10);
+          if (isNaN(val) || val < 1) {
+            caseCardCurrentPage.value = 1;
+          } else if (val > caseCardTotalPages.value) {
+            caseCardCurrentPage.value = caseCardTotalPages.value;
+          } else {
+            caseCardCurrentPage.value = val;
+          }
+          e.target.value = caseCardCurrentPage.value;
+        }
+
         function countCourtCases(cases) {
           if (!cases || !Array.isArray(cases)) return 0;
           return cases.filter(c => c.court_black_case && c.court_black_case.toString().trim() !== '').length;
@@ -2022,7 +2034,11 @@
               loadCounselorsList();
             }
           } else if (viewName === 'case_info') {
-            loadCaseInfoModule();
+            if (caseInfoData.cases.length === 0) {
+              loadCaseInfoModule();
+            } else {
+              loadCaseInfoModule(true); // ดึงข้อมูลล่าสุดเบื้องหลังเงียบๆ (Stale-While-Revalidate) เหมือนฟังก์ชันเด็กและเยาวชน
+            }
           } else if (viewName === 'calendar') {
             if (appointments.value.length === 0) {
               loadAppointments();
@@ -4389,8 +4405,7 @@
           tempConditions.value = [];
           tempActivities.value = [];
 
-          // ดึงเฉพาะข้อมูลตารางย่อยนัดหมาย เงื่อนไข กิจกรรม ในพื้นหลังอย่างรวดเร็ว
-          loading.value = true;
+          // ดึงเฉพาะข้อมูลตารางย่อยนัดหมาย เงื่อนไข กิจกรรม ในพื้นหลังอย่างรวดเร็ว (ไม่ต้องโหลดตัวสปินเนอร์เพื่อความเร็วระดับ 0ms)
           if (typeof google !== 'undefined' && google.script && google.script.run) {
             google.script.run
               .withSuccessHandler((res) => {
@@ -4776,7 +4791,7 @@
               deleteTempRow, saveCaseDetails, saveAppointmentsGrid, saveConditionsGrid, saveActivitiesGrid,
               triggerNewCaseFromInfo, openCaseDocumentPrint, toISODateString, caseInfoForm,
               caseSearchQuery, isCaseSearchDropdownOpen, caseSearchFilteredList, selectCaseFromSearch, clearCaseSelection,
-              caseCardSearchQuery, caseCardCurrentPage, caseCardTotalPages, paginatedCaseCards,
+              caseCardSearchQuery, caseCardCurrentPage, caseCardTotalPages, paginatedCaseCards, filteredAndSortedCaseCards, onCasePageInputChange,
               
               monthlyReport, activePrintType, loadMonthlyReport, saveMonthlyReport, useAutoCalculatedValues, openMonthlyPrintPreview,
              showMonthYearPicker, tempSelectedMonth, tempSelectedYear, thaiMonthsShort, availableReportYears, selectMonthYear,

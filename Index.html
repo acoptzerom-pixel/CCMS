@@ -1317,17 +1317,44 @@
               <p style="font-size: 1.1rem; font-weight: 500;">ไม่พบข้อมูลคดีตามเงื่อนไขที่เลือกหรือพิมพ์ค้นหา</p>
             </div>
 
-            <!-- การแบ่งหน้า (Pagination) -->
-            <div v-if="caseCardTotalPages > 1" style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 25px; margin-bottom: 25px;">
-              <button class="btn btn-secondary btn-sm" :disabled="caseCardCurrentPage === 1" @click="caseCardCurrentPage--" style="border-radius: 8px; padding: 6px 12px;">
-                <i class="fa-solid fa-chevron-left"></i> ก่อนหน้า
-              </button>
-              <span style="font-weight: 600; color: var(--text-main); font-size: 0.95rem;">
-                หน้า {{ caseCardCurrentPage }} จาก {{ caseCardTotalPages }}
+            <!-- การแบ่งหน้า (Pagination Controls) -->
+            <div v-if="caseCardTotalPages > 1" class="pagination-container" style="display: flex; justify-content: flex-start; align-items: center; margin-top: 25px; margin-bottom: 25px; flex-wrap: wrap; gap: 20px;">
+              <div style="display: flex; gap: 6px; align-items: center;">
+                <!-- หน้าแรกสุด -->
+                <button class="btn btn-secondary" style="padding: 8px 12px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;" :disabled="caseCardCurrentPage === 1" @click="caseCardCurrentPage = 1" title="หน้าแรก">
+                  <i class="fa-solid fa-angles-left"></i>
+                </button>
+                <!-- ก่อนหน้า -->
+                <button class="btn btn-secondary" style="padding: 8px 12px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;" :disabled="caseCardCurrentPage === 1" @click="caseCardCurrentPage--" title="ก่อนหน้า">
+                  <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                
+                <!-- เลขหน้าแบบพิมพ์ระบุหน้าเองได้ -->
+                <span style="display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; font-weight: 600; font-size: 0.9rem; color: var(--text-main);">
+                  หน้า 
+                  <input type="number" 
+                         :value="caseCardCurrentPage" 
+                         @change="onCasePageInputChange" 
+                         min="1" 
+                         :max="caseCardTotalPages" 
+                         style="width: 55px; text-align: center; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-main); border-radius: 8px; padding: 5px; font-weight: 600; font-size: 0.9rem;" />
+                  / {{ caseCardTotalPages }}
+                </span>
+                
+                <!-- ถัดไป -->
+                <button class="btn btn-secondary" style="padding: 8px 12px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;" :disabled="caseCardCurrentPage === caseCardTotalPages" @click="caseCardCurrentPage++" title="ถัดไป">
+                  <i class="fa-solid fa-chevron-right"></i>
+                </button>
+                <!-- หน้าสุดท้ายสุด -->
+                <button class="btn btn-secondary" style="padding: 8px 12px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;" :disabled="caseCardCurrentPage === caseCardTotalPages" @click="caseCardCurrentPage = caseCardTotalPages" title="หน้าสุดท้าย">
+                  <i class="fa-solid fa-angles-right"></i>
+                </button>
+              </div>
+              
+              <!-- ข้อความแสดงผลจำนวนรายการ -->
+              <span style="font-weight: 600; font-size: 0.9rem; color: var(--text-muted);">
+                แสดง {{ (caseCardCurrentPage - 1) * 20 + 1 }} - {{ Math.min(caseCardCurrentPage * 20, filteredAndSortedCaseCards.length) }} จากทั้งหมด {{ filteredAndSortedCaseCards.length }} รายการ
               </span>
-              <button class="btn btn-secondary btn-sm" :disabled="caseCardCurrentPage === caseCardTotalPages" @click="caseCardCurrentPage++" style="border-radius: 8px; padding: 6px 12px;">
-                ถัดไป <i class="fa-solid fa-chevron-right"></i>
-              </button>
             </div>
           </div>
 
