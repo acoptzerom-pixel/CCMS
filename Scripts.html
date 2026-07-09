@@ -4338,76 +4338,92 @@
           // ตั้งค่ากล่องพิมพ์ค้นหาให้สอดคล้องกับคดีที่กำลังแสดงอยู่
           caseSearchQuery.value = `[${caseObj.black_case || 'ไม่มีเลขดำ'}] - ${caseObj.def_title_name || ''}${caseObj.def_first_name || ''} ${caseObj.def_last_name || ''}`;
           
-          // โหลดค่าลง Case Form
-          caseInfoForm.rowNum = caseObj.rowNum;
-          caseInfoForm.citizen_id = caseObj.citizen_id;
-          caseInfoForm.black_case = caseObj.black_case;
-          caseInfoForm.case_type_id = caseObj.case_type_id;
-          caseInfoForm.sub_case_type_id = caseObj.sub_case_type_id || '';
-          caseInfoForm.case_type_abb = caseObj.case_type_abb || '';
-          caseInfoForm.black_case_no = caseObj.black_case_no || '';
-          caseInfoForm.black_case_year = caseObj.black_case_year || '';
-          caseInfoForm.prosecutor = caseObj.prosecutor || '';
-          caseInfoForm.charge = caseObj.charge || '';
-          caseInfoForm.charge_no = caseObj.charge_no || '';
-          caseInfoForm.age_at_offense = caseObj.age_at_offense || 0;
-          caseInfoForm.red_because = caseObj.red_because || '';
-          caseInfoForm.recidivism = caseObj.recidivism || 'ไม่ซ้ำ';
-          caseInfoForm.previous_case_no = caseObj.previous_case_no || '';
-          caseInfoForm.abb_black_criminal = caseObj.abb_black_criminal || '';
-          caseInfoForm.black_criminal_no = caseObj.black_criminal_no || '';
-          caseInfoForm.black_criminal_year = caseObj.black_criminal_year || '';
-          caseInfoForm.abb_red_criminal = caseObj.abb_red_criminal || '';
-          caseInfoForm.red_criminal_no = caseObj.red_criminal_no || '';
-          caseInfoForm.red_criminal_year = caseObj.red_criminal_year || '';
-          caseInfoForm.counselor = caseObj.counselor || '';
-          caseInfoForm.user_id = caseObj.user_id || '';
-          caseInfoForm.judge = caseObj.judge || '';
-          caseInfoForm.officer = caseObj.officer || '';
-          caseInfoForm.mediator = caseObj.mediator || '';
-          caseInfoForm.note = caseObj.note || '';
-          
-          // แปลงฟอร์แมตวันลงหน้าบ้าน
-          caseInfoForm.black_date = toISODateString(caseObj.black_date);
-          caseInfoForm.red_date = toISODateString(caseObj.red_date);
-          caseInfoForm.court_date_plan = toISODateString(caseObj.court_date_plan);
-          
-          // ดึงตารางย่อย (ทำการทำ Deep copy เพื่อป้องกันแก้ไขแล้วเซฟทันที)
-          const bCase = caseObj.black_case.toString().trim();
-          
-          tempAppointments.value = caseInfoData.appointments
-            .filter(x => x.black_case && x.black_case.toString().trim() === bCase)
-            .map(x => ({
-              appointment_date: toISODateString(x.appointment_date),
-              appointment_time: x.appointment_time || '',
-              appointment_reason: x.appointment_reason || '',
-              appointment_counselor: x.appointment_counselor || '',
-              appointment_not: x.appointment_not || '',
-              appointment_performance: x.appointment_performance || '',
-              appointment_responsible_person: x.appointment_responsible_person || ''
-            }));
-            
-          tempConditions.value = caseInfoData.conditions
-            .filter(x => x.black_case && x.black_case.toString().trim() === bCase)
-            .map(x => ({
-              condition_no: x.condition_no || '',
-              condition: x.condition || '',
-              condition_performance_no: x.condition_performance_no || '',
-              condition_performance: x.condition_performance || ''
-            }));
-            
-          tempActivities.value = caseInfoData.activities
-            .filter(x => x.black_case && x.black_case.toString().trim() === bCase)
-            .map(x => ({
-              activity_no: x.activity_no || '',
-              activity_type: x.activity_type || '',
-              activity_name: x.activity_name || '',
-              activity_start_date: toISODateString(x.activity_start_date),
-              activity_finish_date: toISODateString(x.activity_finish_date),
-              activity_responsible_agency: x.activity_responsible_agency || '',
-              activity_venue: x.activity_venue || '',
-              activity_performance: x.activity_performance || ''
-            }));
+          // ดึงรายละเอียดเต็มจากเซิร์ฟเวอร์ (Lazy Loading - โหลดเฉพาะคดีที่เลือก)
+          loading.value = true;
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (!res) {
+                  errorMsg.value = "ไม่สามารถดึงข้อมูลรายละเอียดคดีได้ (res is null)";
+                  return;
+                }
+                if (res.success) {
+                  const cd = res.caseDetail;
+                  
+                  // โหลดค่าลง Case Form
+                  caseInfoForm.rowNum = cd.rowNum;
+                  caseInfoForm.citizen_id = cd.citizen_id;
+                  caseInfoForm.black_case = cd.black_case;
+                  caseInfoForm.case_type_id = cd.case_type_id;
+                  caseInfoForm.sub_case_type_id = cd.sub_case_type_id || '';
+                  caseInfoForm.case_type_abb = cd.case_type_abb || '';
+                  caseInfoForm.black_case_no = cd.black_case_no || '';
+                  caseInfoForm.black_case_year = cd.black_case_year || '';
+                  caseInfoForm.prosecutor = cd.prosecutor || '';
+                  caseInfoForm.charge = cd.charge || '';
+                  caseInfoForm.charge_no = cd.charge_no || '';
+                  caseInfoForm.age_at_offense = cd.age_at_offense || 0;
+                  caseInfoForm.red_because = cd.red_because || '';
+                  caseInfoForm.recidivism = cd.recidivism || 'ไม่ซ้ำ';
+                  caseInfoForm.previous_case_no = cd.previous_case_no || '';
+                  caseInfoForm.abb_black_criminal = cd.abb_black_criminal || '';
+                  caseInfoForm.black_criminal_no = cd.black_criminal_no || '';
+                  caseInfoForm.black_criminal_year = cd.black_criminal_year || '';
+                  caseInfoForm.abb_red_criminal = cd.abb_red_criminal || '';
+                  caseInfoForm.red_criminal_no = cd.red_criminal_no || '';
+                  caseInfoForm.red_criminal_year = cd.red_criminal_year || '';
+                  caseInfoForm.counselor = cd.counselor || '';
+                  caseInfoForm.user_id = cd.user_id || '';
+                  caseInfoForm.judge = cd.judge || '';
+                  caseInfoForm.officer = cd.officer || '';
+                  caseInfoForm.mediator = cd.mediator || '';
+                  caseInfoForm.note = cd.note || '';
+                  
+                  // แปลงฟอร์แมตวันลงหน้าบ้าน
+                  caseInfoForm.black_date = toISODateString(cd.black_date);
+                  caseInfoForm.red_date = toISODateString(cd.red_date);
+                  caseInfoForm.court_date_plan = toISODateString(cd.court_date_plan);
+                  
+                  // ตารางย่อยจาก API (แยกโหลดเฉพาะคดีนี้จากเซิร์ฟเวอร์)
+                  tempAppointments.value = (res.appointments || []).map(x => ({
+                    appointment_date: toISODateString(x.appointment_date),
+                    appointment_time: x.appointment_time || '',
+                    appointment_reason: x.appointment_reason || '',
+                    appointment_counselor: x.appointment_counselor || '',
+                    appointment_not: x.appointment_not || '',
+                    appointment_performance: x.appointment_performance || '',
+                    appointment_responsible_person: x.appointment_responsible_person || ''
+                  }));
+                    
+                  tempConditions.value = (res.conditions || []).map(x => ({
+                    condition_no: x.condition_no || '',
+                    condition: x.condition || '',
+                    condition_performance_no: x.condition_performance_no || '',
+                    condition_performance: x.condition_performance || ''
+                  }));
+                    
+                  tempActivities.value = (res.activities || []).map(x => ({
+                    activity_no: x.activity_no || '',
+                    activity_type: x.activity_type || '',
+                    activity_name: x.activity_name || '',
+                    activity_start_date: toISODateString(x.activity_start_date),
+                    activity_finish_date: toISODateString(x.activity_finish_date),
+                    activity_responsible_agency: x.activity_responsible_agency || '',
+                    activity_venue: x.activity_venue || '',
+                    activity_performance: x.activity_performance || ''
+                  }));
+                } else {
+                  if (handleAuthError(res.message)) return;
+                  errorMsg.value = res.message;
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                errorMsg.value = "เกิดข้อผิดพลาดในการโหลดรายละเอียดคดี: " + (err ? err.message || err.toString() : "");
+              })
+              .getCaseDetailData(caseObj.rowNum, caseObj.black_case, session.value.token);
+          }
         }
 
         function addTempRow(type) {

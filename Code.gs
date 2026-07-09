@@ -3243,9 +3243,6 @@ function getCaseInfoModuleData(token) {
   try {
     var cases = getSheetData("tb_cases");
     var defendants = getSheetData("tb_defendants");
-    var appointments = getSheetData("tb_appointment");
-    var conditions = getSheetData("tb_condition");
-    var activities = getSheetData("tb_activity");
     
     // จัดแผนที่ข้อมูลผู้ต้องหา
     var defMap = {};
@@ -3259,11 +3256,11 @@ function getCaseInfoModuleData(token) {
     
     var isAdminOrStaff = (userSession.role === "admin" || userSession.role === "psychologist" || userSession.role === "director");
     
+    // ส่งเฉพาะฟิลด์ที่จำเป็นสำหรับแสดงการ์ด เพื่อลดขนาดข้อมูลให้ไม่เกินขีดจำกัด Apps Script (~6MB)
     var linkedCases = [];
     for (var i = 0; i < cases.length; i++) {
       var c = cases[i];
       
-      // ตรวจสอบสิทธิ์เจ้าของคดี (ถ้าผู้ใช้เป็น counselor ต้องเห็นเฉพาะคดีของตนเอง)
       var isAssigned = (c.user_id && c.user_id.toString() === userSession.userId.toString()) || 
                        (c.counselor && c.counselor.toString().trim() === userSession.fullName.toString().trim());
       
@@ -3277,47 +3274,19 @@ function getCaseInfoModuleData(token) {
           black_date: c.black_date || "",
           black_case: c.black_case || "",
           case_type_id: c.case_type_id || "",
-          sub_case_type_id: c.sub_case_type_id || "",
           case_type_abb: c.case_type_abb || "",
           black_case_no: c.black_case_no || "",
           black_case_year: c.black_case_year || "",
-          prosecutor: c.prosecutor || "",
           charge: c.charge || "",
-          charge_no: c.charge_no || "",
-          age_at_offense: c.age_at_offense || 0,
-          red_date: c.red_date || "",
           red_case_no: c.red_case_no || "",
           red_case_year: c.red_case_year || "",
-          red_because: c.red_because || "",
           recidivism: c.recidivism || "ไม่ซ้ำ",
-          previous_case_no: c.previous_case_no || "",
-          abb_black_criminal: c.abb_black_criminal || "",
-          black_criminal_no: c.black_criminal_no || "",
-          black_criminal_year: c.black_criminal_year || "",
-          abb_red_criminal: c.abb_red_criminal || "",
-          red_criminal_no: c.red_criminal_no || "",
-          red_criminal_year: c.red_criminal_year || "",
           counselor: c.counselor || "",
-          user_id: c.user_id || "",
-          judge: c.judge || "",
-          officer: c.officer || "",
-          mediator: c.mediator || "",
-          mediator_add_date: c.mediator_add_date || "",
-          court_date_plan: c.court_date_plan || "",
-          plan_days: c.plan_days || "",
-          court_order_plan: c.court_order_plan || "",
-          note: c.note || "",
-          
-          // ข้อมูลจำเลยดึงมาจาก tb_defendants
+          prosecutor: c.prosecutor || "",
           def_first_name: def.first_name || "",
           def_last_name: def.last_name || "",
           def_nick_name: def.nick_name || "",
-          def_title_name: def.title_name || "",
-          def_birth_date: def.birth_date || "",
-          def_parent_name: def.parent_name || "",
-          def_parent_relation: def.parent_relation || "",
-          def_address: def.address || "",
-          def_phone_number: def.phone_number || ""
+          def_title_name: def.title_name || ""
         });
       }
     }
@@ -3326,19 +3295,130 @@ function getCaseInfoModuleData(token) {
       success: true,
       debugCasesLength: cases.length,
       debugDefendantsLength: defendants.length,
-      debugAppointmentsLength: appointments.length,
-      debugConditionsLength: conditions.length,
-      debugActivitiesLength: activities.length,
       userRole: userSession.role,
       userId: userSession.userId,
       userFullName: userSession.fullName,
       cases: linkedCases,
-      appointments: appointments,
-      conditions: conditions,
-      activities: activities
+      appointments: [],
+      conditions: [],
+      activities: []
     };
   } catch (e) {
-    return { success: false, message: "เกิดข้อผิดพลาดในการโหลดข้อมูล: " + e.toString() };
+    return { success: false, message: "เกิดข้อผิดพลาดในการโหลดข้อมูลคดี: " + e.toString() };
+  }
+}
+
+/**
+ * ดึงรายละเอียดเต็มของคดีที่เลือก (สำหรับเมื่อผู้ใช้คลิกเลือกคดีจากการ์ด)
+ */
+function getCaseDetailData(rowNum, blackCase, token) {
+  var userSession = verifySessionToken(token);
+  if (!userSession) return { success: false, message: "สิทธิ์ล็อกอินหมดอายุ" };
+  try {
+    var cases = getSheetData("tb_cases");
+    var defendants = getSheetData("tb_defendants");
+    var appointments = getSheetData("tb_appointment");
+    var conditions = getSheetData("tb_condition");
+    var activities = getSheetData("tb_activity");
+    
+    // หาคดีจาก rowNum
+    var caseData = null;
+    for (var i = 0; i < cases.length; i++) {
+      if (cases[i].rowNum === rowNum) {
+        caseData = cases[i];
+        break;
+      }
+    }
+    if (!caseData) return { success: false, message: "ไม่พบข้อมูลคดีที่ระบุ" };
+    
+    var cid = cleanCitizenId(caseData.citizen_id);
+    var def = null;
+    for (var i = 0; i < defendants.length; i++) {
+      if (cleanCitizenId(defendants[i].citizen_id) === cid) {
+        def = defendants[i];
+        break;
+      }
+    }
+    def = def || {};
+    
+    var bcStr = (blackCase || "").toString().trim();
+    
+    // กรองเฉพาะนัดหมาย, เงื่อนไข, กิจกรรม ของคดีนี้
+    var caseAppointments = [];
+    for (var i = 0; i < appointments.length; i++) {
+      if (appointments[i].black_case && appointments[i].black_case.toString().trim() === bcStr) {
+        caseAppointments.push(appointments[i]);
+      }
+    }
+    
+    var caseConditions = [];
+    for (var i = 0; i < conditions.length; i++) {
+      if (conditions[i].black_case && conditions[i].black_case.toString().trim() === bcStr) {
+        caseConditions.push(conditions[i]);
+      }
+    }
+    
+    var caseActivities = [];
+    for (var i = 0; i < activities.length; i++) {
+      if (activities[i].black_case && activities[i].black_case.toString().trim() === bcStr) {
+        caseActivities.push(activities[i]);
+      }
+    }
+    
+    return {
+      success: true,
+      caseDetail: {
+        rowNum: caseData.rowNum,
+        citizen_id: caseData.citizen_id || "",
+        black_date: caseData.black_date || "",
+        black_case: caseData.black_case || "",
+        case_type_id: caseData.case_type_id || "",
+        sub_case_type_id: caseData.sub_case_type_id || "",
+        case_type_abb: caseData.case_type_abb || "",
+        black_case_no: caseData.black_case_no || "",
+        black_case_year: caseData.black_case_year || "",
+        prosecutor: caseData.prosecutor || "",
+        charge: caseData.charge || "",
+        charge_no: caseData.charge_no || "",
+        age_at_offense: caseData.age_at_offense || 0,
+        red_date: caseData.red_date || "",
+        red_case_no: caseData.red_case_no || "",
+        red_case_year: caseData.red_case_year || "",
+        red_because: caseData.red_because || "",
+        recidivism: caseData.recidivism || "ไม่ซ้ำ",
+        previous_case_no: caseData.previous_case_no || "",
+        abb_black_criminal: caseData.abb_black_criminal || "",
+        black_criminal_no: caseData.black_criminal_no || "",
+        black_criminal_year: caseData.black_criminal_year || "",
+        abb_red_criminal: caseData.abb_red_criminal || "",
+        red_criminal_no: caseData.red_criminal_no || "",
+        red_criminal_year: caseData.red_criminal_year || "",
+        counselor: caseData.counselor || "",
+        user_id: caseData.user_id || "",
+        judge: caseData.judge || "",
+        officer: caseData.officer || "",
+        mediator: caseData.mediator || "",
+        mediator_add_date: caseData.mediator_add_date || "",
+        court_date_plan: caseData.court_date_plan || "",
+        plan_days: caseData.plan_days || "",
+        court_order_plan: caseData.court_order_plan || "",
+        note: caseData.note || "",
+        def_first_name: def.first_name || "",
+        def_last_name: def.last_name || "",
+        def_nick_name: def.nick_name || "",
+        def_title_name: def.title_name || "",
+        def_birth_date: def.birth_date || "",
+        def_parent_name: def.parent_name || "",
+        def_parent_relation: def.parent_relation || "",
+        def_address: def.address || "",
+        def_phone_number: def.phone_number || ""
+      },
+      appointments: caseAppointments,
+      conditions: caseConditions,
+      activities: caseActivities
+    };
+  } catch (e) {
+    return { success: false, message: "เกิดข้อผิดพลาดในการโหลดรายละเอียดคดี: " + e.toString() };
   }
 }
 
