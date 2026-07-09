@@ -1257,47 +1257,16 @@
             </button>
           </div>
 
-          <!-- บล็อกดำเนินการ & ค้นหาสำนวน -->
-          <div class="glass-card shadow" style="padding: 20px; border-radius: 16px; margin-bottom: 25px;">
+          <!-- บล็อกค้นหาและกรองการ์ดคดี (แสดงเฉพาะเมื่อยังไม่ได้เลือกคดี) -->
+          <div v-if="!selectedCaseId" class="glass-card shadow" style="padding: 20px; border-radius: 16px; margin-bottom: 25px;">
             <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between;">
-              <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 300px; position: relative;">
-                <span style="font-weight: 600; color: var(--text-main); white-space: nowrap;"><i class="fa-solid fa-magnifying-glass"></i> ค้นหาสำนวน:</span>
-                <div class="case-search-container" style="position: relative; flex: 1;">
-                  <input type="text" class="form-control" 
-                         placeholder="พิมพ์ค้นหา ชื่อ, นามสกุล, เลขคดีดำ..." 
-                         v-model="caseSearchQuery" 
-                         @focus="isCaseSearchDropdownOpen = true"
-                         @click="$event.target.select()"
-                         style="background: rgba(var(--accent-rgb), 0.05); font-weight: 500; padding-right: 35px; width: 100%;">
-                  
-                  <!-- ปุ่มล้างข้อมูลค้นหา -->
-                  <button v-if="caseSearchQuery" type="button" @click="clearCaseSelection" 
-                          style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px;">
-                    <i class="fa-solid fa-xmark"></i>
-                  </button>
-
-                  <!-- รายการผลลัพธ์การค้นหาเมื่อ Focus หรือพิมพ์ค้างไว้ -->
-                  <div v-if="isCaseSearchDropdownOpen && caseSearchFilteredList.length > 0" 
-                       style="position: absolute; top: 100%; left: 0; right: 0; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); max-height: 250px; overflow-y: auto; z-index: 999; margin-top: 5px;">
-                    <div v-for="c in caseSearchFilteredList" :key="c.rowNum" 
-                         @click="selectCaseFromSearch(c)"
-                         @touchstart.prevent="selectCaseFromSearch(c)"
-                         style="padding: 10px 15px; cursor: pointer; border-bottom: 1px solid var(--card-border); transition: background 0.2s; text-align: left;"
-                         onmouseover="this.style.background='var(--bg-hover)'"
-                         onmouseout="this.style.background='transparent'">
-                      <div style="font-weight: 600; color: var(--text-main); font-size: 0.9rem;">
-                        [{{ c.black_case || 'ไม่มีเลขดำ' }}] - {{ c.def_title_name }}{{ c.def_first_name }} {{ c.def_last_name }}
-                      </div>
-                      <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">
-                        ข้อหา: {{ c.charge || 'ไม่ระบุ' }} | บัตรประชาชน: {{ c.citizen_id || '-' }}
-                      </div>
-                    </div>
-                  </div>
-                  <div v-else-if="isCaseSearchDropdownOpen" 
-                       style="position: absolute; top: 100%; left: 0; right: 0; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); padding: 15px; text-align: center; color: var(--text-muted); z-index: 999; margin-top: 5px; font-style: italic; font-size: 0.9rem;">
-                    ไม่พบคดีที่ตรงตามคำค้นหา
-                  </div>
-                </div>
+              <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 300px;">
+                <span style="font-weight: 600; color: var(--text-main); white-space: nowrap;"><i class="fa-solid fa-magnifying-glass"></i> ค้นหาคดี:</span>
+                <input type="text" class="form-control" 
+                       placeholder="ค้นหาคดีตามชื่อ, นามสกุล, ชื่อเล่น, เลขคดีดำ, เลขคดีแดง, ข้อหา..." 
+                       v-model="caseCardSearchQuery" 
+                       @input="caseCardCurrentPage = 1"
+                       style="background: rgba(var(--accent-rgb), 0.05); font-weight: 500; width: 100%;">
               </div>
               <div style="display: flex; gap: 10px;">
                 <button v-if="session.role === 'admin' || session.role === 'psychologist'" class="btn btn-primary" @click="triggerNewCaseFromInfo" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none;">
@@ -1307,16 +1276,69 @@
             </div>
           </div>
 
-          <!-- ตรวจสอบว่าเลือกคดีหรือยัง -->
-          <div v-if="!selectedCaseId" class="glass-card shadow" style="padding: 50px; text-align: center; border-radius: 16px; color: #64748b;">
-            <i class="fa-solid fa-briefcase" style="font-size: 3rem; margin-bottom: 15px; color: #cbd5e1;"></i>
-            <p style="font-size: 1.1rem; font-weight: 500;">โปรดค้นหาหรือเลือกคดีของจำเลยจากรายการด้านบนเพื่อแสดงข้อมูล</p>
+          <!-- แสดงรายการการ์ดคดีเมื่อยังไม่ได้เลือกคดี -->
+          <div v-if="!selectedCaseId">
+            <!-- Grid การ์ดคดี 5 คอลัมน์ -->
+            <div v-if="paginatedCaseCards.length > 0" class="case-card-grid">
+              <div v-for="c in paginatedCaseCards" :key="c.rowNum" 
+                   @click="selectCaseFromSearch(c)"
+                   class="case-card glass-card shadow-sm"
+                   style="padding: 15px; border-radius: 12px; border: 1px solid var(--card-border); background: var(--card-bg); display: flex; flex-direction: column; justify-content: space-between; min-height: 180px;">
+                <div>
+                  <div style="font-weight: 700; color: var(--accent-color); font-size: 1.05rem; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-folder-open"></i> {{ c.black_case || 'ไม่มีเลขดำ' }}
+                  </div>
+                  <div v-if="c.red_case_no && c.red_case_year" style="font-weight: 600; color: #ef4444; font-size: 0.85rem; margin-bottom: 8px;">
+                    <i class="fa-solid fa-stamp"></i> คดีแดง: {{ c.red_case_no }}/{{ c.red_case_year }}
+                  </div>
+                </div>
+                <div style="border-top: 1px solid rgba(var(--accent-rgb), 0.1); padding-top: 8px; margin-top: 8px;">
+                  <div style="font-weight: 600; color: var(--text-main); font-size: 0.9rem; line-height: 1.3;">
+                    {{ c.def_title_name }}{{ c.def_first_name }}
+                    <span v-if="c.def_nick_name" style="color: var(--text-muted); font-weight: 500;">({{ c.def_nick_name }})</span>
+                    {{ c.def_last_name }}
+                  </div>
+                  <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; height: 2.8em;">
+                    ข้อหา: {{ c.charge || '-' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- กรณีไม่พบข้อมูล -->
+            <div v-else class="glass-card shadow" style="padding: 50px; text-align: center; border-radius: 16px; color: #64748b;">
+              <i class="fa-solid fa-folder-open" style="font-size: 3rem; color: var(--accent-color); opacity: 0.5; margin-bottom: 15px;"></i>
+              <p style="font-size: 1.1rem; font-weight: 500;">ไม่พบข้อมูลคดีตามเงื่อนไขที่เลือกหรือพิมพ์ค้นหา</p>
+            </div>
+
+            <!-- การแบ่งหน้า (Pagination) -->
+            <div v-if="caseCardTotalPages > 1" style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 25px; margin-bottom: 25px;">
+              <button class="btn btn-secondary btn-sm" :disabled="caseCardCurrentPage === 1" @click="caseCardCurrentPage--" style="border-radius: 8px; padding: 6px 12px;">
+                <i class="fa-solid fa-chevron-left"></i> ก่อนหน้า
+              </button>
+              <span style="font-weight: 600; color: var(--text-main); font-size: 0.95rem;">
+                หน้า {{ caseCardCurrentPage }} จาก {{ caseCardTotalPages }}
+              </span>
+              <button class="btn btn-secondary btn-sm" :disabled="caseCardCurrentPage === caseCardTotalPages" @click="caseCardCurrentPage++" style="border-radius: 8px; padding: 6px 12px;">
+                ถัดไป <i class="fa-solid fa-chevron-right"></i>
+              </button>
+            </div>
           </div>
 
           <!-- รายละเอียดเมื่อเลือกคดี -->
           <template v-else>
             <!-- ฟอร์มรายละเอียดคดีหลัก -->
             <div class="glass-card shadow" style="padding: 25px; border-radius: 16px; margin-bottom: 25px;">
+              <!-- ปุ่มย้อนกลับไปหน้ารวมและการ์ด -->
+              <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+                <button type="button" class="btn btn-secondary" @click="clearCaseSelection" style="border-radius: 10px; background: rgba(0,0,0,0.05); color: var(--text-main); border: 1px solid var(--card-border); font-weight: 600;">
+                  <i class="fa-solid fa-arrow-left"></i> ย้อนกลับไปรายการคดี
+                </button>
+                <div style="font-weight: 600; color: var(--text-muted); font-size: 0.95rem;">
+                  เลขดำที่กำลังแสดง: <span style="font-weight: 700; color: var(--accent-color);">{{ selectedCaseObj?.black_case }}</span>
+                </div>
+              </div>
+
               <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border); padding-bottom: 12px; margin-bottom: 20px;">
                 <h3 style="font-family: var(--font-display); font-weight: 700; margin: 0; color: var(--text-main);">
                   <i class="fa-solid fa-folder-open" style="color: #4f46e5;"></i> ข้อมูลหลักของสำนวน/คดี

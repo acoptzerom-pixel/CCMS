@@ -2734,4 +2734,45 @@
         box-sizing: border-box !important;
       }
     }
+
+    /* Card Grid & Pagination styles for case_info */
+    .case-card-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+    
+    .case-card {
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+    
+    .case-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 20px rgba(79, 70, 229, 0.15) !important;
+      border-color: #4f46e5 !important;
+      background: rgba(79, 70, 229, 0.05) !important;
+    }
+    
+    @media (max-width: 1200px) {
+      .case-card-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+    @media (max-width: 992px) {
+      .case-card-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+    @media (max-width: 768px) {
+      .case-card-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    @media (max-width: 480px) {
+      .case-card-grid {
+        grid-template-columns: 1fr;
+      }
+    }
 </style>

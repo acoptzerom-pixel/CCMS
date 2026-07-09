@@ -157,6 +157,9 @@
         const caseInfoData = reactive({ cases: [], appointments: [], conditions: [], activities: [] });
         const caseSearchQuery = ref('');
         const isCaseSearchDropdownOpen = ref(false);
+        const caseCardSearchQuery = ref('');
+        const caseCardCurrentPage = ref(1);
+        const caseCardPageSize = 20;
         const activeCaseTab = ref('m73');
         const selectedCaseId = ref('');
         const tempAppointments = ref([]);
@@ -210,6 +213,65 @@
         const selectedCaseObj = computed(() => {
           if (!selectedCaseId.value) return null;
           return caseInfoData.cases.find(c => c.rowNum.toString() === selectedCaseId.value.toString()) || null;
+        });
+
+        function getCaseDateTimestamp(val) {
+          if (!val) return 0;
+          const d = new Date(val);
+          if (!isNaN(d.getTime())) return d.getTime();
+          const num = parseFloat(val);
+          if (!isNaN(num) && num > 30000 && num < 100000) {
+            return new Date((num - 25569) * 86400 * 1000).getTime();
+          }
+          return 0;
+        }
+
+        function getCaseNoNumber(val) {
+          if (!val) return 0;
+          const n = parseInt(String(val).replace(/\D/g, ''), 10);
+          return isNaN(n) ? 0 : n;
+        }
+
+        const filteredAndSortedCaseCards = computed(() => {
+          const tabCases = filteredCases.value;
+          const query = caseCardSearchQuery.value.trim().toLowerCase();
+          
+          let filtered = tabCases;
+          if (query) {
+            filtered = tabCases.filter(c => {
+              const fullName = `${c.def_title_name || ''}${c.def_first_name || ''} (${c.def_nick_name || ''}) ${c.def_last_name || ''}`.toLowerCase();
+              const blackCase = String(c.black_case || '').toLowerCase();
+              const redCase = c.red_case_no && c.red_case_year ? `${c.red_case_no}/${c.red_case_year}`.toLowerCase() : '';
+              const charge = String(c.charge || '').toLowerCase();
+              const citizenId = String(c.citizen_id || '').toLowerCase();
+              const prosecutor = String(c.prosecutor || '').toLowerCase();
+              return fullName.includes(query) || 
+                     blackCase.includes(query) || 
+                     redCase.includes(query) || 
+                     charge.includes(query) || 
+                     citizenId.includes(query) || 
+                     prosecutor.includes(query);
+            });
+          }
+          
+          return [...filtered].sort((a, b) => {
+            const timeA = getCaseDateTimestamp(a.black_date);
+            const timeB = getCaseDateTimestamp(b.black_date);
+            if (timeA !== timeB) return timeB - timeA; // วันล่าสุดขึ้นก่อน
+            
+            const noA = getCaseNoNumber(a.black_case_no);
+            const noB = getCaseNoNumber(b.black_case_no);
+            return noB - noA; // เลขคดีดำจากมากไปน้อย
+          });
+        });
+
+        const caseCardTotalPages = computed(() => {
+          return Math.ceil(filteredAndSortedCaseCards.value.length / caseCardPageSize);
+        });
+
+        const paginatedCaseCards = computed(() => {
+          const start = (caseCardCurrentPage.value - 1) * caseCardPageSize;
+          return filteredAndSortedCaseCards.value.slice(start, start + caseCardPageSize);
         });
 
         const caseSearchFilteredList = computed(() => {
@@ -1436,6 +1498,8 @@
         });
 
         watch(activeCaseTab, (newTab) => {
+          caseCardSearchQuery.value = '';
+          caseCardCurrentPage.value = 1;
           nextTick(() => {
             autoSelectLatestCaseForTab(newTab);
           });
@@ -4658,6 +4722,7 @@
               deleteTempRow, saveCaseDetails, saveAppointmentsGrid, saveConditionsGrid, saveActivitiesGrid,
               triggerNewCaseFromInfo, openCaseDocumentPrint, toISODateString, caseInfoForm,
               caseSearchQuery, isCaseSearchDropdownOpen, caseSearchFilteredList, selectCaseFromSearch, clearCaseSelection,
+              caseCardSearchQuery, caseCardCurrentPage, caseCardTotalPages, paginatedCaseCards,
               
               monthlyReport, activePrintType, loadMonthlyReport, saveMonthlyReport, useAutoCalculatedValues, openMonthlyPrintPreview,
              showMonthYearPicker, tempSelectedMonth, tempSelectedYear, thaiMonthsShort, availableReportYears, selectMonthYear,
