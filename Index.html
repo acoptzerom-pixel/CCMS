@@ -803,8 +803,9 @@
                   <span style="display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; font-weight: 600; font-size: 0.9rem; color: var(--text-main);">
                     หน้า 
                     <input type="number" 
-                           :value="cardCurrentPage" 
-                           @change="onPageInputChange" 
+                           v-model.number="cardCurrentPage" 
+                           @keyup.enter="validatePageInput"
+                           @blur="validatePageInput"
                            min="1" 
                            :max="totalPages" 
                            style="width: 55px; text-align: center; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-main); border-radius: 8px; padding: 5px; font-weight: 600; font-size: 0.9rem;" />
@@ -1333,8 +1334,9 @@
                 <span style="display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; font-weight: 600; font-size: 0.9rem; color: var(--text-main);">
                   หน้า 
                   <input type="number" 
-                         :value="caseCardCurrentPage" 
-                         @change="onCasePageInputChange" 
+                         v-model.number="caseCardCurrentPage" 
+                         @keyup.enter="validateCasePageInput"
+                         @blur="validateCasePageInput"
                          min="1" 
                          :max="caseCardTotalPages" 
                          style="width: 55px; text-align: center; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-main); border-radius: 8px; padding: 5px; font-weight: 600; font-size: 0.9rem;" />
