@@ -1041,6 +1041,9 @@
                     isOffline.value = false;
                     
                     applyAppState(res);
+                    if (currentView.value === 'case_info') {
+                      loadCaseInfoModule(true); // โหลดข้อมูลคดีอัตโนมัติหากหน้าจอค้างอยู่ที่หน้านี้
+                    }
                   } else {
                     if (handleAuthError(res.message)) return;
                     errorMsg.value = res.message;
@@ -4248,44 +4251,51 @@
           if (typeof google !== 'undefined' && google.script && google.script.run) {
             google.script.run
               .withSuccessHandler((res) => {
-                if (!silent) loading.value = false;
-                if (res.success) {
-                  caseInfoData.cases = res.cases || [];
-                  caseInfoData.appointments = res.appointments || [];
-                  caseInfoData.conditions = res.conditions || [];
-                  caseInfoData.activities = res.activities || [];
-                  caseInfoData.diagnostics = {
-                    debugCasesLength: res.debugCasesLength,
-                    debugDefendantsLength: res.debugDefendantsLength,
-                    debugAppointmentsLength: res.debugAppointmentsLength,
-                    debugConditionsLength: res.debugConditionsLength,
-                    debugActivitiesLength: res.debugActivitiesLength,
-                    userRole: res.userRole,
-                    userId: res.userId,
-                    userFullName: res.userFullName
-                  };
-                  
-                  // แสดงหน้ารวมการ์ดคดีเสมอในตอนเริ่มต้น ไม่สุ่มดึงคดีขึ้นมาบังสายตา
-                  if (selectedCaseId.value) {
-                    const found = caseInfoData.cases.find(c => c.rowNum.toString() === selectedCaseId.value.toString());
-                    if (found) {
-                      onSelectCase();
+                try {
+                  if (!silent) loading.value = false;
+                  if (!res) {
+                    errorMsg.value = "ได้รับข้อมูลว่างเปล่าจากเซิร์ฟเวอร์ (res is null/undefined)";
+                    return;
+                  }
+                  if (res.success) {
+                    caseInfoData.cases = res.cases || [];
+                    caseInfoData.appointments = res.appointments || [];
+                    caseInfoData.conditions = res.conditions || [];
+                    caseInfoData.activities = res.activities || [];
+                    caseInfoData.diagnostics = {
+                      debugCasesLength: res.debugCasesLength,
+                      debugDefendantsLength: res.debugDefendantsLength,
+                      debugAppointmentsLength: res.debugAppointmentsLength,
+                      debugConditionsLength: res.debugConditionsLength,
+                      debugActivitiesLength: res.debugActivitiesLength,
+                      userRole: res.userRole,
+                      userId: res.userId,
+                      userFullName: res.userFullName
+                    };
+                    
+                    // แสดงหน้ารวมการ์ดคดีเสมอในตอนเริ่มต้น ไม่สุ่มดึงคดีขึ้นมาบังสายตา
+                    if (selectedCaseId.value) {
+                      const found = caseInfoData.cases.find(c => c.rowNum.toString() === selectedCaseId.value.toString());
+                      if (found) {
+                        onSelectCase();
+                      } else {
+                        selectedCaseId.value = '';
+                      }
                     } else {
                       selectedCaseId.value = '';
                     }
                   } else {
-                    selectedCaseId.value = '';
+                    if (handleAuthError(res.message)) return;
+                    errorMsg.value = res.message;
                   }
-                } else {
-                  if (handleAuthError(res.message)) return;
-                  if (!silent) errorMsg.value = res.message;
+                } catch (err) {
+                  console.error("CRITICAL EXCEPTION in success handler:", err);
+                  errorMsg.value = "เกิดข้อผิดพลาดในการประมวลผลข้อมูลผลลัพธ์: " + err.message;
                 }
               })
               .withFailureHandler((err) => {
-                if (!silent) {
-                  loading.value = false;
-                  errorMsg.value = "เกิดข้อผิดพลาดในการโหลดข้อมูลหน้าข้อมูลคดี: " + (err ? err.message || err.toString() : "");
-                }
+                loading.value = false;
+                errorMsg.value = "เกิดข้อผิดพลาดในการโหลดข้อมูลหน้าข้อมูลคดี: " + (err ? err.message || err.toString() : "");
               })
               .getCaseInfoModuleData(session.value.token);
           } else {
