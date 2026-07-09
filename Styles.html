@@ -277,6 +277,28 @@
     .btn-secondary:hover {
       background: rgba(255, 255, 255, 0.15);
     }
+
+    .btn-icon-nav {
+      background: rgba(var(--accent-rgb), 0.08) !important;
+      border: 1px solid var(--card-border) !important;
+      color: var(--text-main) !important;
+      cursor: pointer !important;
+      transition: all 0.2s ease !important;
+      padding: 6px 12px !important;
+      border-radius: 8px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+    .btn-icon-nav:hover:not(:disabled) {
+      background: var(--primary) !important;
+      color: #ffffff !important;
+      border-color: var(--primary) !important;
+    }
+    .btn-icon-nav:disabled {
+      opacity: 0.3 !important;
+      cursor: not-allowed !important;
+    }
     
     .btn-danger {
       background: var(--danger);

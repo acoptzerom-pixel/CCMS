@@ -4824,6 +4824,38 @@
           clearCaseInfoForm();
         }
 
+        const hasNextCase = computed(() => {
+          if (!selectedCaseId.value) return false;
+          const list = filteredAndSortedCaseCards.value;
+          const idx = list.findIndex(c => c.rowNum.toString() === selectedCaseId.value.toString());
+          return idx !== -1 && idx + 1 < list.length;
+        });
+
+        const hasPrevCase = computed(() => {
+          if (!selectedCaseId.value) return false;
+          const list = filteredAndSortedCaseCards.value;
+          const idx = list.findIndex(c => c.rowNum.toString() === selectedCaseId.value.toString());
+          return idx > 0;
+        });
+
+        function goToNextCase() {
+          if (!selectedCaseId.value) return;
+          const list = filteredAndSortedCaseCards.value;
+          const idx = list.findIndex(c => c.rowNum.toString() === selectedCaseId.value.toString());
+          if (idx !== -1 && idx + 1 < list.length) {
+            selectCaseFromSearch(list[idx + 1]);
+          }
+        }
+
+        function goToPrevCase() {
+          if (!selectedCaseId.value) return;
+          const list = filteredAndSortedCaseCards.value;
+          const idx = list.findIndex(c => c.rowNum.toString() === selectedCaseId.value.toString());
+          if (idx > 0) {
+            selectCaseFromSearch(list[idx - 1]);
+          }
+        }
+
 
         return {
           showBackToTop, scrollToTop,
@@ -4885,6 +4917,7 @@
               triggerNewCaseFromInfo, openCaseDocumentPrint, toISODateString, caseInfoForm, formatBETextDate, parseBETextDate,
               caseSearchQuery, isCaseSearchDropdownOpen, caseSearchFilteredList, selectCaseFromSearch, clearCaseSelection,
               caseCardSearchQuery, caseCardCurrentPage, caseCardTotalPages, paginatedCaseCards, filteredAndSortedCaseCards, validateCasePageInput,
+              goToNextCase, goToPrevCase, hasNextCase, hasPrevCase,
               
               monthlyReport, activePrintType, loadMonthlyReport, saveMonthlyReport, useAutoCalculatedValues, openMonthlyPrintPreview,
              showMonthYearPicker, tempSelectedMonth, tempSelectedYear, thaiMonthsShort, availableReportYears, selectMonthYear,
