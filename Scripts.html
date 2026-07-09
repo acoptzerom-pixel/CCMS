@@ -3157,6 +3157,34 @@
           return null;
         }
 
+        function formatBETextDate(dateVal) {
+          if (!dateVal) return '';
+          var d = parseDateSafe(dateVal);
+          if (!d) return '';
+          var day = String(d.getDate()).padStart(2, '0');
+          var month = String(d.getMonth() + 1).padStart(2, '0');
+          var rawYear = d.getFullYear();
+          var year = rawYear > 2400 ? rawYear : rawYear + 543;
+          return day + "/" + month + "/" + year;
+        }
+
+        function parseBETextDate(str) {
+          if (!str) return '';
+          var parts = str.trim().split('/');
+          if (parts.length === 3) {
+            var d = parseInt(parts[0], 10);
+            var m = parseInt(parts[1], 10) - 1;
+            var y = parseInt(parts[2], 10);
+            if (!isNaN(d) && !isNaN(m) && !isNaN(y)) {
+              if (y > 2400) {
+                y -= 543;
+              }
+              return y + "-" + String(m + 1).padStart(2, '0') + "-" + String(d).padStart(2, '0');
+            }
+          }
+          return '';
+        }
+
         function formatThaiDate(dateStr) {
           if (!dateStr) return "-";
           var d = parseDateSafe(dateStr);
@@ -4844,7 +4872,7 @@
               caseInfoData, activeCaseTab, selectedCaseId, tempAppointments, tempConditions, tempActivities,
               selectedCaseObj, filteredCases, isDirector, loadCaseInfoModule, onSelectCase, addTempRow,
               deleteTempRow, saveCaseDetails, saveAppointmentsGrid, saveConditionsGrid, saveActivitiesGrid,
-              triggerNewCaseFromInfo, openCaseDocumentPrint, toISODateString, caseInfoForm,
+              triggerNewCaseFromInfo, openCaseDocumentPrint, toISODateString, caseInfoForm, formatBETextDate, parseBETextDate,
               caseSearchQuery, isCaseSearchDropdownOpen, caseSearchFilteredList, selectCaseFromSearch, clearCaseSelection,
               caseCardSearchQuery, caseCardCurrentPage, caseCardTotalPages, paginatedCaseCards, filteredAndSortedCaseCards, validateCasePageInput,
               
