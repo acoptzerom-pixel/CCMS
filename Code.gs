@@ -3230,3 +3230,237 @@ function saveMonthlyReportData(monthYearStr, fieldsDataObj, token) {
     return { success: false, message: "เกิดข้อผิดพลาดในการบันทึกรายงาน: " + e.toString() };
   }
 }
+
+/**
+ * ดึงข้อมูลคดีทั้งหมดเชื่อมกับข้อมูลประวัติเด็ก นัดหมาย เงื่อนไขศาล และกิจกรรม สำหรับหน้าระบบข้อมูลคดีใหม่
+ */
+function getCaseInfoModuleData(token) {
+  var userSession = verifySessionToken(token);
+  if (!userSession) return { success: false, message: "สิทธิ์ล็อกอินหมดอายุ" };
+  if (userSession.role !== "admin" && userSession.role !== "psychologist" && userSession.role !== "director") {
+    return { success: false, message: "สิทธิ์การเข้าถึงข้อมูลจำกัดเฉพาะผู้มีส่วนเกี่ยวข้อง" };
+  }
+  try {
+    var cases = getSheetData("tb_cases");
+    var defendants = getSheetData("tb_defendants");
+    var appointments = getSheetData("tb_appointment");
+    var conditions = getSheetData("tb_condition");
+    var activities = getSheetData("tb_activity");
+    
+    // จัดแผนที่ข้อมูลผู้ต้องหา
+    var defMap = {};
+    for (var i = 0; i < defendants.length; i++) {
+      var d = defendants[i];
+      var cid = cleanCitizenId(d.citizen_id);
+      if (cid) {
+        defMap[cid] = d;
+      }
+    }
+    
+    var isAdminOrStaff = (userSession.role === "admin" || userSession.role === "psychologist" || userSession.role === "director");
+    
+    var linkedCases = [];
+    for (var i = 0; i < cases.length; i++) {
+      var c = cases[i];
+      
+      // ตรวจสอบสิทธิ์เจ้าของคดี (ถ้าผู้ใช้เป็น counselor ต้องเห็นเฉพาะคดีของตนเอง)
+      var isAssigned = (c.user_id && c.user_id.toString() === userSession.userId.toString()) || 
+                       (c.counselor && c.counselor.toString().trim() === userSession.fullName.toString().trim());
+      
+      if (isAdminOrStaff || isAssigned) {
+        var cid = cleanCitizenId(c.citizen_id);
+        var def = defMap[cid] || {};
+        
+        linkedCases.push({
+          rowNum: c.rowNum,
+          citizen_id: c.citizen_id || "",
+          black_date: c.black_date || "",
+          black_case: c.black_case || "",
+          case_type_id: c.case_type_id || "",
+          sub_case_type_id: c.sub_case_type_id || "",
+          case_type_abb: c.case_type_abb || "",
+          black_case_no: c.black_case_no || "",
+          black_case_year: c.black_case_year || "",
+          prosecutor: c.prosecutor || "",
+          charge: c.charge || "",
+          charge_no: c.charge_no || "",
+          age_at_offense: c.age_at_offense || 0,
+          red_date: c.red_date || "",
+          red_case_no: c.red_case_no || "",
+          red_case_year: c.red_case_year || "",
+          red_because: c.red_because || "",
+          recidivism: c.recidivism || "ไม่ซ้ำ",
+          previous_case_no: c.previous_case_no || "",
+          abb_black_criminal: c.abb_black_criminal || "",
+          black_criminal_no: c.black_criminal_no || "",
+          black_criminal_year: c.black_criminal_year || "",
+          abb_red_criminal: c.abb_red_criminal || "",
+          red_criminal_no: c.red_criminal_no || "",
+          red_criminal_year: c.red_criminal_year || "",
+          counselor: c.counselor || "",
+          user_id: c.user_id || "",
+          judge: c.judge || "",
+          officer: c.officer || "",
+          mediator: c.mediator || "",
+          mediator_add_date: c.mediator_add_date || "",
+          court_date_plan: c.court_date_plan || "",
+          plan_days: c.plan_days || "",
+          court_order_plan: c.court_order_plan || "",
+          note: c.note || "",
+          
+          // ข้อมูลจำเลยดึงมาจาก tb_defendants
+          def_first_name: def.first_name || "",
+          def_last_name: def.last_name || "",
+          def_nick_name: def.nick_name || "",
+          def_title_name: def.title_name || "",
+          def_birth_date: def.birth_date || "",
+          def_parent_name: def.parent_name || "",
+          def_parent_relation: def.parent_relation || "",
+          def_address: def.address || "",
+          def_phone_number: def.phone_number || ""
+        });
+      }
+    }
+    
+    return {
+      success: true,
+      cases: linkedCases,
+      appointments: appointments,
+      conditions: conditions,
+      activities: activities
+    };
+  } catch (e) {
+    return { success: false, message: "เกิดข้อผิดพลาดในการโหลดข้อมูล: " + e.toString() };
+  }
+}
+
+/**
+ * บันทึกรายการตารางนัดหมายของคดี
+ */
+function saveCaseAppointments(blackCase, list, token) {
+  var userSession = verifySessionToken(token);
+  if (!userSession) return { success: false, message: "สิทธิ์ล็อกอินหมดอายุ" };
+  if (userSession.role !== "admin" && userSession.role !== "psychologist") {
+    return { success: false, message: "ไม่มีสิทธิ์ในการบันทึกหรือแก้ไขตารางข้อมูลนัดหมาย" };
+  }
+  try {
+    var ss = getSpreadsheet();
+    var sheet = ss.getSheetByName("tb_appointment");
+    var data = sheet.getDataRange().getValues();
+    
+    // ลบแถวเดิมที่เลขคดีดำตรงกันออกทั้งหมด
+    for (var i = data.length - 1; i >= 1; i--) {
+      if (data[i][0] && data[i][0].toString().trim() === blackCase.toString().trim()) {
+        sheet.deleteRow(i + 1);
+      }
+    }
+    
+    // เพิ่มแถวใหม่ตามลิสต์
+    for (var i = 0; i < list.length; i++) {
+      var item = list[i];
+      var aptDate = item.appointment_date ? new Date(item.appointment_date) : "";
+      if (aptDate) aptDate.setHours(12, 0, 0, 0);
+      
+      var row = [
+        blackCase,
+        aptDate,
+        item.appointment_time || "",
+        item.appointment_reason || "",
+        item.appointment_counselor || "",
+        item.appointment_not || "",
+        item.appointment_performance || "",
+        item.appointment_responsible_person || ""
+      ];
+      sheet.appendRow(row);
+    }
+    clearSheetCache("tb_appointment");
+    return { success: true, message: "บันทึกตารางนัดหมายสำเร็จ" };
+  } catch (e) {
+    return { success: false, message: "เกิดข้อผิดพลาดในการบันทึกตารางนัดหมาย: " + e.toString() };
+  }
+}
+
+/**
+ * บันทึกรายการตารางกำหนด/เงื่อนไขของคดี
+ */
+function saveCaseConditions(blackCase, list, token) {
+  var userSession = verifySessionToken(token);
+  if (!userSession) return { success: false, message: "สิทธิ์ล็อกอินหมดอายุ" };
+  if (userSession.role !== "admin" && userSession.role !== "psychologist") {
+    return { success: false, message: "ไม่มีสิทธิ์ในการบันทึกหรือแก้ไขตารางเงื่อนไขศาล" };
+  }
+  try {
+    var ss = getSpreadsheet();
+    var sheet = ss.getSheetByName("tb_condition");
+    var data = sheet.getDataRange().getValues();
+    
+    for (var i = data.length - 1; i >= 1; i--) {
+      if (data[i][1] && data[i][1].toString().trim() === blackCase.toString().trim()) {
+        sheet.deleteRow(i + 1);
+      }
+    }
+    
+    for (var i = 0; i < list.length; i++) {
+      var item = list[i];
+      var row = [
+        parseFloat(item.condition_no) || (i + 1),
+        blackCase,
+        item.condition || "",
+        parseFloat(item.condition_performance_no) || "",
+        item.condition_performance || ""
+      ];
+      sheet.appendRow(row);
+    }
+    clearSheetCache("tb_condition");
+    return { success: true, message: "บันทึกตารางกำหนดเงื่อนไขสำเร็จ" };
+  } catch (e) {
+    return { success: false, message: "เกิดข้อผิดพลาดในการบันทึกตารางเงื่อนไขศาล: " + e.toString() };
+  }
+}
+
+/**
+ * บันทึกรายการตารางการเข้าร่วมกิจกรรมของคดี
+ */
+function saveCaseActivities(blackCase, list, token) {
+  var userSession = verifySessionToken(token);
+  if (!userSession) return { success: false, message: "สิทธิ์ล็อกอินหมดอายุ" };
+  if (userSession.role !== "admin" && userSession.role !== "psychologist") {
+    return { success: false, message: "ไม่มีสิทธิ์ในการบันทึกหรือแก้ไขตารางข้อมูลกิจกรรมย่อย" };
+  }
+  try {
+    var ss = getSpreadsheet();
+    var sheet = ss.getSheetByName("tb_activity");
+    var data = sheet.getDataRange().getValues();
+    
+    for (var i = data.length - 1; i >= 1; i--) {
+      if (data[i][0] && data[i][0].toString().trim() === blackCase.toString().trim()) {
+        sheet.deleteRow(i + 1);
+      }
+    }
+    
+    for (var i = 0; i < list.length; i++) {
+      var item = list[i];
+      var startDate = item.activity_start_date ? new Date(item.activity_start_date) : "";
+      if (startDate) startDate.setHours(12, 0, 0, 0);
+      var finishDate = item.activity_finish_date ? new Date(item.activity_finish_date) : "";
+      if (finishDate) finishDate.setHours(12, 0, 0, 0);
+      
+      var row = [
+        blackCase,
+        parseFloat(item.activity_no) || (i + 1),
+        item.activity_type || "",
+        item.activity_name || "",
+        startDate,
+        finishDate,
+        item.activity_responsible_agency || "",
+        item.activity_venue || "",
+        item.activity_performance || ""
+      ];
+      sheet.appendRow(row);
+    }
+    clearSheetCache("tb_activity");
+    return { success: true, message: "บันทึกตารางข้อมูลกิจกรรมสำเร็จ" };
+  } catch (e) {
+    return { success: false, message: "เกิดข้อผิดพลาดในการบันทึกตารางกิจกรรม: " + e.toString() };
+  }
+}

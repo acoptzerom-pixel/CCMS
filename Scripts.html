@@ -153,6 +153,46 @@
 
         // Paginated Card list states
         const defendantsList = ref([]);
+        // Case Info Module States
+        const caseInfoData = reactive({ cases: [], appointments: [], conditions: [], activities: [] });
+        const activeCaseTab = ref('m73');
+        const selectedCaseId = ref('');
+        const tempAppointments = ref([]);
+        const tempConditions = ref([]);
+        const tempActivities = ref([]);
+        const caseInfoForm = reactive({
+          rowNum: '',
+          citizen_id: '',
+          black_date: '',
+          black_case: '',
+          case_type_id: '',
+          sub_case_type_id: '',
+          case_type_abb: '',
+          black_case_no: '',
+          black_case_year: '',
+          prosecutor: '',
+          charge: '',
+          charge_no: '',
+          age_at_offense: 0,
+          red_date: '',
+          red_case_no: '',
+          red_case_year: '',
+          red_because: '',
+          recidivism: 'ไม่ซ้ำ',
+          previous_case_no: '',
+          abb_black_criminal: '',
+          black_criminal_no: '',
+          black_criminal_year: '',
+          abb_red_criminal: '',
+          red_criminal_no: '',
+          red_criminal_year: '',
+          counselor: '',
+          user_id: '',
+          judge: '',
+          officer: '',
+          mediator: '',
+          note: ''
+        });
         const cardSearchQuery = ref('');
         const cardCurrentPage = ref(1);
         const cardPageSize = 12;
@@ -165,6 +205,34 @@
         const demographicModalData = ref({ cases: [], chargeBreakdown: [], totalCount: 0 });
 
         // Computed properties for filtering cards list
+        const selectedCaseObj = computed(() => {
+          if (!selectedCaseId.value) return null;
+          return caseInfoData.cases.find(c => c.rowNum === selectedCaseId.value) || null;
+        });
+
+        const filteredCases = computed(() => {
+          if (!caseInfoData.cases) return [];
+          return caseInfoData.cases.filter(c => {
+            const typeId = parseInt(c.case_type_id, 10);
+            if (activeCaseTab.value === 'm73') {
+              return typeId === 1;
+            } else if (activeCaseTab.value === 'm90') {
+              return typeId === 2;
+            } else if (activeCaseTab.value === 'm132') {
+              return typeId === 3;
+            } else if (activeCaseTab.value === 'court_other') {
+              return [5, 6, 7].includes(typeId);
+            } else if (activeCaseTab.value === 'other_cases') {
+              return [4, 8, 9, 10, 11].includes(typeId);
+            }
+            return false;
+          });
+        });
+
+        const isDirector = computed(() => {
+          return session.value && session.value.role === 'director';
+        });
+
         const filteredDefendants = computed(() => {
           try {
             const query = cardSearchQuery.value.trim().toLowerCase();
@@ -1777,6 +1845,11 @@
         }
 
         function switchView(viewName) {
+          if (viewName === 'case_info' && session.value.role !== 'admin' && session.value.role !== 'psychologist' && session.value.role !== 'director') {
+            alert("ขออภัย บัญชีของคุณไม่มีสิทธิ์ในการเข้าถึงหน้าข้อมูลคดี");
+            currentView.value = 'dashboard';
+            return;
+          }
           if (viewName === 'users' && session.value.role !== 'admin') {
             alert("ขออภัย บัญชีของคุณไม่มีสิทธิ์ในการเข้าถึงหน้าจัดการสมาชิก");
             currentView.value = 'dashboard';
@@ -1834,6 +1907,8 @@
             if (counselorsList.value.length === 0) {
               loadCounselorsList();
             }
+          } else if (viewName === 'case_info') {
+            loadCaseInfoModule();
           } else if (viewName === 'calendar') {
             if (appointments.value.length === 0) {
               loadAppointments();
@@ -4038,6 +4113,338 @@
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
+        function toISODateString(val) {
+          if (!val) return '';
+          const d = new Date(val);
+          if (isNaN(d.getTime())) return '';
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${y}-${m}-${day}`;
+        }
+
+        function loadCaseInfoModule(silent = false) {
+          if (!session.value || (session.value.role !== 'admin' && session.value.role !== 'psychologist' && session.value.role !== 'director')) return;
+          if (!silent) loading.value = true;
+          
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                if (!silent) loading.value = false;
+                if (res.success) {
+                  caseInfoData.cases = res.cases || [];
+                  caseInfoData.appointments = res.appointments || [];
+                  caseInfoData.conditions = res.conditions || [];
+                  caseInfoData.activities = res.activities || [];
+                  
+                  // รีเฟรชคดีหลักและตารางย่อยหากเลือกคดีค้างไว้
+                  if (selectedCaseId.value) {
+                    const found = caseInfoData.cases.find(c => c.rowNum === selectedCaseId.value);
+                    if (found) {
+                      onSelectCase();
+                    } else {
+                      selectedCaseId.value = '';
+                    }
+                  }
+                } else {
+                  if (handleAuthError(res.message)) return;
+                  if (!silent) errorMsg.value = res.message;
+                }
+              })
+              .withFailureHandler((err) => {
+                if (!silent) {
+                  loading.value = false;
+                  errorMsg.value = "เกิดข้อผิดพลาดในการโหลดข้อมูลหน้าข้อมูลคดี: " + (err ? err.message || err.toString() : "");
+                }
+              })
+              .getCaseInfoModuleData(session.value.token);
+          } else {
+            // โหมดทดสอบออฟไลน์
+            loading.value = false;
+            caseInfoData.cases = [
+              {
+                rowNum: 2,
+                citizen_id: "1111111111111",
+                black_case: "อ.28/69",
+                case_type_id: 2,
+                case_type_abb: "อ.",
+                black_case_no: 28,
+                black_case_year: 69,
+                charge: "ลักทรัพย์ในเวลากลางคืน",
+                def_title_name: "นาย",
+                def_first_name: "สมเกียรติ",
+                def_last_name: "ดีเลิศ",
+                def_birth_date: "2010-05-15",
+                counselor: "นายพงศธร ใจเย็น",
+                user_id: 1,
+                mediator: "นางประนอม งามจิตต์"
+              }
+            ];
+          }
+        }
+
+        function onSelectCase() {
+          const caseObj = selectedCaseObj.value;
+          if (!caseObj) {
+            selectedCaseId.value = '';
+            return;
+          }
+          
+          // โหลดค่าลง Case Form
+          caseInfoForm.rowNum = caseObj.rowNum;
+          caseInfoForm.citizen_id = caseObj.citizen_id;
+          caseInfoForm.black_case = caseObj.black_case;
+          caseInfoForm.case_type_id = caseObj.case_type_id;
+          caseInfoForm.sub_case_type_id = caseObj.sub_case_type_id || '';
+          caseInfoForm.case_type_abb = caseObj.case_type_abb || '';
+          caseInfoForm.black_case_no = caseObj.black_case_no || '';
+          caseInfoForm.black_case_year = caseObj.black_case_year || '';
+          caseInfoForm.prosecutor = caseObj.prosecutor || '';
+          caseInfoForm.charge = caseObj.charge || '';
+          caseInfoForm.charge_no = caseObj.charge_no || '';
+          caseInfoForm.age_at_offense = caseObj.age_at_offense || 0;
+          caseInfoForm.red_because = caseObj.red_because || '';
+          caseInfoForm.recidivism = caseObj.recidivism || 'ไม่ซ้ำ';
+          caseInfoForm.previous_case_no = caseObj.previous_case_no || '';
+          caseInfoForm.abb_black_criminal = caseObj.abb_black_criminal || '';
+          caseInfoForm.black_criminal_no = caseObj.black_criminal_no || '';
+          caseInfoForm.black_criminal_year = caseObj.black_criminal_year || '';
+          caseInfoForm.abb_red_criminal = caseObj.abb_red_criminal || '';
+          caseInfoForm.red_criminal_no = caseObj.red_criminal_no || '';
+          caseInfoForm.red_criminal_year = caseObj.red_criminal_year || '';
+          caseInfoForm.counselor = caseObj.counselor || '';
+          caseInfoForm.user_id = caseObj.user_id || '';
+          caseInfoForm.judge = caseObj.judge || '';
+          caseInfoForm.officer = caseObj.officer || '';
+          caseInfoForm.mediator = caseObj.mediator || '';
+          caseInfoForm.note = caseObj.note || '';
+          
+          // แปลงฟอร์แมตวันลงหน้าบ้าน
+          caseInfoForm.black_date = toISODateString(caseObj.black_date);
+          caseInfoForm.red_date = toISODateString(caseObj.red_date);
+          caseInfoForm.court_date_plan = toISODateString(caseObj.court_date_plan);
+          
+          // ดึงตารางย่อย (ทำการทำ Deep copy เพื่อป้องกันแก้ไขแล้วเซฟทันที)
+          const bCase = caseObj.black_case.toString().trim();
+          
+          tempAppointments.value = caseInfoData.appointments
+            .filter(x => x.black_case && x.black_case.toString().trim() === bCase)
+            .map(x => ({
+              appointment_date: toISODateString(x.appointment_date),
+              appointment_time: x.appointment_time || '',
+              appointment_reason: x.appointment_reason || '',
+              appointment_counselor: x.appointment_counselor || '',
+              appointment_not: x.appointment_not || '',
+              appointment_performance: x.appointment_performance || '',
+              appointment_responsible_person: x.appointment_responsible_person || ''
+            }));
+            
+          tempConditions.value = caseInfoData.conditions
+            .filter(x => x.black_case && x.black_case.toString().trim() === bCase)
+            .map(x => ({
+              condition_no: x.condition_no || '',
+              condition: x.condition || '',
+              condition_performance_no: x.condition_performance_no || '',
+              condition_performance: x.condition_performance || ''
+            }));
+            
+          tempActivities.value = caseInfoData.activities
+            .filter(x => x.black_case && x.black_case.toString().trim() === bCase)
+            .map(x => ({
+              activity_no: x.activity_no || '',
+              activity_type: x.activity_type || '',
+              activity_name: x.activity_name || '',
+              activity_start_date: toISODateString(x.activity_start_date),
+              activity_finish_date: toISODateString(x.activity_finish_date),
+              activity_responsible_agency: x.activity_responsible_agency || '',
+              activity_venue: x.activity_venue || '',
+              activity_performance: x.activity_performance || ''
+            }));
+        }
+
+        function addTempRow(type) {
+          if (type === 'appointment') {
+            tempAppointments.value.push({
+              appointment_date: '',
+              appointment_time: '09.00',
+              appointment_reason: '',
+              appointment_counselor: caseInfoForm.counselor,
+              appointment_not: '',
+              appointment_performance: '',
+              appointment_responsible_person: ''
+            });
+          } else if (type === 'condition') {
+            const nextNo = tempConditions.value.length + 1;
+            tempConditions.value.push({
+              condition_no: nextNo,
+              condition: '',
+              condition_performance_no: 1,
+              condition_performance: ''
+            });
+          } else if (type === 'activity') {
+            const nextNo = tempActivities.value.length + 1;
+            tempActivities.value.push({
+              activity_no: nextNo,
+              activity_type: 'กิจกรรม/โครงการ',
+              activity_name: '',
+              activity_start_date: '',
+              activity_finish_date: '',
+              activity_responsible_agency: 'ศาลเยาวชนและครอบครัวจังหวัดระยอง',
+              activity_venue: '',
+              activity_performance: 'เข้าร่วม'
+            });
+          }
+        }
+
+        function deleteTempRow(type, index) {
+          if (type === 'appointment') {
+            tempAppointments.value.splice(index, 1);
+          } else if (type === 'condition') {
+            tempConditions.value.splice(index, 1);
+            // ปรับลำดับข้อกำหนดใหม่
+            tempConditions.value.forEach((c, i) => { c.condition_no = i + 1; });
+          } else if (type === 'activity') {
+            tempActivities.value.splice(index, 1);
+            // ปรับลำดับข้อกำหนดใหม่
+            tempActivities.value.forEach((a, i) => { a.activity_no = i + 1; });
+          }
+        }
+
+        function saveCaseDetails() {
+          if (isDirector.value) return;
+          loading.value = true;
+          
+          // คำนวณรหัสประเภทคดีตามแฟ้มแท็บที่เลือกอยู่หากเป็นแถวแรก
+          if (activeCaseTab.value === 'm73') caseInfoForm.case_type_id = 1;
+          else if (activeCaseTab.value === 'm90') caseInfoForm.case_type_id = 2;
+          else if (activeCaseTab.value === 'm132') caseInfoForm.case_type_id = 3;
+          
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res.success) {
+                  alert(res.message || "บันทึกการแก้ไขข้อมูลคดีหลักเรียบร้อยแล้ว");
+                  loadCaseInfoModule(true); // รีโหลดเงียบ ๆ ในพื้นหลังเพื่ออัปเดตสเตต
+                } else {
+                  alert("เกิดข้อผิดพลาดในการบันทึก: " + res.message);
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                alert("เกิดข้อผิดพลาดจากเครือข่าย: " + (err ? err.message || err.toString() : ""));
+              })
+              .upsertCase(caseInfoForm, session.value.token);
+          } else {
+            loading.value = false;
+            alert("โหมดออฟไลน์: บันทึกข้อมูลเรียบร้อยแล้ว (จำลอง)");
+          }
+        }
+
+        function saveAppointmentsGrid() {
+          if (isDirector.value) return;
+          const caseObj = selectedCaseObj.value;
+          if (!caseObj) return;
+          loading.value = true;
+          
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res.success) {
+                  alert(res.message);
+                  loadCaseInfoModule(true);
+                } else {
+                  alert("เกิดข้อผิดพลาด: " + res.message);
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                alert("เครือข่ายขัดข้อง: " + (err ? err.message || err.toString() : ""));
+              })
+              .saveCaseAppointments(caseObj.black_case, tempAppointments.value, session.value.token);
+          } else {
+            loading.value = false;
+            alert("ออฟไลน์: บันทึกตารางนัดหมายจำลองสำเร็จ");
+          }
+        }
+
+        function saveConditionsGrid() {
+          if (isDirector.value) return;
+          const caseObj = selectedCaseObj.value;
+          if (!caseObj) return;
+          loading.value = true;
+          
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res.success) {
+                  alert(res.message);
+                  loadCaseInfoModule(true);
+                } else {
+                  alert("เกิดข้อผิดพลาด: " + res.message);
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                alert("เครือข่ายขัดข้อง: " + (err ? err.message || err.toString() : ""));
+              })
+              .saveCaseConditions(caseObj.black_case, tempConditions.value, session.value.token);
+          } else {
+            loading.value = false;
+            alert("ออฟไลน์: บันทึกตารางเงื่อนไขศาลจำลองสำเร็จ");
+          }
+        }
+
+        function saveActivitiesGrid() {
+          if (isDirector.value) return;
+          const caseObj = selectedCaseObj.value;
+          if (!caseObj) return;
+          loading.value = true;
+          
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res.success) {
+                  alert(res.message);
+                  loadCaseInfoModule(true);
+                } else {
+                  alert("เกิดข้อผิดพลาด: " + res.message);
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                alert("เครือข่ายขัดข้อง: " + (err ? err.message || err.toString() : ""));
+              })
+              .saveCaseActivities(caseObj.black_case, tempActivities.value, session.value.token);
+          } else {
+            loading.value = false;
+            alert("ออฟไลน์: บันทึกตารางประวัติกิจกรรมย่อยสำเร็จ");
+          }
+        }
+
+        function triggerNewCaseFromInfo() {
+          if (isDirector.value) return;
+          let defaultType = 1;
+          if (activeCaseTab.value === 'm90') defaultType = 2;
+          else if (activeCaseTab.value === 'm132') defaultType = 3;
+          else if (activeCaseTab.value === 'court_other') defaultType = 5;
+          else if (activeCaseTab.value === 'other_cases') defaultType = 4;
+          
+          openAddCaseModal({
+            citizen_id: '',
+            case_type_id: defaultType
+          });
+        }
+
+        function openCaseDocumentPrint() {
+          if (!selectedCaseId.value) return;
+          openPrintPreview('case_document');
+        }
+
+
         return {
           showBackToTop, scrollToTop,
           session, currentView, authView, loading, errorMsg, cacheTime, isOffline, authAlert, adminProfileImage, isEditingProfile, cancelEditingProfile,
@@ -4091,7 +4498,13 @@
            groupedTopCharges,
            
             // Monthly report states & methods
-             monthlyReport, activePrintType, loadMonthlyReport, saveMonthlyReport, useAutoCalculatedValues, openMonthlyPrintPreview,
+             // Case Info States, Computed Properties & Methods
+              caseInfoData, activeCaseTab, selectedCaseId, tempAppointments, tempConditions, tempActivities,
+              selectedCaseObj, filteredCases, isDirector, loadCaseInfoModule, onSelectCase, addTempRow,
+              deleteTempRow, saveCaseDetails, saveAppointmentsGrid, saveConditionsGrid, saveActivitiesGrid,
+              triggerNewCaseFromInfo, openCaseDocumentPrint, toISODateString, caseInfoForm,
+              
+              monthlyReport, activePrintType, loadMonthlyReport, saveMonthlyReport, useAutoCalculatedValues, openMonthlyPrintPreview,
              showMonthYearPicker, tempSelectedMonth, tempSelectedYear, thaiMonthsShort, availableReportYears, selectMonthYear,
               scrollToItem, togglePicker, onWheelScroll, confirmMonthYear,
               chargeGroups, getCategorySum, getRowTotal, getCriminalCodeTotal, getCriminalCodeRowTotal, getTableGrandTotal, getTableGrandRowTotal, isCategoryHeader, selectedDirectorObj,

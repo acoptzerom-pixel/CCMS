@@ -289,6 +289,9 @@
             <li v-if="session.role !== 'user'" class="nav-item" :class="{ active: currentView === 'search' }">
               <a href="#" @click.prevent="switchView('search')"><i class="fa-solid fa-folder-open"></i> ข้อมูลเด็กและเยาวชน</a>
             </li>
+            <li v-if="session.role === 'admin' || session.role === 'psychologist' || session.role === 'director'" class="nav-item" :class="{ active: currentView === 'case_info' }">
+              <a href="#" @click.prevent="switchView('case_info')"><i class="fa-solid fa-scale-balanced"></i> ข้อมูลคดี</a>
+            </li>
             <li v-if="session.role !== 'user'" class="nav-item" :class="{ active: currentView === 'calendar' }">
               <a href="#" @click.prevent="switchView('calendar')"><i class="fa-solid fa-calendar-days"></i> ปฏิทินวันนัด</a>
             </li>
@@ -329,6 +332,9 @@
         </a>
         <a v-if="session.role !== 'user'" href="#" class="bottom-nav-item" :class="{ active: currentView === 'search' }" @click.prevent="switchView('search')">
           <i class="fa-solid fa-folder-open"></i><span>ข้อมูลเยาวชน</span>
+        </a>
+        <a v-if="session.role === 'admin' || session.role === 'psychologist' || session.role === 'director'" href="#" class="bottom-nav-item" :class="{ active: currentView === 'case_info' }" @click.prevent="switchView('case_info')">
+          <i class="fa-solid fa-scale-balanced"></i><span>ข้อมูลคดี</span>
         </a>
         <a v-if="session.role !== 'user'" href="#" class="bottom-nav-item" :class="{ active: currentView === 'calendar' }" @click.prevent="switchView('calendar')">
           <i class="fa-solid fa-calendar-days"></i><span>ปฏิทิน</span>
@@ -1207,6 +1213,444 @@
               </div>
             </form>
           </div>
+
+        </div>
+
+        <!-- ====================================
+             3.2.1 ระบบข้อมูลคดีแยกมาตรา (CASE INFO)
+             ==================================== -->
+        <div v-show="currentView === 'case_info'" class="animate-in" style="position: relative;">
+          <div v-if="loading" class="loading-overlay">
+            <span class="loader"></span>
+            <p style="font-weight: 500;">กำลังโหลดและประมวลผลข้อมูลคดี...</p>
+          </div>
+
+          <!-- หัวข้อโมดูล -->
+          <div class="page-header header-case-info" style="border-left: 5px solid #7c3aed;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <div class="page-header-icon" style="background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%);">
+                <i class="fa-solid fa-scale-balanced" style="color: #ffffff;"></i>
+              </div>
+              <div>
+                <h1 class="page-title" style="font-family: var(--font-display); font-weight: 700;">ข้อมูลคดี (Case Management)</h1>
+                <p class="page-title-desc">จัดการและบันทึกประวัติคดี ตารางนัดหมาย เงื่อนไขศาล และการเข้าร่วมกิจกรรมของเด็กและเยาวชน</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- แฟ้มซ้อนกัน (Folder Tabs) -->
+          <div style="display: flex; gap: 4px; border-bottom: 2px solid var(--card-border); margin-bottom: 25px; overflow-x: auto; padding-bottom: 2px;">
+            <button class="report-tab-btn" :class="{ active: activeCaseTab === 'm73' }" @click="activeCaseTab = 'm73'">
+              <i class="fa-solid fa-file-shield"></i> มาตรา 73
+            </button>
+            <button class="report-tab-btn" :class="{ active: activeCaseTab === 'm90' }" @click="activeCaseTab = 'm90'">
+              <i class="fa-solid fa-scale-unbalanced"></i> มาตรา 90
+            </button>
+            <button class="report-tab-btn" :class="{ active: activeCaseTab === 'm132' }" @click="activeCaseTab = 'm132'">
+              <i class="fa-solid fa-shield-heart"></i> มาตรา 132
+            </button>
+            <button class="report-tab-btn" :class="{ active: activeCaseTab === 'court_other' }" @click="activeCaseTab = 'court_other'">
+              <i class="fa-solid fa-building-columns"></i> คดีจากศาลอื่น
+            </button>
+            <button class="report-tab-btn" :class="{ active: activeCaseTab === 'other_cases' }" @click="activeCaseTab = 'other_cases'">
+              <i class="fa-solid fa-folder-minus"></i> คดีอื่นๆ
+            </button>
+          </div>
+
+          <!-- บล็อกดำเนินการ & ค้นหาสำนวน -->
+          <div class="glass-card shadow" style="padding: 20px; border-radius: 16px; margin-bottom: 25px;">
+            <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 300px;">
+                <span style="font-weight: 600; color: var(--text-main); white-space: nowrap;"><i class="fa-solid fa-magnifying-glass"></i> ค้นหาสำนวน:</span>
+                <select class="form-control" v-model="selectedCaseId" @change="onSelectCase" style="background: rgba(var(--accent-rgb), 0.05); font-weight: 500;">
+                  <option value="">-- ค้นหา/เลือกคดีของเด็กและเยาวชน --</option>
+                  <option v-for="c in filteredCases" :key="c.rowNum" :value="c.rowNum">
+                    [{{ c.black_case || 'ไม่มีเลขดำ' }}] - {{ c.def_title_name }}{{ c.def_first_name }} {{ c.def_last_name }} ({{ c.charge || 'ไม่ระบุข้อหา' }})
+                  </option>
+                </select>
+              </div>
+              <div style="display: flex; gap: 10px;">
+                <button v-if="session.role === 'admin' || session.role === 'psychologist'" class="btn btn-primary" @click="triggerNewCaseFromInfo" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none;">
+                  <i class="fa-solid fa-folder-plus"></i> กรอกคดีใหม่
+                </button>
+                <button class="btn btn-primary" @click="openCaseDocumentPrint" :disabled="!selectedCaseId" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border: none;">
+                  <i class="fa-solid fa-file-pdf"></i> เอกสารในคดี
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ตรวจสอบว่าเลือกคดีหรือยัง -->
+          <div v-if="!selectedCaseId" class="glass-card shadow" style="padding: 50px; text-align: center; border-radius: 16px; color: #64748b;">
+            <i class="fa-solid fa-briefcase" style="font-size: 3rem; margin-bottom: 15px; color: #cbd5e1;"></i>
+            <p style="font-size: 1.1rem; font-weight: 500;">โปรดค้นหาหรือเลือกคดีของจำเลยจากรายการด้านบนเพื่อแสดงข้อมูล</p>
+          </div>
+
+          <!-- รายละเอียดเมื่อเลือกคดี -->
+          <template v-else>
+            <!-- ฟอร์มรายละเอียดคดีหลัก -->
+            <div class="glass-card shadow" style="padding: 25px; border-radius: 16px; margin-bottom: 25px;">
+              <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 20px; border-bottom: 1px solid var(--card-border); padding-bottom: 10px; color: var(--text-main);">
+                <i class="fa-solid fa-folder-open" style="color: #7c3aed;"></i> ข้อมูลหลักของสำนวน/คดี
+              </h3>
+              
+              <form @submit.prevent="saveCaseDetails">
+                <!-- GRID ข้อมูลหลัก -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                  <div class="form-group">
+                    <label class="form-label">คดีหลักที่</label>
+                    <input type="text" class="form-control" :value="selectedCaseObj.black_case" disabled style="background: var(--bg-hover);">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">เลขดำที่ (Abb/No/Year)</label>
+                    <div style="display: flex; gap: 5px;">
+                      <input type="text" class="form-control" v-model="caseInfoForm.case_type_abb" :disabled="isDirector" style="width: 30%;">
+                      <input type="number" class="form-control" v-model="caseInfoForm.black_case_no" :disabled="isDirector" style="width: 35%;">
+                      <input type="number" class="form-control" v-model="caseInfoForm.black_case_year" :disabled="isDirector" style="width: 35%;">
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">เลขคดีแดงที่ (No/Year)</label>
+                    <div style="display: flex; gap: 5px;">
+                      <input type="number" class="form-control" v-model="caseInfoForm.red_case_no" :disabled="isDirector" style="width: 50%;">
+                      <input type="number" class="form-control" v-model="caseInfoForm.red_case_year" :disabled="isDirector" style="width: 50%;">
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">เลขคดีศาลแดง (Abb/No/Year)</label>
+                    <div style="display: flex; gap: 5px;">
+                      <input type="text" class="form-control" v-model="caseInfoForm.abb_red_criminal" :disabled="isDirector" style="width: 30%;">
+                      <input type="number" class="form-control" v-model="caseInfoForm.red_criminal_no" :disabled="isDirector" style="width: 35%;">
+                      <input type="number" class="form-control" v-model="caseInfoForm.red_criminal_year" :disabled="isDirector" style="width: 35%;">
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">วันอนุมัติ/ให้คำปรึกษา</label>
+                    <input type="date" class="form-control" v-model="caseInfoForm.court_date_plan" :disabled="isDirector">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">วันเข้ารับคำปรึกษา</label>
+                    <input type="date" class="form-control" v-model="caseInfoForm.black_date" :disabled="isDirector">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">วันยุติให้คำปรึกษา</label>
+                    <input type="date" class="form-control" v-model="caseInfoForm.red_date" :disabled="isDirector">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">ผลการปฏิบัติตามแผน</label>
+                    <input type="text" class="form-control" v-model="caseInfoForm.red_because" :disabled="isDirector">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">ความให้คำปรึกษา (ข้อหาหลัก)</label>
+                    <input type="text" class="form-control" v-model="caseInfoForm.charge" :disabled="isDirector">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">เลขคดีศูนย์ก่อนหน้า</label>
+                    <input type="text" class="form-control" v-model="caseInfoForm.previous_case_no" :disabled="isDirector">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">ใช้อำนาจตาม ม.132 (ถ้ามี)</label>
+                    <select class="form-control" v-model="caseInfoForm.sub_case_type_id" :disabled="isDirector">
+                      <option value="">-- ไม่ใช้ --</option>
+                      <option v-for="sct in selectLists.subCaseTypes" :key="sct.id" :value="sct.id">
+                        {{ sct.name }}
+                      </option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">การกระทำผิดซ้ำ</label>
+                    <select class="form-control" v-model="caseInfoForm.recidivism" :disabled="isDirector">
+                      <option value="ไม่ซ้ำ">ไม่ซ้ำ (เพิ่งเข้าศูนย์ครั้งแรก)</option>
+                      <option value="ซ้ำ">ซ้ำ (เคยมีประวัติผิดมาก่อน)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- ข้อมูลจำเลยดึงแสดงอัตโนมัติ -->
+                <h4 style="font-family: var(--font-display); font-weight: 600; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px dashed var(--card-border); padding-bottom: 8px; color: var(--text-main);">
+                  <i class="fa-solid fa-user-tag" style="color: #10b981;"></i> ข้อมูลเด็ก/เยาวชน (จำเลย) & ผู้ปกครอง
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                  <div class="form-group">
+                    <label class="form-label">โจทก์</label>
+                    <input type="text" class="form-control" v-model="caseInfoForm.prosecutor" :disabled="isDirector">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">จำเลย</label>
+                    <input type="text" class="form-control" :value="selectedCaseObj.def_title_name + selectedCaseObj.def_first_name + ' ' + selectedCaseObj.def_last_name" disabled style="background: var(--bg-hover);">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">ข้อหาพิมพ์ปก</label>
+                    <input type="text" class="form-control" v-model="caseInfoForm.charge" :disabled="isDirector">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">วัน/เดือน/ปีเกิด</label>
+                    <input type="text" class="form-control" :value="formatThaiDate(selectedCaseObj.def_birth_date)" disabled style="background: var(--bg-hover);">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">เลขบัตรประชาชน</label>
+                    <input type="text" class="form-control" :value="selectedCaseObj.citizen_id" disabled style="background: var(--bg-hover);">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">ผู้ปกครอง</label>
+                    <input type="text" class="form-control" :value="selectedCaseObj.def_parent_name" disabled style="background: var(--bg-hover);">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">เกี่ยวข้องเป็น</label>
+                    <input type="text" class="form-control" :value="selectedCaseObj.def_parent_relation" disabled style="background: var(--bg-hover);">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">ที่อยู่</label>
+                    <input type="text" class="form-control" :value="selectedCaseObj.def_address" disabled style="background: var(--bg-hover);">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">เบอร์โทร</label>
+                    <input type="text" class="form-control" :value="selectedCaseObj.def_phone_number" disabled style="background: var(--bg-hover);">
+                  </div>
+                </div>
+
+                <!-- ข้อมูลผู้รับผิดชอบ -->
+                <h4 style="font-family: var(--font-display); font-weight: 600; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px dashed var(--card-border); padding-bottom: 8px; color: var(--text-main);">
+                  <i class="fa-solid fa-user-tie" style="color: #3b82f6;"></i> ผู้รับผิดชอบสำนวน
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                  <div class="form-group">
+                    <label class="form-label">ผู้พิพากษาเจ้าของสำนวน</label>
+                    <input type="text" class="form-control" v-model="caseInfoForm.judge" :disabled="isDirector">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">ผู้พิพากษาสมทบเจ้าของสำนวน</label>
+                    <input type="text" class="form-control" v-model="caseInfoForm.mediator" :disabled="isDirector">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">เจ้าหน้าที่ผู้รับผิดชอบ (Counselor)</label>
+                    <select class="form-control" v-model="caseInfoForm.user_id" :disabled="session.role !== 'admin'" style="background: rgba(var(--accent-rgb), 0.05); font-weight: 500;">
+                      <option v-for="c in selectLists.counselors" :key="c.userId" :value="c.userId">
+                        {{ c.fullName }}
+                      </option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">ตำแหน่ง</label>
+                    <input type="text" class="form-control" v-model="caseInfoForm.officer" :disabled="isDirector">
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">หมายเหตุ / บันทึกเพิ่มเติม</label>
+                  <textarea class="form-control" v-model="caseInfoForm.note" rows="2" :disabled="isDirector"></textarea>
+                </div>
+
+                <!-- ปุ่มบันทึกคดีหลัก -->
+                <div v-if="!isDirector" style="display: flex; justify-content: flex-end; margin-top: 20px;">
+                  <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); border: none;">
+                    <i class="fa-solid fa-circle-check"></i> บันทึกรายละเอียดข้อมูลคดีหลัก
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- ตารางนัดหมาย -->
+            <div class="glass-card shadow" style="padding: 25px; border-radius: 16px; margin-bottom: 25px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border); padding-bottom: 12px; margin-bottom: 20px;">
+                <h3 style="font-family: var(--font-display); font-weight: 700; margin: 0; color: var(--text-main);">
+                  <i class="fa-solid fa-calendar-check" style="color: #3b82f6;"></i> ตารางนัดหมาย (tb_appointment)
+                </h3>
+                <button v-if="!isDirector" class="btn btn-secondary" @click="addTempRow('appointment')" style="padding: 6px 12px; font-size: 0.85rem;">
+                  <i class="fa-solid fa-plus"></i> เพิ่มแถวนัดหมาย
+                </button>
+              </div>
+
+              <div style="overflow-x: auto; margin-bottom: 15px;">
+                <table class="report-table" style="width: 100%; border-collapse: collapse;">
+                  <thead>
+                    <tr style="background: var(--bg-hover);">
+                      <th style="padding: 10px; text-align: center; width: 40px; border: 1px solid var(--card-border);">#</th>
+                      <th style="padding: 10px; text-align: left; border: 1px solid var(--card-border);">นัดมาทำไม (Reason)</th>
+                      <th style="padding: 10px; text-align: center; width: 140px; border: 1px solid var(--card-border);">วันนัดพิจารณา (Date)</th>
+                      <th style="padding: 10px; text-align: center; width: 100px; border: 1px solid var(--card-border);">เวลา (Time)</th>
+                      <th style="padding: 10px; text-align: left; width: 160px; border: 1px solid var(--card-border);">ผู้ให้คำปรึกษา (Counselor)</th>
+                      <th style="padding: 10px; text-align: left; width: 100px; border: 1px solid var(--card-border);">หมายเหตุ</th>
+                      <th style="padding: 10px; text-align: left; width: 140px; border: 1px solid var(--card-border);">ผลการปฏิบัติ</th>
+                      <th style="padding: 10px; text-align: left; width: 130px; border: 1px solid var(--card-border);">ผู้รับผิดชอบ</th>
+                      <th v-if="!isDirector" style="padding: 10px; text-align: center; width: 50px; border: 1px solid var(--card-border);">ลบ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-if="tempAppointments.length === 0">
+                      <td :colspan="isDirector ? 8 : 9" style="text-align: center; padding: 20px; color: #94a3b8; font-style: italic;">
+                        ไม่มีประวัติการนัดหมายสำหรับคดีนี้
+                      </td>
+                    </tr>
+                    <tr v-for="(apt, index) in tempAppointments" :key="index">
+                      <td style="text-align: center; font-weight: bold; border: 1px solid var(--card-border);">{{ index + 1 }}</td>
+                      <td style="border: 1px solid var(--card-border);">
+                        <input type="text" class="form-control table-input" v-model="apt.appointment_reason" :disabled="isDirector">
+                      </td>
+                      <td style="border: 1px solid var(--card-border);">
+                        <input type="date" class="form-control table-input" v-model="apt.appointment_date" :disabled="isDirector">
+                      </td>
+                      <td style="border: 1px solid var(--card-border);">
+                        <input type="text" class="form-control table-input" v-model="apt.appointment_time" placeholder="09.00" :disabled="isDirector">
+                      </td>
+                      <td style="border: 1px solid var(--card-border);">
+                        <input type="text" class="form-control table-input" v-model="apt.appointment_counselor" :disabled="isDirector">
+                      </td>
+                      <td style="border: 1px solid var(--card-border);">
+                        <input type="text" class="form-control table-input" v-model="apt.appointment_not" :disabled="isDirector">
+                      </td>
+                      <td style="border: 1px solid var(--card-border);">
+                        <input type="text" class="form-control table-input" v-model="apt.appointment_performance" :disabled="isDirector">
+                      </td>
+                      <td style="border: 1px solid var(--card-border);">
+                        <input type="text" class="form-control table-input" v-model="apt.appointment_responsible_person" :disabled="isDirector">
+                      </td>
+                      <td v-if="!isDirector" style="text-align: center; border: 1px solid var(--card-border);">
+                        <button class="btn btn-danger" @click="deleteTempRow('appointment', index)" style="padding: 4px 8px; font-size: 0.8rem;"><i class="fa-solid fa-trash-can"></i></button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- ปุ่มเซฟนัดหมาย -->
+              <div v-if="!isDirector" style="display: flex; justify-content: flex-end;">
+                <button class="btn btn-primary" @click="saveAppointmentsGrid" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); border: none;">
+                  <i class="fa-solid fa-floppy-disk"></i> บันทึกตารางนัดหมาย
+                </button>
+              </div>
+            </div>
+
+            <!-- ตารางเงื่อนไขศาล -->
+            <div class="glass-card shadow" style="padding: 25px; border-radius: 16px; margin-bottom: 25px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border); padding-bottom: 12px; margin-bottom: 20px;">
+                <h3 style="font-family: var(--font-display); font-weight: 700; margin: 0; color: var(--text-main);">
+                  <i class="fa-solid fa-gavel" style="color: #ef4444;"></i> ตารางเงื่อนไขที่ศาลกำหนด (tb_condition)
+                </h3>
+                <button v-if="!isDirector" class="btn btn-secondary" @click="addTempRow('condition')" style="padding: 6px 12px; font-size: 0.85rem;">
+                  <i class="fa-solid fa-plus"></i> เพิ่มแถวเงื่อนไขศาล
+                </button>
+              </div>
+
+              <div style="overflow-x: auto; margin-bottom: 15px;">
+                <table class="report-table" style="width: 100%; border-collapse: collapse;">
+                  <thead>
+                    <tr style="background: var(--bg-hover);">
+                      <th style="padding: 10px; text-align: center; width: 60px; border: 1px solid var(--card-border);">ลำดับ (No.)</th>
+                      <th style="padding: 10px; text-align: left; border: 1px solid var(--card-border);">ข้อกำหนด / เงื่อนไข (Condition)</th>
+                      <th style="padding: 10px; text-align: center; width: 100px; border: 1px solid var(--card-border);">เลขผลปฏิบัติ</th>
+                      <th style="padding: 10px; text-align: left; width: 350px; border: 1px solid var(--card-border);">ผลการปฏิบัติ (Performance details)</th>
+                      <th v-if="!isDirector" style="padding: 10px; text-align: center; width: 50px; border: 1px solid var(--card-border);">ลบ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-if="tempConditions.length === 0">
+                      <td :colspan="isDirector ? 4 : 5" style="text-align: center; padding: 20px; color: #94a3b8; font-style: italic;">
+                        ไม่มีข้อกำหนดหรือเงื่อนไขศาลสำหรับคดีนี้
+                      </td>
+                    </tr>
+                    <tr v-for="(cond, index) in tempConditions" :key="index">
+                      <td style="border: 1px solid var(--card-border);">
+                        <input type="number" class="form-control table-input text-center" v-model="cond.condition_no" :disabled="isDirector">
+                      </td>
+                      <td style="border: 1px solid var(--card-border);">
+                        <input type="text" class="form-control table-input" v-model="cond.condition" :disabled="isDirector">
+                      </td>
+                      <td style="border: 1px solid var(--card-border);">
+                        <input type="number" class="form-control table-input text-center" v-model="cond.condition_performance_no" :disabled="isDirector">
+                      </td>
+                      <td style="border: 1px solid var(--card-border);">
+                        <input type="text" class="form-control table-input" v-model="cond.condition_performance" :disabled="isDirector">
+                      </td>
+                      <td v-if="!isDirector" style="text-align: center; border: 1px solid var(--card-border);">
+                        <button class="btn btn-danger" @click="deleteTempRow('condition', index)" style="padding: 4px 8px; font-size: 0.8rem;"><i class="fa-solid fa-trash-can"></i></button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- ปุ่มเซฟเงื่อนไข -->
+              <div v-if="!isDirector" style="display: flex; justify-content: flex-end;">
+                <button class="btn btn-primary" @click="saveConditionsGrid" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); border: none;">
+                  <i class="fa-solid fa-floppy-disk"></i> บันทึกตารางเงื่อนไขศาล
+                </button>
+              </div>
+            </div>
+
+            <!-- ตารางกิจกรรมย่อย -->
+            <div class="glass-card shadow" style="padding: 25px; border-radius: 16px; margin-bottom: 25px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border); padding-bottom: 12px; margin-bottom: 20px;">
+                <h3 style="font-family: var(--font-display); font-weight: 700; margin: 0; color: var(--text-main);">
+                  <i class="fa-solid fa-people-group" style="color: #10b981;"></i> ตารางการเข้าร่วมกิจกรรม (tb_activity)
+                </h3>
+                <button v-if="!isDirector" class="btn btn-secondary" @click="addTempRow('activity')" style="padding: 6px 12px; font-size: 0.85rem;">
+                  <i class="fa-solid fa-plus"></i> เพิ่มแถวกิจกรรม
+                </button>
+              </div>
+
+              <div style="overflow-x: auto; margin-bottom: 15px;">
+                <table class="report-table" style="width: 100%; border-collapse: collapse;">
+                  <thead>
+                    <tr style="background: var(--bg-hover);">
+                      <th style="padding: 10px; text-align: center; width: 60px; border: 1px solid var(--card-border);">ลำดับ (No.)</th>
+                      <th style="padding: 10px; text-align: left; width: 120px; border: 1px solid var(--card-border);">ประเภทกิจกรรม</th>
+                      <th style="padding: 10px; text-align: left; border: 1px solid var(--card-border);">ชื่อกิจกรรม</th>
+                      <th style="padding: 10px; text-align: center; width: 140px; border: 1px solid var(--card-border);">ตั้งแต่วันที่</th>
+                      <th style="padding: 10px; text-align: center; width: 140px; border: 1px solid var(--card-border);">ถึงวันที่</th>
+                      <th style="padding: 10px; text-align: left; width: 130px; border: 1px solid var(--card-border);">ผู้รับผิดชอบ</th>
+                      <th style="padding: 10px; text-align: left; width: 120px; border: 1px solid var(--card-border);">สถานที่จัด</th>
+                      <th style="padding: 10px; text-align: left; width: 120px; border: 1px solid var(--card-border);">ผลการดำเนินการ</th>
+                      <th v-if="!isDirector" style="padding: 10px; text-align: center; width: 50px; border: 1px solid var(--card-border);">ลบ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-if="tempActivities.length === 0">
+                      <td :colspan="isDirector ? 8 : 9" style="text-align: center; padding: 20px; color: #94a3b8; font-style: italic;">
+                        ไม่มีประวัติการเข้าร่วมกิจกรรมสำหรับคดีนี้
+                      </td>
+                    </tr>
+                    <tr v-for="(act, index) in tempActivities" :key="index">
+                      <td style="border: 1px solid var(--card-border);">
+                        <input type="number" class="form-control table-input text-center" v-model="act.activity_no" :disabled="isDirector">
+                      </td>
+                      <td style="border: 1px solid var(--card-border);">
+                        <input type="text" class="form-control table-input" v-model="act.activity_type" :disabled="isDirector">
+                      </td>
+                      <td style="border: 1px solid var(--card-border);">
+                        <input type="text" class="form-control table-input" v-model="act.activity_name" :disabled="isDirector">
+                      </td>
+                      <td style="border: 1px solid var(--card-border);">
+                        <input type="date" class="form-control table-input" v-model="act.activity_start_date" :disabled="isDirector">
+                      </td>
+                      <td style="border: 1px solid var(--card-border);">
+                        <input type="date" class="form-control table-input" v-model="act.activity_finish_date" :disabled="isDirector">
+                      </td>
+                      <td style="border: 1px solid var(--card-border);">
+                        <input type="text" class="form-control table-input" v-model="act.activity_responsible_agency" :disabled="isDirector">
+                      </td>
+                      <td style="border: 1px solid var(--card-border);">
+                        <input type="text" class="form-control table-input" v-model="act.activity_venue" :disabled="isDirector">
+                      </td>
+                      <td style="border: 1px solid var(--card-border);">
+                        <input type="text" class="form-control table-input" v-model="act.activity_performance" :disabled="isDirector">
+                      </td>
+                      <td v-if="!isDirector" style="text-align: center; border: 1px solid var(--card-border);">
+                        <button class="btn btn-danger" @click="deleteTempRow('activity', index)" style="padding: 4px 8px; font-size: 0.8rem;"><i class="fa-solid fa-trash-can"></i></button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- ปุ่มเซฟกิจกรรม -->
+              <div v-if="!isDirector" style="display: flex; justify-content: flex-end;">
+                <button class="btn btn-primary" @click="saveActivitiesGrid" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none;">
+                  <i class="fa-solid fa-floppy-disk"></i> บันทึกตารางกิจกรรม
+                </button>
+              </div>
+            </div>
+          </template>
 
         </div>
 
@@ -3154,6 +3598,151 @@
           </div>
           </template>
           
+          <template v-else-if="activePrintType === 'case_document' && selectedCaseObj">
+            <!-- แผ่นพิมพ์ "เอกสารในคดี" (A4 Portrait) -->
+            <div class="a4-sheet case-document-sheet" style="font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; padding: 15mm 15mm !important; font-size: 17px; color: #000; line-height: 1.45; background-color: #fff; box-sizing: border-box; min-height: 296.5mm; height: auto; overflow: visible; border: none !important; box-shadow: none !important;">
+              
+              <!-- หัวเอกสาร -->
+              <div style="text-align: center; margin-bottom: 25px; border-bottom: 2px double #000; padding-bottom: 12px;">
+                <h2 style="font-size: 26px; font-weight: bold; margin: 0; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">เอกสารในคดี / ปกทะเบียนประวัติ</h2>
+                <h3 style="font-size: 20px; font-weight: bold; margin: 5px 0 0 0; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">ศูนย์ให้คำปรึกษา ศาลเยาวชนและครอบครัวจังหวัดระยอง</h3>
+              </div>
+
+              <!-- รายละเอียดคดีหลัก -->
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 17px; line-height: 1.6;">
+                <tr>
+                  <td style="width: 50%; padding: 6px 0; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; border: none;">คดีหลักที่: <span style="font-weight: normal; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ selectedCaseObj.black_case }}</span></td>
+                  <td style="width: 50%; padding: 6px 0; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; border: none;">เลขคดีศาลแดง: <span style="font-weight: normal; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ selectedCaseObj.abb_red_criminal || '' }}{{ selectedCaseObj.red_criminal_no || '' }}/{{ selectedCaseObj.red_criminal_year || '' }}</span></td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; border: none;">เลขดำที่: <span style="font-weight: normal; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ selectedCaseObj.case_type_abb || '' }}{{ selectedCaseObj.black_case_no || '' }}/{{ selectedCaseObj.black_case_year || '' }}</span></td>
+                  <td style="padding: 6px 0; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; border: none;">เลขแดงที่: <span style="font-weight: normal; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ selectedCaseObj.red_case_no ? 'แดงที่ ' + selectedCaseObj.red_case_no + '/' + selectedCaseObj.red_case_year : 'ไม่มี' }}</span></td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; border: none;">วันเข้ารับคำปรึกษา: <span style="font-weight: normal; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ formatThaiDate(selectedCaseObj.black_date) }}</span></td>
+                  <td style="padding: 6px 0; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; border: none;">วันยุติให้คำปรึกษา: <span style="font-weight: normal; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ formatThaiDate(selectedCaseObj.red_date) || '-' }}</span></td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; border: none;">โจทก์: <span style="font-weight: normal; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ selectedCaseObj.prosecutor || '-' }}</span></td>
+                  <td style="padding: 6px 0; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; border: none;">จำเลย: <span style="font-weight: normal; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ selectedCaseObj.def_title_name }}{{ selectedCaseObj.def_first_name }} {{ selectedCaseObj.def_last_name }}</span></td>
+                </tr>
+                <tr>
+                  <td colspan="2" style="padding: 6px 0; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; border: none;">ฐานความผิด: <span style="font-weight: normal; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ selectedCaseObj.charge || '-' }}</span></td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; border: none;">วัน/เดือน/ปีเกิด: <span style="font-weight: normal; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ formatThaiDate(selectedCaseObj.def_birth_date) }}</span></td>
+                  <td style="padding: 6px 0; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; border: none;">อายุขณะกระทำผิด: <span style="font-weight: normal; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ selectedCaseObj.age_at_offense }} ปี</span></td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; border: none;">เลขบัตรประชาชน: <span style="font-weight: normal; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ selectedCaseObj.citizen_id }}</span></td>
+                  <td style="padding: 6px 0; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; border: none;">ผู้ปกครอง: <span style="font-weight: normal; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ selectedCaseObj.def_parent_name || '-' }} (เกี่ยวข้องเป็น: {{ selectedCaseObj.def_parent_relation || '-' }})</span></td>
+                </tr>
+                <tr>
+                  <td colspan="2" style="padding: 6px 0; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; border: none;">ที่อยู่: <span style="font-weight: normal; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ selectedCaseObj.def_address || '-' }}</span></td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; border: none;">เบอร์โทรศัพท์: <span style="font-weight: normal; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ selectedCaseObj.def_phone_number || '-' }}</span></td>
+                  <td style="padding: 6px 0; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; border: none;">ผู้พิพากษาเจ้าของสำนวน: <span style="font-weight: normal; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ selectedCaseObj.judge || '-' }}</span></td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; border: none;">ผู้พิพากษาสมทบ: <span style="font-weight: normal; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ selectedCaseObj.mediator || '-' }}</span></td>
+                  <td style="padding: 6px 0; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; border: none;">เจ้าหน้าที่ผู้รับผิดชอบ: <span style="font-weight: normal; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ selectedCaseObj.counselor || '-' }} ({{ selectedCaseObj.officer || '-' }})</span></td>
+                </tr>
+                <tr>
+                  <td colspan="2" style="padding: 6px 0; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; border: none;">ผลการปฏิบัติตามแผน: <span style="font-weight: normal; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ selectedCaseObj.red_because || '-' }}</span></td>
+                </tr>
+                <tr v-if="selectedCaseObj.note">
+                  <td colspan="2" style="padding: 6px 0; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif; border: none;">หมายเหตุ: <span style="font-weight: normal; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ selectedCaseObj.note }}</span></td>
+                </tr>
+              </table>
+
+              <!-- ตารางนัดหมายในเอกสารคดี -->
+              <div style="margin-top: 20px;">
+                <h4 style="font-size: 18px; font-weight: bold; border-bottom: 1.5px solid #000; padding-bottom: 4px; margin-bottom: 8px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">ตารางการนัดหมายรายงานตัว</h4>
+                <table style="width: 100%; border-collapse: collapse; font-size: 15px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <thead>
+                    <tr style="border-bottom: 1.5px solid #000; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                      <th style="border: 1px solid #000; padding: 5px; text-align: center; width: 40px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">#</th>
+                      <th style="border: 1px solid #000; padding: 5px; text-align: left; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">เหตุผลการนัดหมาย</th>
+                      <th style="border: 1px solid #000; padding: 5px; text-align: center; width: 130px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">วันนัดหมาย</th>
+                      <th style="border: 1px solid #000; padding: 5px; text-align: center; width: 80px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">เวลา</th>
+                      <th style="border: 1px solid #000; padding: 5px; text-align: left; width: 140px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">ผู้ให้คำปรึกษา</th>
+                      <th style="border: 1px solid #000; padding: 5px; text-align: left; width: 120px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">ผลการปฏิบัติ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-if="tempAppointments.length === 0">
+                      <td colspan="6" style="border: 1px solid #000; padding: 8px; text-align: center; font-style: italic; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">ไม่มีประวัตินัดหมาย</td>
+                    </tr>
+                    <tr v-for="(apt, idx) in tempAppointments" :key="idx">
+                      <td style="border: 1px solid #000; padding: 5px; text-align: center; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ idx + 1 }}</td>
+                      <td style="border: 1px solid #000; padding: 5px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ apt.appointment_reason }}</td>
+                      <td style="border: 1px solid #000; padding: 5px; text-align: center; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ formatThaiDate(apt.appointment_date) }}</td>
+                      <td style="border: 1px solid #000; padding: 5px; text-align: center; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ apt.appointment_time }}</td>
+                      <td style="border: 1px solid #000; padding: 5px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ apt.appointment_counselor }}</td>
+                      <td style="border: 1px solid #000; padding: 5px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ apt.appointment_performance }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- ตารางเงื่อนไขศาลในเอกสารคดี -->
+              <div style="margin-top: 25px;">
+                <h4 style="font-size: 18px; font-weight: bold; border-bottom: 1.5px solid #000; padding-bottom: 4px; margin-bottom: 8px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">เงื่อนไขตามแผนที่ศาลกำหนด</h4>
+                <table style="width: 100%; border-collapse: collapse; font-size: 15px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <thead>
+                    <tr style="border-bottom: 1.5px solid #000; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                      <th style="border: 1px solid #000; padding: 5px; text-align: center; width: 60px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">ลำดับ</th>
+                      <th style="border: 1px solid #000; padding: 5px; text-align: left; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">รายละเอียดข้อกำหนด / เงื่อนไข</th>
+                      <th style="border: 1px solid #000; padding: 5px; text-align: left; width: 250px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">ผลการปฏิบัติตามเงื่อนไข</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-if="tempConditions.length === 0">
+                      <td colspan="3" style="border: 1px solid #000; padding: 8px; text-align: center; font-style: italic; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">ไม่มีข้อกำหนดเงื่อนไข</td>
+                    </tr>
+                    <tr v-for="(cond, idx) in tempConditions" :key="idx">
+                      <td style="border: 1px solid #000; padding: 5px; text-align: center; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ cond.condition_no }}</td>
+                      <td style="border: 1px solid #000; padding: 5px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ cond.condition }}</td>
+                      <td style="border: 1px solid #000; padding: 5px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ cond.condition_performance }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- ตารางกิจกรรมในเอกสารคดี -->
+              <div style="margin-top: 25px; page-break-inside: avoid;">
+                <h4 style="font-size: 18px; font-weight: bold; border-bottom: 1.5px solid #000; padding-bottom: 4px; margin-bottom: 8px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">ประวัติการเข้าร่วมกิจกรรม</h4>
+                <table style="width: 100%; border-collapse: collapse; font-size: 15px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                  <thead>
+                    <tr style="border-bottom: 1.5px solid #000; font-weight: bold; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">
+                      <th style="border: 1px solid #000; padding: 5px; text-align: center; width: 50px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">ลำดับ</th>
+                      <th style="border: 1px solid #000; padding: 5px; text-align: left; width: 120px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">ประเภทกิจกรรม</th>
+                      <th style="border: 1px solid #000; padding: 5px; text-align: left; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">ชื่อโครงการ/กิจกรรม</th>
+                      <th style="border: 1px solid #000; padding: 5px; text-align: center; width: 100px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">วันที่เข้าร่วม</th>
+                      <th style="border: 1px solid #000; padding: 5px; text-align: left; width: 120px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">สถานที่จัด</th>
+                      <th style="border: 1px solid #000; padding: 5px; text-align: left; width: 100px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">ผลประเมิน</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-if="tempActivities.length === 0">
+                      <td colspan="6" style="border: 1px solid #000; padding: 8px; text-align: center; font-style: italic; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">ไม่มีประวัติเข้าร่วมกิจกรรม</td>
+                    </tr>
+                    <tr v-for="(act, idx) in tempActivities" :key="idx">
+                      <td style="border: 1px solid #000; padding: 5px; text-align: center; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ act.activity_no }}</td>
+                      <td style="border: 1px solid #000; padding: 5px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ act.activity_type }}</td>
+                      <td style="border: 1px solid #000; padding: 5px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ act.activity_name }}</td>
+                      <td style="border: 1px solid #000; padding: 5px; text-align: center; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ formatThaiDate(act.activity_start_date) }}</td>
+                      <td style="border: 1px solid #000; padding: 5px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ act.activity_venue }}</td>
+                      <td style="border: 1px solid #000; padding: 5px; font-family: 'Sarabun', 'TH Sarabun PSK', sans-serif;">{{ act.activity_performance }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          </template>
+
           <template v-else-if="activePrintType === 'monthly'">
             <!-- แผ่นงานช่วยอำนวยการแบบทางการขนาด A4 -->
             <!-- 1. หน้าสรุป (3 แผ่นงาน) -->
