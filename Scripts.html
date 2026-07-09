@@ -4824,35 +4824,35 @@
           clearCaseInfoForm();
         }
 
-        const hasNextCase = computed(() => {
-          if (!selectedCaseId.value) return false;
-          const list = filteredAndSortedCaseCards.value;
-          const idx = list.findIndex(c => c.rowNum.toString() === selectedCaseId.value.toString());
-          return idx !== -1 && idx + 1 < list.length;
-        });
-
-        const hasPrevCase = computed(() => {
+        const hasHigherCase = computed(() => {
           if (!selectedCaseId.value) return false;
           const list = filteredAndSortedCaseCards.value;
           const idx = list.findIndex(c => c.rowNum.toString() === selectedCaseId.value.toString());
           return idx > 0;
         });
 
-        function goToNextCase() {
-          if (!selectedCaseId.value) return;
+        const hasLowerCase = computed(() => {
+          if (!selectedCaseId.value) return false;
           const list = filteredAndSortedCaseCards.value;
           const idx = list.findIndex(c => c.rowNum.toString() === selectedCaseId.value.toString());
-          if (idx !== -1 && idx + 1 < list.length) {
-            selectCaseFromSearch(list[idx + 1]);
-          }
-        }
+          return idx !== -1 && idx + 1 < list.length;
+        });
 
-        function goToPrevCase() {
+        function goToHigherCase() {
           if (!selectedCaseId.value) return;
           const list = filteredAndSortedCaseCards.value;
           const idx = list.findIndex(c => c.rowNum.toString() === selectedCaseId.value.toString());
           if (idx > 0) {
             selectCaseFromSearch(list[idx - 1]);
+          }
+        }
+
+        function goToLowerCase() {
+          if (!selectedCaseId.value) return;
+          const list = filteredAndSortedCaseCards.value;
+          const idx = list.findIndex(c => c.rowNum.toString() === selectedCaseId.value.toString());
+          if (idx !== -1 && idx + 1 < list.length) {
+            selectCaseFromSearch(list[idx + 1]);
           }
         }
 
@@ -4917,7 +4917,7 @@
               triggerNewCaseFromInfo, openCaseDocumentPrint, toISODateString, caseInfoForm, formatBETextDate, parseBETextDate,
               caseSearchQuery, isCaseSearchDropdownOpen, caseSearchFilteredList, selectCaseFromSearch, clearCaseSelection,
               caseCardSearchQuery, caseCardCurrentPage, caseCardTotalPages, paginatedCaseCards, filteredAndSortedCaseCards, validateCasePageInput,
-              goToNextCase, goToPrevCase, hasNextCase, hasPrevCase,
+              goToHigherCase, goToLowerCase, hasHigherCase, hasLowerCase,
               
               monthlyReport, activePrintType, loadMonthlyReport, saveMonthlyReport, useAutoCalculatedValues, openMonthlyPrintPreview,
              showMonthYearPicker, tempSelectedMonth, tempSelectedYear, thaiMonthsShort, availableReportYears, selectMonthYear,
