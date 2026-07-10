@@ -1300,7 +1300,7 @@
                          style="background: rgba(var(--accent-rgb), 0.05); font-weight: 500; width: 100%;">
                 </div>
                 <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600; margin-left: 85px;">
-                  พบข้อมูลคดีทั้งหมดในระบบ: {{ caseInfoData.cases.length }} คดี (มาตรานี้: {{ filteredCases.length }} คดี<span v-if="activeCaseTab === 'm132'"> วรรคที่ 1: {{ m132SubCase1Count }} คดี  วรรคที่ 2: {{ m132SubCase2Count }} คดี</span>)
+                  พบข้อมูลคดีทั้งหมดในระบบ: {{ caseInfoData.cases.length }} คดี (มาตรานี้: {{ filteredCases.length }} คดี<span v-if="activeCaseTab === 'm132'"> วรรคที่ 1: {{ m132SubCase1Count }} คดี  วรรคที่ 2: {{ m132SubCase2Count }} คดี</span> อยู่ระหว่างดำเนินการ {{ pendingCasesCount }} คดี)
                 </div>
 
               </div>
