@@ -1452,14 +1452,6 @@
                     <input type="text" class="form-control" :value="selectedCaseObj.black_case" disabled style="background: var(--bg-hover);">
                   </div>
                   <div class="form-group">
-                    <label class="form-label">เลขดำที่ (Abb/No/Year)</label>
-                    <div style="display: flex; gap: 5px;">
-                      <input type="text" class="form-control" v-model="caseInfoForm.case_type_abb" :disabled="isDirector" style="width: 30%;">
-                      <input type="number" class="form-control" v-model="caseInfoForm.black_case_no" :disabled="isDirector" style="width: 35%;">
-                      <input type="number" class="form-control" v-model="caseInfoForm.black_case_year" :disabled="isDirector" style="width: 35%;">
-                    </div>
-                  </div>
-                  <div class="form-group">
                     <label class="form-label">เลขคดีแดงที่ (No/Year)</label>
                     <div style="display: flex; gap: 5px;">
                       <input type="number" class="form-control" v-model="caseInfoForm.red_case_no" :disabled="isDirector" style="width: 50%;">
@@ -1472,16 +1464,6 @@
                       <input type="text" class="form-control" v-model="caseInfoForm.abb_red_criminal" :disabled="isDirector" style="width: 30%;">
                       <input type="number" class="form-control" v-model="caseInfoForm.red_criminal_no" :disabled="isDirector" style="width: 35%;">
                       <input type="number" class="form-control" v-model="caseInfoForm.red_criminal_year" :disabled="isDirector" style="width: 35%;">
-                    </div>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">วันอนุมัติ/ให้คำปรึกษา</label>
-                    <div class="be-date-picker-wrapper">
-                      <input type="text" class="form-control" 
-                             :value="formatThaiDateForInput(caseInfoForm.court_date_plan)" 
-                             readonly placeholder="วัน/เดือน/ปี" :disabled="isDirector">
-                      <span class="be-date-picker-icon"><i class="fa-regular fa-calendar"></i></span>
-                      <input type="date" class="be-date-picker-native" v-model="caseInfoForm.court_date_plan" :disabled="isDirector" :style="isDirector ? { pointerEvents: 'none' } : {}">
                     </div>
                   </div>
                   <div class="form-group">
@@ -1503,10 +1485,6 @@
                       <span class="be-date-picker-icon"><i class="fa-regular fa-calendar"></i></span>
                       <input type="date" class="be-date-picker-native" v-model="caseInfoForm.red_date" :disabled="isDirector" :style="isDirector ? { pointerEvents: 'none' } : {}">
                     </div>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">ผลการปฏิบัติตามแผน</label>
-                    <input type="text" class="form-control" v-model="caseInfoForm.red_because" :disabled="isDirector">
                   </div>
                   <div class="form-group">
                     <label class="form-label">ความให้คำปรึกษา (ข้อหาหลัก)</label>
@@ -1598,10 +1576,6 @@
                       </option>
                     </select>
                   </div>
-                  <div class="form-group">
-                    <label class="form-label">ตำแหน่ง</label>
-                    <input type="text" class="form-control" v-model="caseInfoForm.officer" :disabled="isDirector">
-                  </div>
                 </div>
 
                 <div class="form-group">
@@ -1639,14 +1613,12 @@
                       <th style="padding: 10px; text-align: center; width: 100px; border: 1px solid var(--card-border);">เวลา (Time)</th>
                       <th style="padding: 10px; text-align: left; width: 160px; border: 1px solid var(--card-border);">ผู้ให้คำปรึกษา (Counselor)</th>
                       <th style="padding: 10px; text-align: left; width: 100px; border: 1px solid var(--card-border);">หมายเหตุ</th>
-                      <th style="padding: 10px; text-align: left; width: 140px; border: 1px solid var(--card-border);">ผลการปฏิบัติ</th>
-                      <th style="padding: 10px; text-align: left; width: 130px; border: 1px solid var(--card-border);">ผู้รับผิดชอบ</th>
                       <th v-if="!isDirector" style="padding: 10px; text-align: center; width: 50px; border: 1px solid var(--card-border);">ลบ</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr v-if="tempAppointments.length === 0">
-                      <td :colspan="isDirector ? 8 : 9" style="text-align: center; padding: 20px; color: #94a3b8; font-style: italic;">
+                      <td :colspan="isDirector ? 6 : 7" style="text-align: center; padding: 20px; color: #94a3b8; font-style: italic;">
                         ไม่มีประวัติการนัดหมายสำหรับคดีนี้
                       </td>
                     </tr>
@@ -1672,12 +1644,6 @@
                       </td>
                       <td style="border: 1px solid var(--card-border);">
                         <input type="text" class="form-control table-input" v-model="apt.appointment_not" :disabled="isDirector">
-                      </td>
-                      <td style="border: 1px solid var(--card-border);">
-                        <input type="text" class="form-control table-input" v-model="apt.appointment_performance" :disabled="isDirector">
-                      </td>
-                      <td style="border: 1px solid var(--card-border);">
-                        <input type="text" class="form-control table-input" v-model="apt.appointment_responsible_person" :disabled="isDirector">
                       </td>
                       <td v-if="!isDirector" style="text-align: center; border: 1px solid var(--card-border);">
                         <button class="btn btn-danger" @click="deleteTempRow('appointment', index)" style="padding: 4px 8px; font-size: 0.8rem;"><i class="fa-solid fa-trash-can"></i></button>
