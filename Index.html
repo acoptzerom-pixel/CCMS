@@ -1336,6 +1336,11 @@
                     <div v-if="c.abb_red_criminal && c.red_criminal_no && c.red_criminal_year" style="font-weight: 600; color: #ef4444; font-size: 0.85rem;">
                       {{ c.abb_red_criminal }}{{ c.red_criminal_no }}/{{ c.red_criminal_year }}
                     </div>
+                    <!-- แสดง ว. x เฉพาะกรณีที่เป็นมาตรา 132 (case_type_id = 3) -->
+                    <div v-if="(parseInt(c.case_type_id, 10) === 3 || String(c.case_type_id || '').includes('132')) && getSubCaseTypeParagraph(c.sub_case_type_id)" 
+                         style="font-weight: 600; color: #000000; font-size: 0.85rem; margin-top: 4px;">
+                      ว. {{ getSubCaseTypeParagraph(c.sub_case_type_id) }}
+                    </div>
                   </div>
                 </div>
                 <div style="border-top: 1px solid rgba(var(--accent-rgb), 0.1); padding-top: 8px; margin-top: 8px;">

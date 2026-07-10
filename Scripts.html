@@ -4856,6 +4856,19 @@
           }
         }
 
+        function getSubCaseTypeParagraph(subCaseTypeId) {
+          if (!subCaseTypeId) return '';
+          const val = String(subCaseTypeId).trim();
+          if (val === '1' || val.includes('หนึ่ง') || val.includes('1')) {
+            return '1';
+          }
+          if (val === '2' || val.includes('สอง') || val.includes('2')) {
+            return '2';
+          }
+          const match = val.match(/\d+/);
+          return match ? match[0] : val;
+        }
+
 
         return {
           showBackToTop, scrollToTop,
@@ -4917,7 +4930,7 @@
               triggerNewCaseFromInfo, openCaseDocumentPrint, toISODateString, caseInfoForm, formatBETextDate, parseBETextDate,
               caseSearchQuery, isCaseSearchDropdownOpen, caseSearchFilteredList, selectCaseFromSearch, clearCaseSelection,
               caseCardSearchQuery, caseCardCurrentPage, caseCardTotalPages, paginatedCaseCards, filteredAndSortedCaseCards, validateCasePageInput,
-              goToHigherCase, goToLowerCase, hasHigherCase, hasLowerCase,
+              goToHigherCase, goToLowerCase, hasHigherCase, hasLowerCase, getSubCaseTypeParagraph,
               
               monthlyReport, activePrintType, loadMonthlyReport, saveMonthlyReport, useAutoCalculatedValues, openMonthlyPrintPreview,
              showMonthYearPicker, tempSelectedMonth, tempSelectedYear, thaiMonthsShort, availableReportYears, selectMonthYear,
