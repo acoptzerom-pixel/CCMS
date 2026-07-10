@@ -348,6 +348,20 @@
           });
         });
 
+        const m132SubCase1Count = computed(() => {
+          return filteredCases.value.filter(c => {
+            const subVal = String(c.sub_case_type_id || '').trim();
+            return subVal === '1' || subVal.includes('หนึ่ง') || subVal.includes('1');
+          }).length;
+        });
+
+        const m132SubCase2Count = computed(() => {
+          return filteredCases.value.filter(c => {
+            const subVal = String(c.sub_case_type_id || '').trim();
+            return subVal === '2' || subVal.includes('สอง') || subVal.includes('2');
+          }).length;
+        });
+
         const isDirector = computed(() => {
           return session.value && session.value.role === 'director';
         });
@@ -4931,6 +4945,7 @@
               caseSearchQuery, isCaseSearchDropdownOpen, caseSearchFilteredList, selectCaseFromSearch, clearCaseSelection,
               caseCardSearchQuery, caseCardCurrentPage, caseCardTotalPages, paginatedCaseCards, filteredAndSortedCaseCards, validateCasePageInput,
               goToHigherCase, goToLowerCase, hasHigherCase, hasLowerCase, getSubCaseTypeParagraph,
+              m132SubCase1Count, m132SubCase2Count,
               
               monthlyReport, activePrintType, loadMonthlyReport, saveMonthlyReport, useAutoCalculatedValues, openMonthlyPrintPreview,
              showMonthYearPicker, tempSelectedMonth, tempSelectedYear, thaiMonthsShort, availableReportYears, selectMonthYear,
