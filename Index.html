@@ -1414,22 +1414,22 @@
                   </div>
                 </div>
 
-                <!-- ปุ่มเลื่อนคดีถัดไป/ก่อนหน้า (ชิดขอบขวาบนของการ์ด) -->
+                <!-- ปุ่มเลื่อนคดีก่อนหน้า/ถัดไป (ชิดขอบขวาบนของการ์ด) -->
                 <div style="display: flex; align-items: center; gap: 15px;">
-                  <!-- ปุ่มซ้าย (คดีถัดไป - เลขสูงกว่า) -->
-                  <div style="display: flex; flex-direction: column; align-items: center; gap: 3px;">
-                    <button type="button" class="btn-icon-nav" @click="goToHigherCase" :disabled="!hasHigherCase" title="เลื่อนไปคดีถัดไปที่มีเลขคดีดำสูงกว่า" style="padding: 4px 10px; font-size: 0.8rem; border-radius: 6px;">
-                      <i class="fa-solid fa-chevron-left"></i>
-                    </button>
-                    <span style="font-size: 0.65rem; font-weight: 700; color: var(--text-muted); text-align: center; white-space: nowrap; letter-spacing: 0.2px;">คดีถัดไป</span>
-                  </div>
-                  
-                  <!-- ปุ่มขวา (คดีก่อนหน้า - เลขต่ำกว่า) -->
+                  <!-- ปุ่มซ้าย (คดีก่อนหน้า - เลขต่ำกว่า) -->
                   <div style="display: flex; flex-direction: column; align-items: center; gap: 3px;">
                     <button type="button" class="btn-icon-nav" @click="goToLowerCase" :disabled="!hasLowerCase" title="เลื่อนไปคดีก่อนหน้าที่มีเลขคดีดำต่ำกว่า" style="padding: 4px 10px; font-size: 0.8rem; border-radius: 6px;">
-                      <i class="fa-solid fa-chevron-right"></i>
+                      <i class="fa-solid fa-chevron-left"></i>
                     </button>
                     <span style="font-size: 0.65rem; font-weight: 700; color: var(--text-muted); text-align: center; white-space: nowrap; letter-spacing: 0.2px;">คดีก่อนหน้า</span>
+                  </div>
+                  
+                  <!-- ปุ่มขวา (คดีถัดไป - เลขสูงกว่า) -->
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 3px;">
+                    <button type="button" class="btn-icon-nav" @click="goToHigherCase" :disabled="!hasHigherCase" title="เลื่อนไปคดีถัดไปที่มีเลขคดีดำสูงกว่า" style="padding: 4px 10px; font-size: 0.8rem; border-radius: 6px;">
+                      <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                    <span style="font-size: 0.65rem; font-weight: 700; color: var(--text-muted); text-align: center; white-space: nowrap; letter-spacing: 0.2px;">คดีถัดไป</span>
                   </div>
                 </div>
               </div>
