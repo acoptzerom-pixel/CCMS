@@ -761,6 +761,11 @@
             <div v-if="filteredDefendants.length > 0">
               <div class="card-grid">
                 <div v-for="(def, index) in paginatedDefendants" :key="def.citizen_id + '_' + index" class="def-card" @click="selectDefendantFromCard(def.citizen_id)">
+                  <div v-if="def.cases && def.cases.length > 0" 
+                       class="def-card-status" 
+                       :class="{ 'terminated': !def.cases.some(c => c && (!c.red_case_no || String(c.red_case_no).trim() === '')) }">
+                    {{ def.cases.some(c => c && (!c.red_case_no || String(c.red_case_no).trim() === '')) ? 'ให้คำปรึกษาอยู่' : 'ยุติแล้ว' }}
+                  </div>
                   <div>
                     <div class="def-card-header" style="margin-bottom: 8px;">
                       <div>
