@@ -1024,8 +1024,10 @@
                         <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">วันที่รับเข้าดำ: {{ formatThaiDate(c.black_date) }}</div>
                       </div>
                       <div>
-                        <span v-if="c.red_case_no" class="badge badge-success">ยุติเสสิ้น: {{ c.red_case_no }}/{{ c.red_case_year }}</span>
-                        <span v-else class="badge badge-warning">กำลังดำเนินคดี</span>
+                        <span v-if="c.red_case_no || (c.latest_appointment_date && c.latest_appointment_date < systemTodayDateStr)" class="badge badge-danger">
+                          ยุติคดี{{ c.red_case_no ? ': ' + c.red_case_no + '/' + c.red_case_year : '' }}
+                        </span>
+                        <span v-else class="badge badge-success">อยู่ระหว่างดำเนินการ</span>
                       </div>
                     </div>
                     
