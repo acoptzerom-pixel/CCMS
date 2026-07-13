@@ -329,11 +329,12 @@
     - ใช้ Vue Directive ตรวจเช็กเงื่อนไขผ่าน `.some(c => c && (!c.red_case_no || String(c.red_case_no).trim() === ''))` เพื่อแสดงคำว่า `"ให้คำปรึกษาอยู่"` หรือ `"ยุติแล้ว"` (คลาส `terminated`) ตามสถานะ
   - **เพิ่มสไตล์ควบคุมรูปแบบการแสดงผล (Styles.html)**:
     - เพิ่มคลาส `.def-card-status` ด้วยตำแหน่ง `position: absolute; top: 15px; right: 20px; font-size: 0.75rem; font-weight: 600; color: #000000;` พร้อมเปลี่ยนเป็นสีสว่างในโหมดธีมมืด และใช้สีแดงเมื่อติดคลาส `.terminated`
+    - เพิ่ม `padding-right: 90px;` ไปที่ `.def-card-header` เพื่อกันพื้นที่ไว้ไม่ให้ตัวอักษรชื่อ-นามสกุลของเด็กทับซ้อนกับป้ายสถานะ และให้ตัวหนังสือที่ยาวเกินตัดขึ้นบรรทัดใหม่โดยอัตโนมัติ
 
 ---
 
 ## การ Deploy และบันทึกโค้ด
 - ✅ ดึงและอัปโหลดโค้ดผ่าน Clasp: `npx clasp push` (ส่งไฟล์ขึ้นระบบกูเกิลคลาวด์แล้ว)
-- ✅ เผยแพร่เว็บแอปเวอร์ชันใหม่: อัปเดต Deployment ไปเป็น **Version 241** เรียบร้อยแล้ว (ID: `AKfycbzAJOxsSjhR5_AidoXX5pJEy6CKqCASK72ZYHwb3cBIy16oIqqBwNoysC5bvZCE5xlg`)
+- ✅ เผยแพร่เว็บแอปเวอร์ชันใหม่: อัปเดต Deployment ไปเป็น **Version 242** เรียบร้อยแล้ว (ID: `AKfycbxfd7G2kKZ4owXDyAtNrfuSVCZYKd78k28HrOyV6D_OySEFOKxDvc0-G_4s5pxuyjfD`)
 - ✅ ตรวจสอบโครงสร้างแท็ก HTML และสคริปต์ JavaScript: ตรวจสอบความถูกต้องสมบูรณ์แบบ 100% ผ่านตัวเช็กไวยากรณ์ (Perfectly VALID)
 - ✅ บันทึกความเปลี่ยนแปลงลง Git: คอมมิตและพุชโค้ดขึ้น GitHub เรียบร้อยแล้ว
