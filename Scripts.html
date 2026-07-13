@@ -373,55 +373,121 @@
         const filteredDefendants = computed(() => {
           try {
             const query = cardSearchQuery.value.trim().toLowerCase();
-            if (!query) return defendantsList.value;
+            let resultList = [];
             
-            return defendantsList.value.filter(def => {
-              if (!def) return false;
-              const firstName = String(def.first_name || '').toLowerCase();
-              const lastName = String(def.last_name || '').toLowerCase();
-              const nickName = String(def.nick_name || '').toLowerCase();
-              const citizenId = String(def.citizen_id || '').toLowerCase();
-              
-              if (firstName.includes(query) || 
-                  lastName.includes(query) || 
-                  nickName.includes(query) || 
-                  citizenId.includes(query)) {
-                return true;
-              }
-              
-              if (def.cases && Array.isArray(def.cases) && def.cases.length > 0) {
-                return def.cases.some(c => {
-                  if (!c) return false;
-                  const blackCase = String(c.black_case || '').toLowerCase();
-                  const courtBlackCase = String(c.court_black_case || '').toLowerCase();
-                  const redCaseNo = c.red_case_no ? String(c.red_case_no).toLowerCase() : '';
-                  const redCaseYear = c.red_case_year ? String(c.red_case_year).toLowerCase() : '';
-                  const redCaseFull = redCaseNo && redCaseYear ? redCaseNo + "/" + redCaseYear : "";
-                  
-                  if (blackCase.includes(query) || 
-                      courtBlackCase.includes(query) || 
-                      redCaseNo.includes(query) ||
-                      redCaseFull.includes(query)) {
-                    return true;
-                  }
-                  
-                  // Numbers check
-                  const queryNumbersOnly = query.replace(/\D/g, '');
-                  if (queryNumbersOnly) {
-                    const blackMatch = blackCase.match(/\d+/g);
-                    if (blackMatch && blackMatch.some(num => num.includes(queryNumbersOnly))) {
+            if (!query) {
+              resultList = [...defendantsList.value];
+            } else {
+              resultList = defendantsList.value.filter(def => {
+                if (!def) return false;
+                const firstName = String(def.first_name || '').toLowerCase();
+                const lastName = String(def.last_name || '').toLowerCase();
+                const nickName = String(def.nick_name || '').toLowerCase();
+                const citizenId = String(def.citizen_id || '').toLowerCase();
+                
+                if (firstName.includes(query) || 
+                    lastName.includes(query) || 
+                    nickName.includes(query) || 
+                    citizenId.includes(query)) {
+                  return true;
+                }
+                
+                if (def.cases && Array.isArray(def.cases) && def.cases.length > 0) {
+                  return def.cases.some(c => {
+                    if (!c) return false;
+                    const blackCase = String(c.black_case || '').toLowerCase();
+                    const courtBlackCase = String(c.court_black_case || '').toLowerCase();
+                    const redCaseNo = c.red_case_no ? String(c.red_case_no).toLowerCase() : '';
+                    const redCaseYear = c.red_case_year ? String(c.red_case_year).toLowerCase() : '';
+                    const redCaseFull = redCaseNo && redCaseYear ? redCaseNo + "/" + redCaseYear : "";
+                    
+                    if (blackCase.includes(query) || 
+                        courtBlackCase.includes(query) || 
+                        redCaseNo.includes(query) ||
+                        redCaseFull.includes(query)) {
                       return true;
                     }
-                    const courtMatch = courtBlackCase.match(/\d+/g);
-                    if (courtMatch && courtMatch.some(num => num.includes(queryNumbersOnly))) {
-                      return true;
+                    
+                    // Numbers check
+                    const queryNumbersOnly = query.replace(/\D/g, '');
+                    if (queryNumbersOnly) {
+                      const blackMatch = blackCase.match(/\d+/g);
+                      if (blackMatch && blackMatch.some(num => num.includes(queryNumbersOnly))) {
+                        return true;
+                      }
+                      const courtMatch = courtBlackCase.match(/\d+/g);
+                      if (courtMatch && courtMatch.some(num => num.includes(queryNumbersOnly))) {
+                        return true;
+                      }
                     }
-                  }
-                  return false;
-                });
+                    return false;
+                  });
+                }
+                return false;
+              });
+            }
+
+            // Sort logic:
+            // 1. ดำเนินการ (Priority 0) -> ยุติ (Priority 1) -> ไม่มีคดี (Priority 2)
+            // 2. คอลัมน์ no ใน tb_defendants จากมากไปหาน้อย
+            // 3. วันรับคดีล่าสุด จากใหม่ไปเก่า
+            resultList.sort((a, b) => {
+              const getStatusPriority = (def) => {
+                if (!def.cases || def.cases.length === 0) return 2;
+                const hasActive = def.cases.some(c => c && (!c.red_case_no || String(c.red_case_no).trim() === ''));
+                return hasActive ? 0 : 1;
+              };
+
+              const pA = getStatusPriority(a);
+              const pB = getStatusPriority(b);
+              if (pA !== pB) {
+                return pA - pB;
               }
-              return false;
+
+              const noA = (a.no !== undefined && a.no !== null && a.no !== "") ? parseFloat(a.no) : null;
+              const noB = (b.no !== undefined && b.no !== null && b.no !== "") ? parseFloat(b.no) : null;
+              const hasA = (noA !== null && !isNaN(noA));
+              const hasB = (noB !== null && !isNaN(noB));
+
+              if (hasA && hasB) {
+                if (noA !== noB) {
+                  return noB - noA;
+                }
+              } else if (hasA && !hasB) {
+                return -1;
+              } else if (!hasA && hasB) {
+                return 1;
+              }
+
+              // Fallback to latest black date
+              const getLatestDateKey = (def) => {
+                let latestTime = 0;
+                let latestNo = 0;
+                if (def.cases && def.cases.length > 0) {
+                  def.cases.forEach(c => {
+                    if (c.black_date) {
+                      const d = new Date(c.black_date);
+                      const t = isNaN(d.getTime()) ? 0 : d.getTime();
+                      const num = parseFloat(c.black_case_no) || 0;
+                      if (t > latestTime || (t === latestTime && num > latestNo)) {
+                        latestTime = t;
+                        latestNo = num;
+                      }
+                    }
+                  });
+                }
+                return { time: latestTime, no: latestNo };
+              };
+
+              const keyA = getLatestDateKey(a);
+              const keyB = getLatestDateKey(b);
+              if (keyA.time !== keyB.time) {
+                return keyB.time - keyA.time;
+              }
+              return keyB.no - keyA.no;
             });
+
+            return resultList;
           } catch (err) {
             console.error("Filter error:", err);
             errorMsg.value = "ระบบค้นหาขัดข้อง: " + err.message;

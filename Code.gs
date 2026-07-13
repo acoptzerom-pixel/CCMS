@@ -1370,9 +1370,25 @@ function getAllDefendantsWithCases(token) {
       list.push(d);
     }
     
-    // เรียงลำดับการโชว์การ์ด โดยใช้คอลัมน์ no ใน tb_defendants จากมากไปหาน้อย คนไม่มีลำดับไว้ท้ายสุด
-    // หากลำดับเท่ากัน หรือไม่มีทั้งคู่ ให้เรียงตามวันที่คดีล่าสุด (เหมือนดีไซน์เดิม) เป็นลำดับถัดไป
+    // เรียงลำดับการโชว์การ์ด:
+    // 1. ดำเนินการ (Priority 0) -> ยุติ (Priority 1) -> ไม่มีคดี (Priority 2)
+    // 2. เรียงตามคอลัมน์ no ใน tb_defendants จากมากไปหาน้อย
+    // 3. เรียงตามวันที่คดีล่าสุด (วันรับคดีล่าสุด) จากใหม่ไปเก่า
     list.sort(function(a, b) {
+      var getStatusPriority = function(def) {
+        if (!def.cases || def.cases.length === 0) return 2;
+        var hasActive = def.cases.some(function(c) {
+          return c && (!c.red_case_no || String(c.red_case_no).trim() === '');
+        });
+        return hasActive ? 0 : 1;
+      };
+
+      var pA = getStatusPriority(a);
+      var pB = getStatusPriority(b);
+      if (pA !== pB) {
+        return pA - pB;
+      }
+
       var noA = (a.no !== undefined && a.no !== null && a.no !== "") ? parseFloat(a.no) : null;
       var noB = (b.no !== undefined && b.no !== null && b.no !== "") ? parseFloat(b.no) : null;
       
