@@ -1321,6 +1321,21 @@ function getAllDefendantsWithCases(token) {
     ensurePsyDiagnosisColumn();
     var defendants = getSheetData("tb_defendants");
     var cases = getSheetData("tb_cases");
+    var appointments = getSheetData("tb_appointment");
+    
+    // สร้าง map ค้นหาวันนัดหมายล่าสุดของแต่ละเลขคดีดำ (black_case)
+    var latestAppMap = {};
+    for (var i = 0; i < appointments.length; i++) {
+      var app = appointments[i];
+      if (!app.black_case || !app.appointment_date) continue;
+      var cleanBlack = app.black_case.toString().trim().replace(/\s+/g, "").toLowerCase();
+      var appDate = normalizeSheetDate(app.appointment_date);
+      if (appDate) {
+        if (!latestAppMap[cleanBlack] || appDate.getTime() > latestAppMap[cleanBlack].getTime()) {
+          latestAppMap[cleanBlack] = appDate;
+        }
+      }
+    }
     
     var isAdminOrStaff = (userSession.role === "admin" || userSession.role === "psychologist" || userSession.role === "director");
     
@@ -1343,6 +1358,15 @@ function getAllDefendantsWithCases(token) {
             courtBlackNo = c.abb_black_criminal + c.black_criminal_no + "/" + c.black_criminal_year;
           }
           c.court_black_case = courtBlackNo;
+          
+          // เชื่อมโยงวันนัดหมายล่าสุด (เป็น YYYY-MM-DD string)
+          var cleanCBlack = c.black_case ? c.black_case.toString().trim().replace(/\s+/g, "").toLowerCase() : "";
+          var latestAppDate = latestAppMap[cleanCBlack] || null;
+          if (latestAppDate) {
+            c.latest_appointment_date = Utilities.formatDate(latestAppDate, "GMT+7", "yyyy-MM-dd");
+          } else {
+            c.latest_appointment_date = null;
+          }
           
           caseMap[cCid].push(c);
         }
@@ -1370,6 +1394,8 @@ function getAllDefendantsWithCases(token) {
       list.push(d);
     }
     
+    var todayStr = Utilities.formatDate(new Date(), "GMT+7", "yyyy-MM-dd");
+    
     // เรียงลำดับการโชว์การ์ด:
     // 1. ดำเนินการ (Priority 0) -> ยุติ (Priority 1) -> ไม่มีคดี (Priority 2)
     // 2. เรียงตามคอลัมน์ no ใน tb_defendants จากมากไปหาน้อย
@@ -1378,7 +1404,15 @@ function getAllDefendantsWithCases(token) {
       var getStatusPriority = function(def) {
         if (!def.cases || def.cases.length === 0) return 2;
         var hasActive = def.cases.some(function(c) {
-          return c && (!c.red_case_no || String(c.red_case_no).trim() === '');
+          if (!c) return false;
+          var hasRedNo = c.red_case_no && String(c.red_case_no).trim() !== '';
+          if (hasRedNo) return false; // ยุติ
+          
+          // ตรวจสอบนัดหมายล่าสุด: ถ้าเป็นวันที่ที่ผ่านไปแล้วให้ถือว่า "ยุติ"
+          var hasPastApp = c.latest_appointment_date && c.latest_appointment_date < todayStr;
+          if (hasPastApp) return false; // ยุติ
+          
+          return true; // ยังดำเนินการอยู่
         });
         return hasActive ? 0 : 1;
       };

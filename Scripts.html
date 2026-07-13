@@ -434,7 +434,16 @@
             resultList.sort((a, b) => {
               const getStatusPriority = (def) => {
                 if (!def.cases || def.cases.length === 0) return 2;
-                const hasActive = def.cases.some(c => c && (!c.red_case_no || String(c.red_case_no).trim() === ''));
+                const hasActive = def.cases.some(c => {
+                  if (!c) return false;
+                  const hasRedNo = c.red_case_no && String(c.red_case_no).trim() !== '';
+                  if (hasRedNo) return false;
+                  
+                  const hasPastApp = c.latest_appointment_date && c.latest_appointment_date < systemTodayDateStr.value;
+                  if (hasPastApp) return false;
+                  
+                  return true;
+                });
                 return hasActive ? 0 : 1;
               };
 
@@ -4990,7 +4999,7 @@
           calendarDetailModalActive, calendarDetailDef, calendarDetailCases, calendarDetailReason, openInCaseManager,
           
           // Theme and clock variables
-          isDarkTheme, currentTime, currentThaiDate, greetingText, getCleanName, getChartColor, getAge,
+          isDarkTheme, currentTime, currentThaiDate, systemTodayDateStr, greetingText, getCleanName, getChartColor, getAge,
            
            // Section filter states
            selectedSectionFilter, onSectionFilterChange,
