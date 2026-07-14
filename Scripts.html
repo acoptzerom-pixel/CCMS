@@ -621,15 +621,39 @@
 
         const selectedDayAppointments = computed(() => {
           if (!selectedDate.value) return [];
-          return appointments.value.filter(app => app.appointment_date === selectedDate.value);
+          return appointments.value.filter(app => {
+            if (app.appointment_date !== selectedDate.value) return false;
+            if (session.value && session.value.role === 'counselor') {
+              if (app.appointment_reason === 'นัดฟังผลการปฏิบัติตามแผน') {
+                return false;
+              }
+            }
+            return true;
+          });
         });
 
         const todayAppointments = computed(() => {
-          return appointments.value.filter(app => app.appointment_date === systemTodayDateStr.value);
+          return appointments.value.filter(app => {
+            if (app.appointment_date !== systemTodayDateStr.value) return false;
+            if (session.value && session.value.role === 'counselor') {
+              if (app.appointment_reason === 'นัดฟังผลการปฏิบัติตามแผน') {
+                return false;
+              }
+            }
+            return true;
+          });
         });
 
         const dashboardTodayAppointments = computed(() => {
-          return dashboardAllAppointments.value.filter(app => app.appointment_date === systemTodayDateStr.value);
+          return dashboardAllAppointments.value.filter(app => {
+            if (app.appointment_date !== systemTodayDateStr.value) return false;
+            if (session.value && session.value.role === 'counselor') {
+              if (app.appointment_reason === 'นัดฟังผลการปฏิบัติตามแผน') {
+                return false;
+              }
+            }
+            return true;
+          });
         });
 
         // Helper functions for date checks
@@ -643,7 +667,15 @@
         }
 
         function getAppointmentsForDate(dateStr) {
-          return appointments.value.filter(app => app.appointment_date === dateStr);
+          return appointments.value.filter(app => {
+            if (app.appointment_date !== dateStr) return false;
+            if (session.value && session.value.role === 'counselor') {
+              if (app.appointment_reason === 'นัดฟังผลการปฏิบัติตามแผน') {
+                return false;
+              }
+            }
+            return true;
+          });
         }
 
         // Watch filter list changes to reset active page if bounds overflow
