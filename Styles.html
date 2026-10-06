@@ -2063,6 +2063,100 @@
       color: #0f172a !important;
     }
     
+    /* Sticky Table Header Styles for Monthly Report (ม.90 & ม.132) */
+    .report-table-scroll-container {
+      max-height: calc(100vh - 220px);
+      min-height: 400px;
+      overflow-y: auto;
+      overflow-x: auto;
+      border: 1px solid var(--card-border, #cbd5e1);
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+      margin-bottom: 25px;
+      background: var(--card-bg, #ffffff);
+      position: relative;
+    }
+
+    .report-table-scroll-container::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    .report-table-scroll-container::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.03);
+      border-radius: 4px;
+    }
+    .report-table-scroll-container::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    .report-table-scroll-container::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    .sticky-header-table {
+      margin-bottom: 0 !important;
+      border-collapse: separate !important;
+      border-spacing: 0 !important;
+    }
+
+    .sticky-header-table th,
+    .sticky-header-table td {
+      border: 1px solid #cbd5e1 !important;
+    }
+
+    /* Sticky row 1 header cells */
+    .sticky-header-table thead tr:first-child th {
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 10 !important;
+      background: #f1f5f9 !important;
+      color: #1e293b !important;
+      border-bottom: 1px solid #cbd5e1 !important;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+      height: 42px;
+      box-sizing: border-box;
+      vertical-align: middle;
+    }
+
+    /* Sticky row 2 header cells */
+    .sticky-header-table thead tr:nth-child(2) th {
+      position: sticky !important;
+      top: 41px !important;
+      z-index: 9 !important;
+      background: #f1f5f9 !important;
+      color: #1e293b !important;
+      border-bottom: 2px solid #cbd5e1 !important;
+      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06);
+      box-sizing: border-box;
+      vertical-align: middle;
+    }
+
+    /* Cells with rowspan="2" (e.g., "ข้อหา" and "รวม") */
+    .sticky-header-table thead tr:first-child th[rowspan="2"] {
+      z-index: 11 !important;
+      border-bottom: 2px solid #cbd5e1 !important;
+    }
+
+    /* Dark mode support */
+    .dark-mode .report-table-scroll-container {
+      background: var(--card-bg, #1e293b);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+    .dark-mode .sticky-header-table th,
+    .dark-mode .sticky-header-table td {
+      border-color: rgba(255, 255, 255, 0.15) !important;
+    }
+    .dark-mode .sticky-header-table thead tr:first-child th,
+    .dark-mode .sticky-header-table thead tr:nth-child(2) th {
+      background: #1e293b !important;
+      color: #f8fafc !important;
+    }
+
+    /* Row hover for enhanced readability */
+    .sticky-header-table tbody tr:hover td {
+      background: rgba(37, 99, 235, 0.04) !important;
+    }
+    
     .report-tabs {
       display: flex;
       gap: 8px;

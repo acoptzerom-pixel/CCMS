@@ -2548,77 +2548,79 @@
               <div class="report-section-title" style="font-family: var(--font-display); font-weight: 700; color: var(--text-main); font-size: 1.1rem; margin-bottom: 15px; border-bottom: 2px solid var(--primary); padding-bottom: 8px;">
                 แบบรายงานมาตรการพิเศษแทนการดำเนินคดีอาญา/ ผลการปฏิบัติตาม มาตรการพิเศษแทนการดำเนินคดีอาญา ชั้นศาล (ม.90)
               </div>
-              <table class="report-table" style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
-                <thead>
-                  <tr style="background: var(--bg-hover); border-bottom: 2px solid var(--card-border);">
-                    <th rowspan="2" style="padding: 10px; text-align: left; font-weight: 600; vertical-align: middle; border: 1px solid var(--card-border);">ข้อหา</th>
-                    <th colspan="3" style="padding: 10px; text-align: center; font-weight: 600; vertical-align: middle; border: 1px solid var(--card-border);">แผนแก้ไขบำบัดฟื้นฟู</th>
-                    <th rowspan="2" style="padding: 10px; text-align: center; font-weight: 600; width: 100px; vertical-align: middle; border: 1px solid var(--card-border);">รวม</th>
-                  </tr>
-                  <tr style="background: var(--bg-hover); border-bottom: 2px solid var(--card-border);">
-                    <th style="padding: 10px; text-align: center; font-weight: 600; width: 180px; vertical-align: middle; border: 1px solid var(--card-border);">ศาลไม่เห็นชอบด้วยกับแผนฯ</th>
-                    <th style="padding: 10px; text-align: center; font-weight: 600; width: 180px; vertical-align: middle; border: 1px solid var(--card-border);">ปฏิบัติตามแผนฯครบถ้วน</th>
-                    <th style="padding: 10px; text-align: center; font-weight: 600; width: 180px; vertical-align: middle; border: 1px solid var(--card-border);">ปฏิบัติตามแผนฯไม่ครบถ้วน</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <template v-for="c in monthlyReport.charges" :key="c.charge_no">
-                    <!-- Heading Row -->
-                    <tr v-if="isCategoryHeader(c.charge_no)" style="background: rgba(255,255,255,0.02); font-weight: 700;">
-                      <td style="padding: 12px 10px; border: 1px solid var(--card-border);">
-                        {{ c.charge_statistics_no ? c.charge_statistics_no + '. ' : '' }}{{ c.charge_statistics }}
-                      </td>
-                      <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">
-                        {{ getCategorySum('m90', c.charge_no, 1) || '' }}
-                      </td>
-                      <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">
-                        {{ getCategorySum('m90', c.charge_no, 2) || '' }}
-                      </td>
-                      <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">
-                        {{ getCategorySum('m90', c.charge_no, 3) || '' }}
-                      </td>
-                      <td style="padding: 10px; text-align: center; font-weight: 700; border: 1px solid var(--card-border); background: rgba(0,0,0,0.05);">
-                        {{ getRowTotal('m90', c.charge_no) || '' }}
-                      </td>
+              <div class="report-table-scroll-container">
+                <table class="report-table sticky-header-table" style="width: 100%; border-collapse: separate; border-spacing: 0;">
+                  <thead>
+                    <tr style="background: var(--bg-hover); border-bottom: 2px solid var(--card-border);">
+                      <th rowspan="2" style="padding: 10px; text-align: left; font-weight: 600; vertical-align: middle; border: 1px solid var(--card-border);">ข้อหา</th>
+                      <th colspan="3" style="padding: 10px; text-align: center; font-weight: 600; vertical-align: middle; border: 1px solid var(--card-border);">แผนแก้ไขบำบัดฟื้นฟู</th>
+                      <th rowspan="2" style="padding: 10px; text-align: center; font-weight: 600; width: 100px; vertical-align: middle; border: 1px solid var(--card-border);">รวม</th>
                     </tr>
-                    <!-- Leaf Row -->
-                    <tr v-else style="border-bottom: 1px solid var(--card-border);">
-                      <td style="padding: 10px; padding-left: 25px; border: 1px solid var(--card-border);">
-                        {{ c.charge_statistics_no ? c.charge_statistics_no + ' ' : '' }}{{ c.charge_statistics }}
-                      </td>
-                      <!-- Col 1: disapproved -->
-                      <td style="padding: 6px 10px; text-align: center; border: 1px solid var(--card-border);">
-                        <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data['m90_c' + c.charge_no + '_1']" style="width: 80px; display: inline-block; padding: 4px 6px;">
-                        <span v-else>{{ monthlyReport.data['m90_c' + c.charge_no + '_1'] || '' }}</span>
-                      </td>
-                      <!-- Col 2: completed -->
-                      <td style="padding: 6px 10px; text-align: center; border: 1px solid var(--card-border);">
-                        <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data['m90_c' + c.charge_no + '_2']" style="width: 80px; display: inline-block; padding: 4px 6px;">
-                        <span v-else>{{ monthlyReport.data['m90_c' + c.charge_no + '_2'] || '' }}</span>
-                      </td>
-                      <!-- Col 3: failed -->
-                      <td style="padding: 6px 10px; text-align: center; border: 1px solid var(--card-border);">
-                        <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data['m90_c' + c.charge_no + '_3']" style="width: 80px; display: inline-block; padding: 4px 6px;">
-                        <span v-else>{{ monthlyReport.data['m90_c' + c.charge_no + '_3'] || '' }}</span>
-                      </td>
-                      <!-- Row Total -->
-                      <td style="padding: 10px; text-align: center; font-weight: 700; border: 1px solid var(--card-border); background: rgba(0,0,0,0.03);">
-                        {{ getRowTotal('m90', c.charge_no) || '' }}
-                      </td>
+                    <tr style="background: var(--bg-hover); border-bottom: 2px solid var(--card-border);">
+                      <th style="padding: 10px; text-align: center; font-weight: 600; width: 180px; vertical-align: middle; border: 1px solid var(--card-border);">ศาลไม่เห็นชอบด้วยกับแผนฯ</th>
+                      <th style="padding: 10px; text-align: center; font-weight: 600; width: 180px; vertical-align: middle; border: 1px solid var(--card-border);">ปฏิบัติตามแผนฯครบถ้วน</th>
+                      <th style="padding: 10px; text-align: center; font-weight: 600; width: 180px; vertical-align: middle; border: 1px solid var(--card-border);">ปฏิบัติตามแผนฯไม่ครบถ้วน</th>
                     </tr>
-                  </template>
-                  
-                  <!-- Grand Totals -->
-                  
-                  <tr style="font-weight: 800; background: var(--bg-hover); border-top: 2px solid var(--card-border);">
-                    <td style="padding: 12px 10px; border: 1px solid var(--card-border); color: var(--primary);">รวมทั้งสิ้น</td>
-                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getTableGrandTotal('m90', 1) }}</td>
-                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getTableGrandTotal('m90', 2) }}</td>
-                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getTableGrandTotal('m90', 3) }}</td>
-                    <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border); background: rgba(0,0,0,0.08); color: var(--primary);">{{ getTableGrandRowTotal('m90') }}</td>
-                  </tr>
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    <template v-for="c in monthlyReport.charges" :key="c.charge_no">
+                      <!-- Heading Row -->
+                      <tr v-if="isCategoryHeader(c.charge_no)" style="background: rgba(255,255,255,0.02); font-weight: 700;">
+                        <td style="padding: 12px 10px; border: 1px solid var(--card-border);">
+                          {{ c.charge_statistics_no ? c.charge_statistics_no + '. ' : '' }}{{ c.charge_statistics }}
+                        </td>
+                        <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">
+                          {{ getCategorySum('m90', c.charge_no, 1) || '' }}
+                        </td>
+                        <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">
+                          {{ getCategorySum('m90', c.charge_no, 2) || '' }}
+                        </td>
+                        <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">
+                          {{ getCategorySum('m90', c.charge_no, 3) || '' }}
+                        </td>
+                        <td style="padding: 10px; text-align: center; font-weight: 700; border: 1px solid var(--card-border); background: rgba(0,0,0,0.05);">
+                          {{ getRowTotal('m90', c.charge_no) || '' }}
+                        </td>
+                      </tr>
+                      <!-- Leaf Row -->
+                      <tr v-else style="border-bottom: 1px solid var(--card-border);">
+                        <td style="padding: 10px; padding-left: 25px; border: 1px solid var(--card-border);">
+                          {{ c.charge_statistics_no ? c.charge_statistics_no + ' ' : '' }}{{ c.charge_statistics }}
+                        </td>
+                        <!-- Col 1: disapproved -->
+                        <td style="padding: 6px 10px; text-align: center; border: 1px solid var(--card-border);">
+                          <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data['m90_c' + c.charge_no + '_1']" style="width: 80px; display: inline-block; padding: 4px 6px;">
+                          <span v-else>{{ monthlyReport.data['m90_c' + c.charge_no + '_1'] || '' }}</span>
+                        </td>
+                        <!-- Col 2: completed -->
+                        <td style="padding: 6px 10px; text-align: center; border: 1px solid var(--card-border);">
+                          <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data['m90_c' + c.charge_no + '_2']" style="width: 80px; display: inline-block; padding: 4px 6px;">
+                          <span v-else>{{ monthlyReport.data['m90_c' + c.charge_no + '_2'] || '' }}</span>
+                        </td>
+                        <!-- Col 3: failed -->
+                        <td style="padding: 6px 10px; text-align: center; border: 1px solid var(--card-border);">
+                          <input v-if="monthlyReport.editing" type="number" class="form-control text-center" v-model.number="monthlyReport.data['m90_c' + c.charge_no + '_3']" style="width: 80px; display: inline-block; padding: 4px 6px;">
+                          <span v-else>{{ monthlyReport.data['m90_c' + c.charge_no + '_3'] || '' }}</span>
+                        </td>
+                        <!-- Row Total -->
+                        <td style="padding: 10px; text-align: center; font-weight: 700; border: 1px solid var(--card-border); background: rgba(0,0,0,0.03);">
+                          {{ getRowTotal('m90', c.charge_no) || '' }}
+                        </td>
+                      </tr>
+                    </template>
+                    
+                    <!-- Grand Totals -->
+                    
+                    <tr style="font-weight: 800; background: var(--bg-hover); border-top: 2px solid var(--card-border);">
+                      <td style="padding: 12px 10px; border: 1px solid var(--card-border); color: var(--primary);">รวมทั้งสิ้น</td>
+                      <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getTableGrandTotal('m90', 1) }}</td>
+                      <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getTableGrandTotal('m90', 2) }}</td>
+                      <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">{{ getTableGrandTotal('m90', 3) }}</td>
+                      <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border); background: rgba(0,0,0,0.08); color: var(--primary);">{{ getTableGrandRowTotal('m90') }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
               
               <div style="margin-top: 20px; max-width: 500px;">
                 <table class="report-table" style="width: 100%; border-collapse: collapse;">
@@ -2650,8 +2652,8 @@
               <div class="report-section-title" style="font-family: var(--font-display); font-weight: 700; color: var(--text-main); font-size: 1.1rem; margin-bottom: 15px; border-bottom: 2px solid var(--primary); padding-bottom: 8px;">
                 แบบรายงานมาตรการแก้ไข บำบัด ฟื้นฟู ก่อนมีคำพิพากษา ตามมาตรา 132
               </div>
-              <div style="overflow-x: auto; margin-bottom: 30px;">
-                <table class="report-table" style="width: 100%; min-width: 1200px; border-collapse: collapse;">
+              <div class="report-table-scroll-container">
+                <table class="report-table sticky-header-table" style="width: 100%; min-width: 1200px; border-collapse: separate; border-spacing: 0;">
                   <thead>
                     <tr style="background: var(--bg-hover); border-bottom: 2px solid var(--card-border);">
                       <th rowspan="2" style="padding: 8px; text-align: left; font-weight: 600; vertical-align: middle; border: 1px solid var(--card-border);">ข้อหา</th>
