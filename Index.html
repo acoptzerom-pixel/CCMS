@@ -2569,18 +2569,10 @@
                         <td style="padding: 12px 10px; border: 1px solid var(--card-border);">
                           {{ c.charge_statistics_no ? c.charge_statistics_no + '. ' : '' }}{{ c.charge_statistics }}
                         </td>
-                        <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">
-                          {{ getCategorySum('m90', c.charge_no, 1) || '' }}
-                        </td>
-                        <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">
-                          {{ getCategorySum('m90', c.charge_no, 2) || '' }}
-                        </td>
-                        <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);">
-                          {{ getCategorySum('m90', c.charge_no, 3) || '' }}
-                        </td>
-                        <td style="padding: 10px; text-align: center; font-weight: 700; border: 1px solid var(--card-border); background: rgba(0,0,0,0.05);">
-                          {{ getRowTotal('m90', c.charge_no) || '' }}
-                        </td>
+                        <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);"></td>
+                        <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);"></td>
+                        <td style="padding: 10px; text-align: center; border: 1px solid var(--card-border);"></td>
+                        <td style="padding: 10px; text-align: center; font-weight: 700; border: 1px solid var(--card-border); background: rgba(0,0,0,0.05);"></td>
                       </tr>
                       <!-- Leaf Row -->
                       <tr v-else style="border-bottom: 1px solid var(--card-border);">
@@ -2687,12 +2679,8 @@
                         <td style="padding: 10px 8px; border: 1px solid var(--card-border);">
                           {{ c.charge_statistics_no ? c.charge_statistics_no + '. ' : '' }}{{ c.charge_statistics }}
                         </td>
-                        <td v-for="col in 12" :key="col" style="padding: 8px; text-align: center; border: 1px solid var(--card-border);">
-                          {{ getCategorySum('m132', c.charge_no, col) || '' }}
-                        </td>
-                        <td style="padding: 8px; text-align: center; font-weight: 700; border: 1px solid var(--card-border); background: rgba(0,0,0,0.05);">
-                          {{ getRowTotal('m132', c.charge_no) || '' }}
-                        </td>
+                        <td v-for="col in 12" :key="col" style="padding: 8px; text-align: center; border: 1px solid var(--card-border);"></td>
+                        <td style="padding: 8px; text-align: center; font-weight: 700; border: 1px solid var(--card-border); background: rgba(0,0,0,0.05);"></td>
                       </tr>
                       <!-- Leaf Row -->
                       <tr v-else style="border-bottom: 1px solid var(--card-border);">
@@ -4178,10 +4166,10 @@
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
                         <template v-if="isCategoryHeader(c.charge_no)">
-                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 1) || '' }}</td>
-                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 2) || '' }}</td>
-                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 3) || '' }}</td>
-                          <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #f1f5f9;">{{ getRowTotal('m90', c.charge_no) || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;"></td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;"></td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;"></td>
+                          <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #f1f5f9;"></td>
                         </template>
                         <template v-else>
                           <td style="border: 1px solid #000; padding: 2px 3px;">{{ monthlyReport.data['m90_c' + c.charge_no + '_1'] || '' }}</td>
@@ -4252,10 +4240,10 @@
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
                         <template v-if="isCategoryHeader(c.charge_no)">
-                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 1) || '' }}</td>
-                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 2) || '' }}</td>
-                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 3) || '' }}</td>
-                          <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #f1f5f9;">{{ getRowTotal('m90', c.charge_no) || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;"></td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;"></td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;"></td>
+                          <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #f1f5f9;"></td>
                         </template>
                         <template v-else>
                           <td style="border: 1px solid #000; padding: 2px 3px;">{{ monthlyReport.data['m90_c' + c.charge_no + '_1'] || '' }}</td>
@@ -4326,10 +4314,10 @@
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
                         <template v-if="isCategoryHeader(c.charge_no)">
-                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 1) || '' }}</td>
-                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 2) || '' }}</td>
-                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 3) || '' }}</td>
-                          <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #f1f5f9;">{{ getRowTotal('m90', c.charge_no) || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;"></td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;"></td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;"></td>
+                          <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #f1f5f9;"></td>
                         </template>
                         <template v-else>
                           <td style="border: 1px solid #000; padding: 2px 3px;">{{ monthlyReport.data['m90_c' + c.charge_no + '_1'] || '' }}</td>
@@ -4400,10 +4388,10 @@
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
                         <template v-if="isCategoryHeader(c.charge_no)">
-                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 1) || '' }}</td>
-                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 2) || '' }}</td>
-                          <td style="border: 1px solid #000; padding: 2px 3px;">{{ getCategorySum('m90', c.charge_no, 3) || '' }}</td>
-                          <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #f1f5f9;">{{ getRowTotal('m90', c.charge_no) || '' }}</td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;"></td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;"></td>
+                          <td style="border: 1px solid #000; padding: 2px 3px;"></td>
+                          <td style="border: 1px solid #000; padding: 2px 3px; font-weight: bold; background-color: #f1f5f9;"></td>
                         </template>
                         <template v-else>
                           <td style="border: 1px solid #000; padding: 2px 3px;">{{ monthlyReport.data['m90_c' + c.charge_no + '_1'] || '' }}</td>
@@ -4607,12 +4595,8 @@
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
                         <template v-if="isCategoryHeader(c.charge_no)">
-                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
-                            {{ getCategorySum('m132', c.charge_no, col) || '' }}
-                          </td>
-                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;">
-                            {{ getRowTotal('m132', c.charge_no) || '' }}
-                          </td>
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;"></td>
+                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;"></td>
                         </template>
                         <template v-else>
                           <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
@@ -4699,12 +4683,8 @@
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
                         <template v-if="isCategoryHeader(c.charge_no)">
-                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
-                            {{ getCategorySum('m132', c.charge_no, col) || '' }}
-                          </td>
-                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;">
-                            {{ getRowTotal('m132', c.charge_no) || '' }}
-                          </td>
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;"></td>
+                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;"></td>
                         </template>
                         <template v-else>
                           <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
@@ -4791,12 +4771,8 @@
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
                         <template v-if="isCategoryHeader(c.charge_no)">
-                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
-                            {{ getCategorySum('m132', c.charge_no, col) || '' }}
-                          </td>
-                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;">
-                            {{ getRowTotal('m132', c.charge_no) || '' }}
-                          </td>
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;"></td>
+                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;"></td>
                         </template>
                         <template v-else>
                           <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
@@ -4883,12 +4859,8 @@
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
                         <template v-if="isCategoryHeader(c.charge_no)">
-                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
-                            {{ getCategorySum('m132', c.charge_no, col) || '' }}
-                          </td>
-                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;">
-                            {{ getRowTotal('m132', c.charge_no) || '' }}
-                          </td>
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;"></td>
+                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;"></td>
                         </template>
                         <template v-else>
                           <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
@@ -4975,12 +4947,8 @@
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
                         <template v-if="isCategoryHeader(c.charge_no)">
-                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
-                            {{ getCategorySum('m132', c.charge_no, col) || '' }}
-                          </td>
-                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;">
-                            {{ getRowTotal('m132', c.charge_no) || '' }}
-                          </td>
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;"></td>
+                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;"></td>
                         </template>
                         <template v-else>
                           <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
@@ -5067,12 +5035,8 @@
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
                         <template v-if="isCategoryHeader(c.charge_no)">
-                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
-                            {{ getCategorySum('m132', c.charge_no, col) || '' }}
-                          </td>
-                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;">
-                            {{ getRowTotal('m132', c.charge_no) || '' }}
-                          </td>
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;"></td>
+                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;"></td>
                         </template>
                         <template v-else>
                           <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
@@ -5159,12 +5123,8 @@
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
                         <template v-if="isCategoryHeader(c.charge_no)">
-                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
-                            {{ getCategorySum('m132', c.charge_no, col) || '' }}
-                          </td>
-                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;">
-                            {{ getRowTotal('m132', c.charge_no) || '' }}
-                          </td>
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;"></td>
+                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;"></td>
                         </template>
                         <template v-else>
                           <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
@@ -5251,12 +5211,8 @@
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
                         <template v-if="isCategoryHeader(c.charge_no)">
-                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
-                            {{ getCategorySum('m132', c.charge_no, col) || '' }}
-                          </td>
-                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;">
-                            {{ getRowTotal('m132', c.charge_no) || '' }}
-                          </td>
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;"></td>
+                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;"></td>
                         </template>
                         <template v-else>
                           <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
@@ -5343,12 +5299,8 @@
                           {{ c.charge_statistics_no ? c.charge_statistics_no + (isCategoryHeader(c.charge_no) ? '. ' : ' ') : '' }}{{ c.charge_statistics }}
                         </td>
                         <template v-if="isCategoryHeader(c.charge_no)">
-                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
-                            {{ getCategorySum('m132', c.charge_no, col) || '' }}
-                          </td>
-                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;">
-                            {{ getRowTotal('m132', c.charge_no) || '' }}
-                          </td>
+                          <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;"></td>
+                          <td style="border: 1px solid #000; padding: 3px; font-weight: bold; background-color: #f1f5f9;"></td>
                         </template>
                         <template v-else>
                           <td v-for="col in 12" :key="col" style="border: 1px solid #000; padding: 3px;">
