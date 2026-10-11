@@ -103,7 +103,9 @@
           switch (currentView.value) {
             case 'dashboard': return 'แดชบอร์ด';
             case 'search': return 'ข้อมูลเด็กและเยาวชน';
+            case 'case_info': return 'ข้อมูลคดี';
             case 'calendar': return 'ปฏิทินวันนัด';
+            case 'line_notify': return 'แจ้งเตือน LINE OA';
             case 'counselors': return 'ผู้ให้คำปรึกษา';
             case 'monthly_report': return 'สถิติคดีประจำเดือน';
             case 'users': return 'จัดการผู้ใช้งาน';
@@ -967,13 +969,13 @@
         
         const defForm = reactive({
           citizen_id: '', title_name: 'นาย', first_name: '', last_name: '', nick_name: '',
-          gender: 'ชาย', birth_date: '', phone_number: '', line_id: '', occupation: '',
+          gender: 'ชาย', birth_date: '', phone_number: '', line_id: '', line_user_id: '', occupation: '',
           education_level: '', school: '',
           number_address: '', village_address: '', village_number_address: '', road_address: '',
           sub_district_address: '', district_address: '', province_address: '', postcode_address: '',
           address: '',
           medical_history: '', drug_history: '', interested: '',
-          guardian_name: '', relationship: '', phone_number_guardian: '', parent_line_id: '', occupation_guardian: '',
+          guardian_name: '', relationship: '', phone_number_guardian: '', parent_line_id: '', parent_line_user_id: '', occupation_guardian: '',
           psy_diagnosis: '', risk_assessment: 'มีความเสี่ยงในการกระทำผิดซ้ำต่ำ', counselor_note: ''
         });
 
@@ -985,6 +987,49 @@
           red_date: '', red_case_no: '', red_case_year: '', red_because: '',
           recidivism: 'ไม่ซ้ำ', user_id: '', counselor: '', judge: '',
           officer: '', mediator: '', note: ''
+        });
+
+        // ------------------ LINE OA NOTIFICATION MODULE STATES ------------------
+        const lineNotifyTab = ref('upcoming');
+        const lineUpcomingDaysRange = ref(7);
+        const lineUpcomingTypeFilter = ref('all');
+        const lineOaUpcomingList = ref([]);
+        const lineOaLogs = ref([]);
+        const lineOaContacts = ref([]);
+        const lineOaPublicConfig = reactive({
+          oa_basic_id: '@012cryec',
+          oa_bot_id: ''
+        });
+        const lineOaConfigForm = reactive({
+          channel_access_token: '',
+          oa_basic_id: '@012cryec',
+          oa_bot_id: '',
+          auto_notify_enabled: 'true',
+          notify_days_before: '1,3',
+          template_appointment_youth: '📌 แจ้งเตือนวันนัดหมาย ศูนย์ให้คำปรึกษาฯ\nเรียน {youth_name} (เลขคดีดำที่ {black_case})\n\nขอแจ้งเตือนกำหนดนัดหมายของท่าน:\n📅 วันที่: {date}\n⏰ เวลา: {time} น.\n📋 เรื่อง/เหตุผลการนัด: {detail}\n👤 ผู้ให้คำปรึกษา: {counselor}\n\nกรุณามาตามวันและเวลาดังกล่าว หากมีข้อขัดข้องกรุณาติดต่อเจ้าหน้าที่ผ่านแชทนี้ได้ทันทีครับ/ค่ะ',
+          template_appointment_parent: '📌 แจ้งเตือนวันนัดหมายผู้ปกครอง ศูนย์ให้คำปรึกษาฯ\nเรียน ผู้ปกครองของ {youth_name} ({parent_name}) เลขคดีดำที่ {black_case}\n\nขอแจ้งเตือนกำหนดนัดหมายของบุตรหลานท่าน:\n📅 วันที่: {date}\n⏰ เวลา: {time} น.\n📋 เรื่อง/เหตุผลการนัด: {detail}\n👤 ผู้ให้คำปรึกษา: {counselor}\n\nขอความร่วมมือผู้ปกครองดูแลและนำเยาวชนมาตามกำหนดนัดหมายครับ/ค่ะ',
+          template_activity_youth: '📌 แจ้งเตือนวันเข้าร่วมกิจกรรม ศูนย์ให้คำปรึกษาฯ\nเรียน {youth_name} (เลขคดีดำที่ {black_case})\n\nขอแจ้งเตือนกำหนดการเข้าร่วมกิจกรรมของท่าน:\n📅 วันที่: {date}\n📋 กิจกรรม: {detail}\n👤 ผู้รับผิดชอบ: {counselor}\n\nกรุณาเข้าร่วมกิจกรรมตามกำหนดการดังกล่าวครับ/ค่ะ',
+          template_activity_parent: '📌 แจ้งเตือนวันเข้าร่วมกิจกรรม ศูนย์ให้คำปรึกษาฯ\nเรียน ผู้ปกครองของ {youth_name} ({parent_name}) เลขคดีดำที่ {black_case}\n\nขอแจ้งเตือนกำหนดการเข้าร่วมกิจกรรมของบุตรหลานท่าน:\n📅 วันที่: {date}\n📋 กิจกรรม: {detail}\n👤 ผู้รับผิดชอบ: {counselor}\n\nขอความร่วมมือผู้ปกครองดูแลให้เยาวชนเข้าร่วมกิจกรรมตามกำหนดครับ/ค่ะ'
+        });
+        const linePreviewModalActive = ref(false);
+        const linePreviewItem = reactive({
+          sourceType: 'appointment',
+          targetType: 'youth',
+          targetLabel: '',
+          targetName: '',
+          targetLineId: '',
+          targetUserId: '',
+          messageText: '',
+          black_case: '',
+          citizen_id: '',
+          event_date: ''
+        });
+        const lineLinkModalActive = ref(false);
+        const lineLinkForm = reactive({
+          lineUserId: '',
+          displayName: '',
+          citizenId: '',
+          targetType: 'youth'
         });
 
         // Charts handles
@@ -1318,6 +1363,10 @@
           }
           if (res.counselors && res.counselors.length > 0) {
             counselorsList.value = res.counselors.map(c => ({ ...c, isEditing: false }));
+          }
+          if (res.lineOaConfig) {
+            lineOaPublicConfig.oa_basic_id = res.lineOaConfig.oa_basic_id || '@012cryec';
+            lineOaPublicConfig.oa_bot_id = res.lineOaConfig.oa_bot_id || '';
           }
         }
 
@@ -2146,6 +2195,11 @@
             currentView.value = 'dashboard';
             return;
           }
+          if (viewName === 'line_notify' && session.value.role !== 'admin' && session.value.role !== 'psychologist') {
+            alert("ขออภัย เฉพาะผู้ดูแลระบบ (Admin) และนักจิตวิทยา (Psychologist) เท่านั้นที่มีสิทธิ์เข้าถึงหน้าตั้งค่าและจัดการแจ้งเตือน LINE OA");
+            currentView.value = 'dashboard';
+            return;
+          }
           currentView.value = viewName;
           if (windowWidth.value <= 768) {
             closeMobileMenu();
@@ -2193,6 +2247,8 @@
             }
           } else if (viewName === 'monthly_report') {
             loadMonthlyReport();
+          } else if (viewName === 'line_notify') {
+            loadLineOaModule();
           }
         }
 
@@ -3409,13 +3465,13 @@
         function resetDefForm(cid) {
           Object.assign(defForm, {
             citizen_id: cid || '', title_name: 'นาย', first_name: '', last_name: '', nick_name: '',
-            gender: 'ชาย', birth_date: '', phone_number: '', line_id: '', occupation: '',
+            gender: 'ชาย', birth_date: '', phone_number: '', line_id: '', line_user_id: '', occupation: '',
             education_level: '', school: '',
             number_address: '', village_address: '', village_number_address: '', road_address: '',
             sub_district_address: '', district_address: '', province_address: '', postcode_address: '',
             address: '',
             medical_history: '', drug_history: '', interested: '',
-            guardian_name: '', relationship: 'บิดา', phone_number_guardian: '', parent_line_id: '', occupation_guardian: '',
+            guardian_name: '', relationship: 'บิดา', phone_number_guardian: '', parent_line_id: '', parent_line_user_id: '', occupation_guardian: '',
             psy_diagnosis: '', risk_assessment: 'มีความเสี่ยงในการกระทำผิดซ้ำต่ำ', counselor_note: ''
           });
         }
@@ -4994,23 +5050,317 @@
           return match ? match[0] : val;
         }
 
-        function openLineChat(rawVal) {
-          if (!rawVal) return;
-          const val = String(rawVal).trim();
-          if (!val || val === '-') return;
+        const filteredLineUpcomingList = computed(() => {
+          return lineOaUpcomingList.value.filter(item => {
+            if (item.daysUntil > lineUpcomingDaysRange.value) return false;
+            if (lineUpcomingTypeFilter.value !== 'all' && item.sourceType !== lineUpcomingTypeFilter.value) return false;
+            return true;
+          });
+        });
+
+        function loadLineOaModule(silent = false) {
+          if (!session.value || !session.value.token) return;
+          if (!silent) loading.value = true;
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                if (!silent) loading.value = false;
+                if (res && res.success) {
+                  if (res.config) {
+                    Object.assign(lineOaConfigForm, res.config);
+                    lineOaPublicConfig.oa_basic_id = res.config.oa_basic_id || '@012cryec';
+                    lineOaPublicConfig.oa_bot_id = res.config.oa_bot_id || '';
+                  }
+                  lineOaUpcomingList.value = res.upcomingItems || [];
+                  lineOaLogs.value = res.logs || [];
+                  lineOaContacts.value = res.contacts || [];
+                } else if (!silent) {
+                  alert(res ? res.message : 'ไม่สามารถโหลดข้อมูลระบบแจ้งเตือน LINE OA ได้');
+                }
+              })
+              .withFailureHandler((err) => {
+                if (!silent) loading.value = false;
+                console.error("Failed to load LINE OA module:", err);
+              })
+              .getLineOaModuleData(session.value.token);
+          } else {
+            if (!silent) loading.value = false;
+          }
+        }
+
+        function saveLineOaConfigSettings() {
+          if (!session.value || (session.value.role !== 'admin' && session.value.role !== 'psychologist')) {
+            alert("เฉพาะผู้ดูแลระบบ (Admin) และนักจิตวิทยา (Psychologist) เท่านั้นที่สามารถบันทึกการตั้งค่าได้");
+            return;
+          }
+          loading.value = true;
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res && res.success) {
+                  if (res.config) {
+                    Object.assign(lineOaConfigForm, res.config);
+                    lineOaPublicConfig.oa_basic_id = res.config.oa_basic_id || '@012cryec';
+                    lineOaPublicConfig.oa_bot_id = res.config.oa_bot_id || '';
+                  }
+                  loadLineOaModule(true);
+                  if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                      icon: 'success',
+                      title: 'บันทึกสำเร็จ',
+                      text: res.message || 'บันทึกการตั้งค่าระบบแจ้งเตือน LINE OA เรียบร้อยแล้ว',
+                      timer: 2000,
+                      showConfirmButton: false
+                    });
+                  } else {
+                    alert(res.message || 'บันทึกสำเร็จ');
+                  }
+                } else {
+                  alert(res ? res.message : 'บันทึกไม่สำเร็จ');
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
+              })
+              .saveLineOaSettings({ ...lineOaConfigForm }, session.value.token);
+          } else {
+            loading.value = false;
+            alert("บันทึกการตั้งค่าสำเร็จ (โหมดจำลอง)");
+          }
+        }
+
+        function openLinePreviewSendModal(item, targetType) {
+          linePreviewItem.sourceType = item.sourceType;
+          linePreviewItem.targetType = targetType;
+          linePreviewItem.targetLabel = targetType === 'parent' ? 'ผู้ปกครอง' : 'เยาวชน';
+          linePreviewItem.targetName = targetType === 'parent' ? (item.guardian_name || 'ผู้ปกครอง') : item.youth_name;
+          linePreviewItem.targetLineId = targetType === 'parent' ? item.parent_line_id : item.line_id;
+          linePreviewItem.targetUserId = targetType === 'parent' ? item.parent_line_user_id : item.line_user_id;
+          linePreviewItem.messageText = targetType === 'parent' ? item.parentMessage : item.youthMessage;
+          linePreviewItem.black_case = item.black_case;
+          linePreviewItem.citizen_id = item.citizen_id;
+          linePreviewItem.event_date = item.dateStr;
+          linePreviewModalActive.value = true;
+        }
+
+        function confirmSendLineReminder() {
+          if (!linePreviewItem.targetUserId) {
+            // หากยังไม่ได้ผูก LINE User ID ให้คัดลอกข้อความและเปิดหน้าแชท LINE OA แทน
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(linePreviewItem.messageText).catch(() => {});
+            }
+            openLineChat(linePreviewItem.targetLineId || 'แชท', linePreviewItem.targetUserId);
+            linePreviewModalActive.value = false;
+            return;
+          }
+          loading.value = true;
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res && res.success) {
+                  linePreviewModalActive.value = false;
+                  loadLineOaModule(true);
+                  if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                      icon: 'success',
+                      title: 'ส่ง LINE สำเร็จ!',
+                      text: res.message,
+                      timer: 2000,
+                      showConfirmButton: false
+                    });
+                  } else {
+                    alert(res.message);
+                  }
+                } else {
+                  alert(res ? res.message : 'ส่งข้อความไม่สำเร็จ');
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                alert("เกิดข้อผิดพลาดในการส่งข้อความ LINE OA");
+              })
+              .sendSingleLineReminder({ ...linePreviewItem }, session.value.token);
+          } else {
+            loading.value = false;
+            linePreviewModalActive.value = false;
+          }
+        }
+
+        function copyMessageAndOpenLineOa(item) {
+          const msg = item.youthMessage || '';
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(msg).catch(() => {});
+          }
+          const uid = item.line_user_id || item.parent_line_user_id || '';
+          const lid = item.line_id || item.parent_line_id || 'แชท';
+          openLineChat(lid, uid);
+        }
+
+        function triggerAutoLineCheckNow() {
+          loading.value = true;
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res && res.success) {
+                  loadLineOaModule(true);
+                  if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                      icon: 'info',
+                      title: 'ผลการตรวจสอบและส่งแจ้งเตือนอัตโนมัติ',
+                      text: res.message,
+                      confirmButtonColor: '#06C755'
+                    });
+                  } else {
+                    alert(res.message);
+                  }
+                } else {
+                  alert(res ? res.message : 'ไม่สามารถรันระบบตรวจสอบอัตโนมัติได้');
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
+              })
+              .runDailyLineNotifications(session.value.token, false);
+          } else {
+            loading.value = false;
+          }
+        }
+
+        function promptManualLinkContact(contact) {
+          lineLinkForm.lineUserId = contact.line_user_id;
+          lineLinkForm.displayName = contact.display_name || '';
+          lineLinkForm.citizenId = contact.linked_citizen_id || '';
+          lineLinkForm.targetType = contact.linked_role === 'parent' ? 'parent' : 'youth';
+          if (defendantsList.value.length === 0) {
+            loadDefendantsList(true);
+          }
+          lineLinkModalActive.value = true;
+        }
+
+        function submitManualLinkContact() {
+          if (!lineLinkForm.citizenId) {
+            alert("กรุณาเลือกเยาวชนที่ต้องการผูกกับบัญชี LINE นี้");
+            return;
+          }
+          loading.value = true;
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res && res.success) {
+                  lineLinkModalActive.value = false;
+                  loadLineOaModule(true);
+                  loadDefendantsList(true);
+                  if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                      icon: 'success',
+                      title: 'ผูกบัญชี LINE สำเร็จ',
+                      text: res.message,
+                      timer: 2000,
+                      showConfirmButton: false
+                    });
+                  } else {
+                    alert(res.message);
+                  }
+                } else {
+                  alert(res ? res.message : 'ผูกบัญชีไม่สำเร็จ');
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
+              })
+              .linkLineContactToDefendant(
+                lineLinkForm.lineUserId,
+                lineLinkForm.citizenId,
+                lineLinkForm.targetType,
+                lineLinkForm.displayName,
+                session.value.token
+              );
+          } else {
+            loading.value = false;
+            lineLinkModalActive.value = false;
+          }
+        }
+
+        function openLineChat(rawVal, rawUserId) {
+          if (!rawVal && !rawUserId) return;
+          const val = rawVal ? String(rawVal).trim() : '';
+          const uidParam = rawUserId ? String(rawUserId).trim() : '';
+          if ((!val || val === '-') && !uidParam) return;
 
           // ตรวจสอบว่าเป็นอุปกรณ์มือถือหรือไม่
           const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
           if (!isMobile) {
-            // บน PC: เปิดหน้าการจัดการแชทของ LINE Official Account ของศูนย์ฯ (@012cryec) ทันที
-            // คัดลอก LINE ID ลงใน Clipboard ให้เจ้าหน้าที่สะดวกในการค้นหาแชทได้ทันที
+            // บน PC: ตรวจสอบว่ามีลิงก์ห้องแชทโดยตรง หรือมี LINE User ID (U...) หรือไม่ เพื่อเปิดห้องสนทนา 1-ต่อ-1 ของคนนั้นใน LINE OA ทันที
+            const combined = uidParam + ' ' + val;
+
+            // 1. กรณีวางลิงก์ chat.line.biz/{botId}/chat/{userId} หรือ manager.line.biz/.../chat/{userId} ไว้โดยตรง
+            const fullChatUrlMatch = combined.match(/https?:\/\/(?:chat\.line\.biz|manager\.line\.biz)\/[^\s"']+/i);
+            if (fullChatUrlMatch) {
+              window.open(fullChatUrlMatch[0], '_blank', 'noopener,noreferrer');
+              return;
+            }
+
+            // 2. กรณีมีรหัส LINE User ID (U ตามด้วยเลขฐานสิบหก 32 หลัก) ทั้งจากช่อง line_user_id หรือช่อง line_id
+            let targetUserId = '';
+            const uidMatch = combined.match(/(U[0-9a-fA-F]{32})/);
+            if (uidMatch) {
+              targetUserId = uidMatch[1];
+            } else if (val && lineOaContacts.value && lineOaContacts.value.length > 0) {
+              // ค้นหาอัตโนมัติจากรายชื่อผู้ติดตาม LINE OA หากชื่อตรงกับไอดี/ชื่อไลน์ที่บันทึกไว้
+              const cleanLookup = val.replace(/^[@~]/, '').toLowerCase();
+              const matchedContact = lineOaContacts.value.find(c =>
+                (c.display_name && c.display_name.toLowerCase() === cleanLookup) ||
+                (c.linked_citizen_id && currentDef.value && c.linked_citizen_id === currentDef.value.citizen_id)
+              );
+              if (matchedContact && matchedContact.line_user_id) {
+                targetUserId = matchedContact.line_user_id;
+              }
+            }
+
+            const basicId = (lineOaPublicConfig.oa_basic_id || lineOaConfigForm.oa_basic_id || '@012cryec').trim();
+            const botId = (lineOaPublicConfig.oa_bot_id || lineOaConfigForm.oa_bot_id || '').trim();
+
             const cleanId = val.replace(/^[@~]/, '');
-            if (navigator.clipboard && navigator.clipboard.writeText) {
+            if (cleanId && navigator.clipboard && navigator.clipboard.writeText) {
               navigator.clipboard.writeText(cleanId).catch(() => {});
             }
-            const oaChatUrl = 'https://manager.line.biz/account/@012cryec/chat';
+
+            if (targetUserId) {
+              // เปิดเข้าสู่ห้องสนทนา 1-ต่อ-1 ของเยาวชน/ผู้ปกครองรายนั้นบน LINE OA Chat ทันที!
+              let directChatUrl = '';
+              if (botId && /^U[0-9a-fA-F]{32}$/.test(botId)) {
+                directChatUrl = `https://chat.line.biz/${botId}/chat/${targetUserId}`;
+              } else {
+                directChatUrl = `https://manager.line.biz/account/${encodeURIComponent(basicId)}/chat/${targetUserId}`;
+              }
+              window.open(directChatUrl, '_blank', 'noopener,noreferrer');
+              return;
+            }
+
+            // 3. กรณีเยาวชน/ผู้ปกครองรายนี้ยังไม่ได้ผูก LINE User ID (U...) กับ LINE OA (@012cryec):
+            // เปิดหน้าแชท LINE OA (@012cryec) พร้อมคัดลอกไอดีไว้ให้ค้นหา และแจ้งวิธีผูกห้องแชท 1-ต่อ-1 อัตโนมัติ
+            const oaChatUrl = `https://manager.line.biz/account/${encodeURIComponent(basicId)}/chat`;
             window.open(oaChatUrl, '_blank', 'noopener,noreferrer');
+            if (typeof Swal !== 'undefined' && cleanId) {
+              Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'info',
+                title: `คัดลอก "${cleanId}" แล้ว`,
+                html: `<div style="font-size:0.8rem;line-height:1.45;">กด <b>Ctrl+V</b> ในช่องค้นหาแชท LINE OA ได้เลย<br><span style="color:#06C755;">💡 ทิป: หากก๊อปปี้ลิงก์ห้องแชทจากแถบเว็บด้านบนของ LINE OA มาวางในช่อง "ลิงก์ห้องแชท LINE OA" ของประวัติเยาวชน ครั้งต่อไปคลิกปุ๊บจะเด้งเข้าห้องแชทของคนนี้โดยตรงทันที!</span></div>`,
+                showConfirmButton: false,
+                timer: 6500,
+                timerProgressBar: true
+              });
+            }
           } else {
             // บนโทรศัพท์มือถือ: เปิดแอป LINE โดยตรง
             let targetUrl = '';
@@ -5026,6 +5376,11 @@
 
         return {
           openLineChat,
+          lineNotifyTab, lineUpcomingDaysRange, lineUpcomingTypeFilter, lineOaUpcomingList, lineOaLogs, lineOaContacts,
+          lineOaPublicConfig, lineOaConfigForm, filteredLineUpcomingList,
+          linePreviewModalActive, linePreviewItem, lineLinkModalActive, lineLinkForm,
+          loadLineOaModule, saveLineOaConfigSettings, openLinePreviewSendModal, confirmSendLineReminder,
+          copyMessageAndOpenLineOa, triggerAutoLineCheckNow, promptManualLinkContact, submitManualLinkContact,
           showBackToTop, scrollToTop,
           session, currentView, authView, loading, errorMsg, cacheTime, isOffline, authAlert, adminProfileImage, isEditingProfile, cancelEditingProfile,
           searchId, searchDone, currentDef, linkedCases, newDefFormActive, usersList, counselorsList,
