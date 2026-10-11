@@ -899,6 +899,21 @@
                     <div><strong style="color: var(--text-muted);">เบอร์โทรศัพท์:</strong></div>
                     <div>{{ currentDef.phone_number || '-' }}</div>
 
+                    <div><strong style="color: var(--text-muted);">LINE:</strong></div>
+                    <div>
+                      <template v-if="currentDef.line_id && currentDef.line_id.trim() && currentDef.line_id.trim() !== '-'">
+                        <span @click="openLineChat(currentDef.line_id)"
+                              style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; color: #06C755; font-weight: 600; text-decoration: none;"
+                              title="คลิกเพื่อเปิดแอป LINE ทันที">
+                          <i class="fa-brands fa-line" style="font-size: 1.15rem; color: #06C755;"></i>
+                          <span>{{ currentDef.line_id }}</span>
+                        </span>
+                      </template>
+                      <template v-else>
+                        <span>-</span>
+                      </template>
+                    </div>
+
                     <div><strong style="color: var(--text-muted);">อาชีพ (ตำแหน่ง):</strong></div>
                     <div>{{ currentDef.occupation || '-' }}</div>
 
@@ -946,6 +961,21 @@
 
                     <div><strong style="color: var(--text-muted);">เบอร์โทรศัพท์ผู้ปกครอง:</strong></div>
                     <div>{{ currentDef.phone_number_guardian || '-' }}</div>
+
+                    <div><strong style="color: var(--text-muted);">LINE ผู้ปกครอง:</strong></div>
+                    <div>
+                      <template v-if="currentDef.parent_line_id && currentDef.parent_line_id.trim() && currentDef.parent_line_id.trim() !== '-'">
+                        <span @click="openLineChat(currentDef.parent_line_id)"
+                              style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; color: #06C755; font-weight: 600; text-decoration: none;"
+                              title="คลิกเพื่อเปิดแอป LINE ทันที">
+                          <i class="fa-brands fa-line" style="font-size: 1.15rem; color: #06C755;"></i>
+                          <span>{{ currentDef.parent_line_id }}</span>
+                        </span>
+                      </template>
+                      <template v-else>
+                        <span>-</span>
+                      </template>
+                    </div>
 
                     <div><strong style="color: var(--text-muted);">อาชีพผู้ปกครอง (ตำแหน่ง):</strong></div>
                     <div>{{ currentDef.occupation_guardian || '-' }}</div>
@@ -1119,6 +1149,11 @@
                 </div>
 
                 <div class="form-group">
+                  <label class="form-label">LINE ID (เด็ก/เยาวชน)</label>
+                  <input type="text" class="form-control" v-model="defForm.line_id" placeholder="ระบุ LINE ID หรือลิงก์ LINE">
+                </div>
+
+                <div class="form-group">
                   <label class="form-label">อาชีพ (ตำแหน่ง)</label>
                   <input type="text" class="form-control" v-model="defForm.occupation" placeholder="ระบุอาชีพของเยาวชน">
                 </div>
@@ -1212,6 +1247,11 @@
                   <div class="form-group">
                     <label class="form-label">เบอร์โทรศัพท์ผู้ปกครอง</label>
                     <input type="text" class="form-control" v-model="defForm.phone_number_guardian" placeholder="ระบุเบอร์โทรศัพท์ผู้ปกครอง">
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">LINE ID (ผู้ปกครอง)</label>
+                    <input type="text" class="form-control" v-model="defForm.parent_line_id" placeholder="ระบุ LINE ID หรือลิงก์ LINE">
                   </div>
 
                   <div class="form-group">
@@ -2930,7 +2970,12 @@
 
             <div class="form-group">
               <label class="form-label">เบอร์โทรศัพท์</label>
-              <input type="text" class="form-control" v-model="defForm.phone_number">
+              <input type="text" class="form-control" v-model="defForm.phone_number" placeholder="0899999999">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">LINE ID (เด็ก/เยาวชน)</label>
+              <input type="text" class="form-control" v-model="defForm.line_id" placeholder="ระบุ LINE ID หรือลิงก์ LINE">
             </div>
 
             <div class="form-group">
@@ -3028,6 +3073,11 @@
               <div class="form-group">
                 <label class="form-label">เบอร์โทรศัพท์ผู้ปกครอง</label>
                 <input type="text" class="form-control" v-model="defForm.phone_number_guardian" placeholder="ระบุเบอร์โทรศัพท์ผู้ปกครอง">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">LINE ID (ผู้ปกครอง)</label>
+                <input type="text" class="form-control" v-model="defForm.parent_line_id" placeholder="ระบุ LINE ID หรือลิงก์ LINE">
               </div>
 
               <div class="form-group">

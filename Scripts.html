@@ -967,13 +967,13 @@
         
         const defForm = reactive({
           citizen_id: '', title_name: 'นาย', first_name: '', last_name: '', nick_name: '',
-          gender: 'ชาย', birth_date: '', phone_number: '', occupation: '',
+          gender: 'ชาย', birth_date: '', phone_number: '', line_id: '', occupation: '',
           education_level: '', school: '',
           number_address: '', village_address: '', village_number_address: '', road_address: '',
           sub_district_address: '', district_address: '', province_address: '', postcode_address: '',
           address: '',
           medical_history: '', drug_history: '', interested: '',
-          guardian_name: '', relationship: '', phone_number_guardian: '', occupation_guardian: '',
+          guardian_name: '', relationship: '', phone_number_guardian: '', parent_line_id: '', occupation_guardian: '',
           psy_diagnosis: '', risk_assessment: 'มีความเสี่ยงในการกระทำผิดซ้ำต่ำ', counselor_note: ''
         });
 
@@ -3409,13 +3409,13 @@
         function resetDefForm(cid) {
           Object.assign(defForm, {
             citizen_id: cid || '', title_name: 'นาย', first_name: '', last_name: '', nick_name: '',
-            gender: 'ชาย', birth_date: '', phone_number: '', occupation: '',
+            gender: 'ชาย', birth_date: '', phone_number: '', line_id: '', occupation: '',
             education_level: '', school: '',
             number_address: '', village_address: '', village_number_address: '', road_address: '',
             sub_district_address: '', district_address: '', province_address: '', postcode_address: '',
             address: '',
             medical_history: '', drug_history: '', interested: '',
-            guardian_name: '', relationship: 'บิดา', phone_number_guardian: '', occupation_guardian: '',
+            guardian_name: '', relationship: 'บิดา', phone_number_guardian: '', parent_line_id: '', occupation_guardian: '',
             psy_diagnosis: '', risk_assessment: 'มีความเสี่ยงในการกระทำผิดซ้ำต่ำ', counselor_note: ''
           });
         }
@@ -4994,8 +4994,24 @@
           return match ? match[0] : val;
         }
 
+        function openLineChat(rawVal) {
+          if (!rawVal) return;
+          const val = String(rawVal).trim();
+          if (!val || val === '-') return;
+
+          let targetUrl = '';
+          if (val.startsWith('http://') || val.startsWith('https://') || val.startsWith('line://')) {
+            targetUrl = val;
+          } else {
+            // ตัดเครื่องหมาย @ หรือ ~ ข้างหน้าออกหากผู้ใช้พิมพ์ติดมา
+            const cleanId = val.replace(/^[@~]/, '');
+            targetUrl = 'https://line.me/ti/p/~' + encodeURIComponent(cleanId);
+          }
+          window.open(targetUrl, '_blank', 'noopener,noreferrer');
+        }
 
         return {
+          openLineChat,
           showBackToTop, scrollToTop,
           session, currentView, authView, loading, errorMsg, cacheTime, isOffline, authAlert, adminProfileImage, isEditingProfile, cancelEditingProfile,
           searchId, searchDone, currentDef, linkedCases, newDefFormActive, usersList, counselorsList,

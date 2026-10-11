@@ -1779,6 +1779,8 @@ function upsertDefendant(defData, token) {
       "guardian_name",
       "phone_number",
       "phone_number_guardian",
+      "line_id",
+      "parent_line_id",
       "occupation",
       "occupation_guardian",
       "medical_history",
@@ -1829,6 +1831,7 @@ function upsertDefendant(defData, token) {
     defRow.school = defData.school || "";
     defRow.occupation = defData.occupation || "";
     defRow.phone_number = defData.phone_number || "";
+    defRow.line_id = defData.line_id || "";
     
     defRow.number_address = defData.number_address || "";
     defRow.village_address = defData.village_address || "";
@@ -1845,6 +1848,7 @@ function upsertDefendant(defData, token) {
     defRow.guardian_name = defData.guardian_name || "";
     defRow.relationship = defData.relationship || "";
     defRow.phone_number_guardian = defData.phone_number_guardian || "";
+    defRow.parent_line_id = defData.parent_line_id || "";
     defRow.occupation_guardian = defData.occupation_guardian || "";
     defRow.updated_at = new Date().toISOString();
     defRow.psy_diagnosis = defData.psy_diagnosis || "";
