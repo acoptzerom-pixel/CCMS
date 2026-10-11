@@ -5210,7 +5210,17 @@
           }
           const uid = item.line_user_id || item.parent_line_user_id || '';
           const lid = item.line_id || item.parent_line_id || 'แชท';
-          openLineChat(lid, uid);
+          linePreviewModalActive.value = false;
+          openLineChat(lid, uid, {
+            citizen_id: item.citizen_id || '',
+            target_role: item.target_role === 'parent' ? 'ผู้ปกครอง' : 'เยาวชน',
+            black_case: item.black_case || ''
+          });
+          if (msg) {
+            setTimeout(() => {
+              lineDirectChatInput.value = msg;
+            }, 150);
+          }
         }
 
         function triggerAutoLineCheckNow() {
@@ -5426,15 +5436,15 @@
           if (searchHint && navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(searchHint).catch(() => {});
           }
-          const oaChatUrl = 'https://manager.line.biz/account/' + encodeURIComponent(basicId) + '/chat';
-          window.open(oaChatUrl, '_blank', 'noopener,noreferrer');
+          const oaManagerUrl = 'https://manager.line.biz/account/' + encodeURIComponent(basicId);
+          window.open(oaManagerUrl, '_blank', 'noopener,noreferrer');
           if (typeof Swal !== 'undefined' && searchHint) {
             Swal.fire({
               toast: true,
               position: 'top-end',
               icon: 'info',
               title: 'คัดลอกชื่อ "' + searchHint + '" แล้ว',
-              html: '<div style="font-size:0.8rem;line-height:1.45;">กด <b>Ctrl+V</b> ในช่องค้นหาของ LINE OA Manager ได้เลย (หากเปิดหน้าแชทไม่ได้ ให้ตั้งค่าโหมดตอบกลับเป็น <b>"แชท"</b> ใน LINE OA Manager ก่อน)</div>',
+              html: '<div style="font-size:0.8rem;line-height:1.45;">คลิกเมนู <b>"แชท (Chat)"</b> ด้านซ้ายมือของหน้า LINE OA Manager แล้วกด <b>Ctrl+V</b> ในช่องค้นหาได้เลย</div>',
               showConfirmButton: false,
               timer: 6000
             });
@@ -5473,34 +5483,15 @@
           const resolvedBlackCase = ctx.black_case || (linkedCases.value && linkedCases.value.length > 0 ? linkedCases.value[0].black_case : '');
           const resolvedDefName = currentDef.value ? currentDef.value.full_name : '';
 
-          // เปิดห้องสนทนา LINE OA แบบ 1-ต่อ-1 ในระบบทันทีเมื่อมี LINE User ID หรือมีเลขบัตรประชาชนของเยาวชน
-          if (targetUserId || resolvedCitizenId) {
-            openLineDirectChatModal({
-              line_user_id: targetUserId,
-              citizen_id: resolvedCitizenId,
-              target_role: resolvedRole,
-              black_case: resolvedBlackCase,
-              defendant_name: resolvedDefName,
-              line_id: val
-            });
-            return;
-          }
-
-          // กรณีไม่มีทั้ง LINE User ID และไม่มีเลขบัตรประชาชน
-          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-          if (!isMobile) {
-            const basicId = (lineOaPublicConfig.oa_basic_id || lineOaConfigForm.oa_basic_id || '@012cryec').trim();
-            const cleanId = val.replace(/^[@~]/, '');
-            if (cleanId && navigator.clipboard && navigator.clipboard.writeText) {
-              navigator.clipboard.writeText(cleanId).catch(() => {});
-            }
-            const oaChatUrl = 'https://manager.line.biz/account/' + encodeURIComponent(basicId) + '/chat';
-            window.open(oaChatUrl, '_blank', 'noopener,noreferrer');
-          } else {
-            const cleanId = val.replace(/^[@~]/, '');
-            const targetUrl = 'https://line.me/ti/p/~' + encodeURIComponent(cleanId);
-            window.open(targetUrl, '_blank', 'noopener,noreferrer');
-          }
+          // เปิดห้องสนทนา LINE OA แบบ 1-ต่อ-1 ในระบบทันที
+          openLineDirectChatModal({
+            line_user_id: targetUserId,
+            citizen_id: resolvedCitizenId,
+            target_role: resolvedRole,
+            black_case: resolvedBlackCase,
+            defendant_name: resolvedDefName,
+            line_id: val
+          });
         }
 
         return {
