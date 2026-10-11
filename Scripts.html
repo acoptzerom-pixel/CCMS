@@ -4999,15 +4999,29 @@
           const val = String(rawVal).trim();
           if (!val || val === '-') return;
 
-          let targetUrl = '';
-          if (val.startsWith('http://') || val.startsWith('https://') || val.startsWith('line://')) {
-            targetUrl = val;
-          } else {
-            // ตัดเครื่องหมาย @ หรือ ~ ข้างหน้าออกหากผู้ใช้พิมพ์ติดมา
+          // ตรวจสอบว่าเป็นอุปกรณ์มือถือหรือไม่
+          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+          if (!isMobile) {
+            // บน PC: เปิดหน้าการจัดการแชทของ LINE Official Account ของศูนย์ฯ (@012cryec) ทันที
+            // คัดลอก LINE ID ลงใน Clipboard ให้เจ้าหน้าที่สะดวกในการค้นหาแชทได้ทันที
             const cleanId = val.replace(/^[@~]/, '');
-            targetUrl = 'https://line.me/ti/p/~' + encodeURIComponent(cleanId);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(cleanId).catch(() => {});
+            }
+            const oaChatUrl = 'https://manager.line.biz/account/@012cryec/chat';
+            window.open(oaChatUrl, '_blank', 'noopener,noreferrer');
+          } else {
+            // บนโทรศัพท์มือถือ: เปิดแอป LINE โดยตรง
+            let targetUrl = '';
+            if (val.startsWith('http://') || val.startsWith('https://') || val.startsWith('line://')) {
+              targetUrl = val;
+            } else {
+              const cleanId = val.replace(/^[@~]/, '');
+              targetUrl = 'https://line.me/ti/p/~' + encodeURIComponent(cleanId);
+            }
+            window.open(targetUrl, '_blank', 'noopener,noreferrer');
           }
-          window.open(targetUrl, '_blank', 'noopener,noreferrer');
         }
 
         return {
