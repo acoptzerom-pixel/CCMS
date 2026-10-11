@@ -2857,7 +2857,7 @@
               <div style="font-size: 0.85rem; color: var(--text-muted);">
                 <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 99px; background: rgba(6, 199, 85, 0.1); color: #06C755; font-weight: 600;">
                   <i class="fa-solid fa-robot"></i>
-                  สถานะส่งอัตโนมัติ: {{ lineOaConfigForm.auto_send_enabled === 'true' ? 'เปิดทำงาน (แจ้งเตือนล่วงหน้า ' + lineOaConfigForm.days_before_notify + ' วัน)' : 'ปิดใช้งาน' }}
+                  สถานะส่งอัตโนมัติ: {{ lineOaConfigForm.auto_send_enabled === 'true' ? 'เปิดทำงาน เวลา 08.00 น. (ก่อนวันนัด 1 สัปดาห์, 1 วัน และในวันนัด | ยกเว้นนัดเก็บข้อมูลเบื้องต้น)' : 'ปิดใช้งาน' }}
                 </span>
               </div>
             </div>
@@ -2967,17 +2967,17 @@
             <form @submit.prevent="saveLineOaConfigSettings">
               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 25px; background: rgba(6, 199, 85, 0.04); border: 1px solid rgba(6, 199, 85, 0.2); padding: 20px; border-radius: 16px;">
                 <div class="form-group" style="margin-bottom: 0;">
-                  <label class="form-label" style="font-weight: 700;">สถานะการส่งแจ้งเตือนอัตโนมัติประจำวัน</label>
+                  <label class="form-label" style="font-weight: 700;">สถานะการส่งแจ้งเตือนอัตโนมัติประจำวัน (เวลา 08.00 น.)</label>
                   <select class="form-control" v-model="lineOaConfigForm.auto_send_enabled">
-                    <option value="true">🟢 เปิดใช้งาน (ส่งข้อความแจ้งเตือนอัตโนมัติ)</option>
+                    <option value="true">🟢 เปิดใช้งาน (ส่งข้อความแจ้งเตือนอัตโนมัติ เวลา 08.00 น. วันละ 1 ครั้ง)</option>
                     <option value="false">🔴 ปิดใช้งานชั่วคราว</option>
                   </select>
                 </div>
 
                 <div class="form-group" style="margin-bottom: 0;">
-                  <label class="form-label" style="font-weight: 700;">ส่งแจ้งเตือนล่วงหน้ากี่วันก่อนถึงวันนัด (คั่นด้วยลูกน้ำ ,)</label>
-                  <input type="text" class="form-control" v-model="lineOaConfigForm.days_before_notify" placeholder="เช่น 1,3 (หมายถึงเตือนล่วงหน้า 3 วัน และ 1 วัน)">
-                  <small style="color: var(--text-muted); font-size: 0.78rem;">ตัวอย่าง: ใส่ <code>1,3</code> ระบบจะส่งเตือนเมื่อเหลืออีก 3 วัน และอีก 1 วันก่อนวันนัด (ใส่ <code>0</code> หากต้องการให้เตือนในเช้าวันนัดด้วย)</small>
+                  <label class="form-label" style="font-weight: 700;">รอบวันแจ้งเตือนอัตโนมัติ เวลา 08.00 น. (คั่นด้วยลูกน้ำ ,)</label>
+                  <input type="text" class="form-control" v-model="lineOaConfigForm.days_before_notify" placeholder="0,1,7 (ในวันนัด, ก่อนวันนัด 1 วัน, ก่อนวันนัด 1 สัปดาห์)">
+                  <small style="color: var(--text-muted); font-size: 0.78rem;">ค่ามาตรฐาน: <code>0,1,7</code> (<code>7</code> = ก่อนวันนัด 1 สัปดาห์, <code>1</code> = ก่อนวันนัด 1 วัน, <code>0</code> = ในวันนัดหมาย ส่งเวลา 08.00 น. รอบละ 1 ครั้งเท่านั้น และยกเว้นนัด <code>เก็บข้อมูลเบื้องต้น</code>)</small>
                 </div>
               </div>
 

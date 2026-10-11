@@ -17,6 +17,18 @@ function authorizeLineOaPermissions() {
 }
 
 /**
+ * ฟังก์ชันสำหรับตั้งเวลา Trigger รายวัน เวลา 08.00 น. (ส่งแจ้งเตือนก่อนวันนัด 1 สัปดาห์, 1 วัน และในวันนัดหมาย)
+ */
+function runScheduledLineNotificationsAt8AM() {
+  var cfg = getLineConfigMap();
+  if (cfg.auto_send_enabled !== "true") return;
+  var todayIso = Utilities.formatDate(new Date(), "GMT+7", "yyyy-MM-dd");
+  var lastRunIso = formatDateAsIso(cfg.last_auto_run_date) || (cfg.last_auto_run_date || "").toString().trim();
+  if (lastRunIso === todayIso) return;
+  runDailyLineNotifications(null);
+}
+
+/**
  * เสิร์ฟหน้าเว็บแอปแรกแรกเริ่มรันระบบ
  */
 function doGet(e) {
@@ -3738,7 +3750,7 @@ function getDefaultLineConfig() {
     channel_access_token: "",
     channel_secret: "",
     auto_send_enabled: "true",
-    days_before_notify: "1,3",
+    days_before_notify: "0,1,7",
     appointment_template: "📌 แจ้งเตือนวันนัดหมาย ศูนย์ให้คำปรึกษาฯ\n" +
       "เรียน เยาวชน {defendant_name} และผู้ปกครอง ({guardian_name})\n" +
       "เลขคดี: {black_case}\n" +
@@ -3794,6 +3806,23 @@ function getLineConfigMap() {
       existingKeys[keyStr] = true;
       if (r.config_value !== undefined && r.config_value !== null && r.config_value !== "") {
         if (keyStr === "oa_bot_id" && (r.updated_by === "webhook" || r.updated_by === "line_api" || r.config_value.toString().trim() === "Uc26f8cd9efde3d463307945a2077ff3f")) {
+          continue;
+        }
+        if (keyStr === "last_auto_run_date") {
+          map[keyStr] = formatDateAsIso(r.config_value) || r.config_value.toString().trim();
+          continue;
+        }
+        if (keyStr === "days_before_notify" && r.config_value.toString().trim() === "1,3") {
+          map[keyStr] = "0,1,7";
+          try {
+            updateRowInSheet("tb_line_config", r.rowNum, {
+              config_key: "days_before_notify",
+              config_value: "0,1,7",
+              updated_at: new Date().toISOString(),
+              updated_by: "system"
+            });
+            clearSheetCache("tb_line_config");
+          } catch (ignoreUpdateErr) {}
           continue;
         }
         map[keyStr] = r.config_value.toString();
@@ -4240,14 +4269,24 @@ function buildLineReminderItems(daysAheadLimit, cfgMap) {
   
   // 3. สร้าง Map ตรวจสอบประวัติการส่งของวันนี้และประวัติการส่งทั้งหมดสำหรับรายการนั้น
   var sentTodayMap = {};
+  var sentTodayByUidMap = {};
   var everSentMap = {};
   for (var i = 0; i < logs.length; i++) {
     var lg = logs[i];
     if (lg.status === "สำเร็จ") {
-      var itemKey = (lg.notify_type || "") + "|" + normalizeBlackCaseKey(lg.black_case) + "|" + (lg.target_date || "") + "|" + (lg.recipient_role || "");
-      everSentMap[itemKey] = lg.sent_at || lg.sent_date || "ส่งแล้ว";
-      if (lg.sent_date === todayIso) {
+      var lgSentDateIso = formatDateAsIso(lg.sent_date) || (lg.sent_date ? lg.sent_date.toString().trim() : "");
+      var lgTargetDateIso = formatDateAsIso(lg.target_date) || (lg.target_date ? lg.target_date.toString().trim() : "");
+      var lgSentAtStr = (lg.sent_at instanceof Date)
+        ? Utilities.formatDate(lg.sent_at, "GMT+7", "yyyy-MM-dd HH:mm:ss")
+        : (lg.sent_at || lgSentDateIso || "ส่งแล้ว").toString();
+      var itemKey = (lg.notify_type || "") + "|" + normalizeBlackCaseKey(lg.black_case) + "|" + lgTargetDateIso + "|" + (lg.recipient_role || "");
+      everSentMap[itemKey] = lgSentAtStr;
+      if (lgSentDateIso === todayIso) {
         sentTodayMap[itemKey] = true;
+        var lgUid = (lg.line_user_id || "").toString().trim();
+        if (lgUid && lgTargetDateIso) {
+          sentTodayByUidMap[lgUid + "|" + lgTargetDateIso] = true;
+        }
       }
     }
   }
@@ -4256,6 +4295,25 @@ function buildLineReminderItems(daysAheadLimit, cfgMap) {
   if (isNaN(maxDays)) maxDays = 30;
   
   var items = [];
+  var seenEntryMap = {};
+  var skipCaseDateMap = {};
+  
+  // ตรวจสอบรายการใน tb_appointment ที่ appointment_reason เท่ากับ "เก็บข้อมูลเบื้องต้น" เพื่อยกเว้นการแจ้งเตือนในวันนั้นๆ
+  for (var sIdx = 0; sIdx < appointments.length; sIdx++) {
+    var apCheck = appointments[sIdx];
+    if (!apCheck.black_case || !apCheck.appointment_date) continue;
+    var rCheck = safeStr(apCheck.appointment_reason).replace(/\s+/g, "");
+    if (rCheck === "เก็บข้อมูลเบื้องต้น") {
+      var dCheck = normalizeSheetDate(apCheck.appointment_date);
+      if (dCheck) {
+        var dCheckIso = Utilities.formatDate(dCheck, "GMT+7", "yyyy-MM-dd");
+        var bcNormCheck = normalizeBlackCaseKey(apCheck.black_case);
+        if (bcNormCheck && dCheckIso) {
+          skipCaseDateMap[bcNormCheck + "|" + dCheckIso] = true;
+        }
+      }
+    }
+  }
   
   // Helper สร้างข้อมูลผู้รับและข้อความ
   function createReminderEntry(type, bcRaw, targetDateObj, titleText, subTitleText, extraVars) {
@@ -4264,11 +4322,21 @@ function buildLineReminderItems(daysAheadLimit, cfgMap) {
     dCopy.setHours(0, 0, 0, 0);
     var diffDays = Math.round((dCopy.getTime() - todayMs) / 86400000);
     
-    // แสดงตั้งแต่วันนี้ (diffDays >= 0) ไปจนถึง maxDays ข้างหน้า
+    // แสดงตั้งแต่วันนี้ (diffDays >= 0) ไปจนถึง maxDays ข้างหน้า (หากผ่านวันที่ต้องแจ้งเตือนมาแล้วไม่ต้องแจ้งเตือนอีก)
     if (diffDays < 0 || diffDays > maxDays) return;
     
     var exactKey = bcRaw.toString().trim().replace(/\s+/g, "").toLowerCase();
     var normKey = normalizeBlackCaseKey(bcRaw);
+    var targetDateIso = Utilities.formatDate(dCopy, "GMT+7", "yyyy-MM-dd");
+    
+    // หากวันนั้นของคดีนี้เป็นนัด "เก็บข้อมูลเบื้องต้น" ไม่ต้องทำการแจ้งเตือนข้อความในวันนั้นๆ
+    if (skipCaseDateMap[normKey + "|" + targetDateIso]) return;
+    
+    // ป้องกันการสร้างรายการแจ้งเตือนซ้ำซ้อนในวันเดียวกันของคดีเดียวกัน
+    var uniqueEntryKey = type + "|" + normKey + "|" + targetDateIso;
+    if (seenEntryMap[uniqueEntryKey]) return;
+    seenEntryMap[uniqueEntryKey] = true;
+    
     var matchedCase = caseMap[exactKey] || caseMap[normKey] || null;
     var cid = matchedCase ? cleanCitizenId(matchedCase.citizen_id) : "";
     var matchedDef = cid ? (defMap[cid] || null) : null;
@@ -4288,8 +4356,11 @@ function buildLineReminderItems(daysAheadLimit, cfgMap) {
       parentLineUserId = parentLineId;
     }
     
-    var daysLabel = diffDays === 0 ? "วันนี้" : (diffDays === 1 ? "พรุ่งนี้ (อีก 1 วัน)" : "อีก " + diffDays + " วัน");
-    var targetDateIso = Utilities.formatDate(dCopy, "GMT+7", "yyyy-MM-dd");
+    var daysLabel = diffDays === 0
+      ? "วันนี้ (วันนัดหมาย)"
+      : (diffDays === 1
+          ? "พรุ่งนี้ (ล่วงหน้า 1 วัน)"
+          : (diffDays === 7 ? "ล่วงหน้า 1 สัปดาห์ (7 วัน)" : "อีก " + diffDays + " วัน"));
     
     var templateVars = {
       black_case: bcRaw.toString().trim(),
@@ -4315,6 +4386,8 @@ function buildLineReminderItems(daysAheadLimit, cfgMap) {
     
     var youthKey = type + "|" + normKey + "|" + targetDateIso + "|เยาวชน";
     var parentKey = type + "|" + normKey + "|" + targetDateIso + "|ผู้ปกครอง";
+    var youthSentToday = !!sentTodayMap[youthKey] || !!(lineUserId && sentTodayByUidMap[lineUserId + "|" + targetDateIso]);
+    var parentSentToday = !!sentTodayMap[parentKey] || !!(parentLineUserId && sentTodayByUidMap[parentLineUserId + "|" + targetDateIso]);
     
     items.push({
       id: type + "_" + normKey + "_" + targetDateIso + "_" + items.length,
@@ -4336,8 +4409,8 @@ function buildLineReminderItems(daysAheadLimit, cfgMap) {
       parent_line_user_id: parentLineUserId,
       line_chat_url: matchedDef ? (matchedDef.line_chat_url || "").toString().trim() : "",
       parent_line_chat_url: matchedDef ? (matchedDef.parent_line_chat_url || "").toString().trim() : "",
-      youth_sent_today: !!sentTodayMap[youthKey],
-      parent_sent_today: !!sentTodayMap[parentKey],
+      youth_sent_today: youthSentToday,
+      parent_sent_today: parentSentToday,
       youth_last_sent: everSentMap[youthKey] || "",
       parent_last_sent: everSentMap[parentKey] || "",
       message_text: renderedMsg
@@ -4352,6 +4425,8 @@ function buildLineReminderItems(daysAheadLimit, cfgMap) {
     if (!apDate) continue;
     var apTimeStr = safeStr(ap.appointment_time) || "-";
     var apReasonStr = safeStr(ap.appointment_reason) || "นัดหมายตามกำหนด";
+    // กรณีที่ appointment_reason เท่ากับ "เก็บข้อมูลเบื้องต้น" ไม่ต้องทำการแจ้งเตือนข้อความในวันนั้นๆ
+    if (apReasonStr.replace(/\s+/g, "") === "เก็บข้อมูลเบื้องต้น") continue;
     var apCounselorStr = safeStr(ap.appointment_counselor);
     
     createReminderEntry(
@@ -4566,7 +4641,6 @@ function sendSingleLineReminder(itemData, token) {
     
     var sentCount = 0;
     var errors = [];
-    var senderLabel = (userSession.fullName || userSession.username || "เจ้าหน้าที่") + " (แจ้งเตือนนัดหมาย)";
     
     for (var i = 0; i < targets.length; i++) {
       var t = targets[i];
@@ -4612,11 +4686,16 @@ function sendSingleLineReminder(itemData, token) {
 }
 
 /**
- * ฟังก์ชันรันการส่งแจ้งเตือนอัตโนมัติประจำวัน (เรียกใช้จาก Time-driven Trigger หรือกดปุ่มรันตรวจสอบทันที)
+ * ฟังก์ชันรันการส่งแจ้งเตือนอัตโนมัติประจำวัน เวลา 08.00 น.
+ * เงื่อนไข:
+ * 1. แจ้งเตือนเฉพาะ: ก่อนวันนัด 1 สัปดาห์ (7 วัน), ก่อนวันนัด 1 วัน (1 วัน), และในวันนัดหมาย (0 วัน)
+ * 2. ส่งเพียง 1 ครั้งต่อรอบเวลา 08.00 น. หากผ่านวันที่ต้องแจ้งเตือนหรือเลยเวลา 08.00 น. ของวันนั้นมาแล้วจะไม่ส่งย้อนหลัง
+ * 3. ยกเว้นรายการที่ appointment_reason เท่ากับ "เก็บข้อมูลเบื้องต้น"
  */
 function runDailyLineNotifications(token) {
-  // หากเรียกผ่านหน้าเว็บ จะมี token มาด้วย ให้ตรวจสิทธิ์เฉพาะ admin หรือ psychologist
+  var isManualTrigger = false;
   if (token && typeof token === "string") {
+    isManualTrigger = true;
     var userSession = verifySessionToken(token);
     if (!userSession || (userSession.role !== "admin" && userSession.role !== "psychologist")) {
       return { success: false, message: "เฉพาะแอดมินและนักจิตวิทยาเท่านั้นที่สามารถสั่งรันระบบแจ้งเตือนได้" };
@@ -4630,8 +4709,8 @@ function runDailyLineNotifications(token) {
       return { success: false, message: "ยังไม่ได้ตั้งค่า Channel Access Token ในระบบ" };
     }
     
-    // แปลงค่า days_before_notify เช่น "1,3" -> [1, 3]
-    var daysStr = (cfg.days_before_notify || "1,3").toString();
+    // แปลงค่า days_before_notify เช่น "0,1,7" -> { 0: true, 1: true, 7: true }
+    var daysStr = (cfg.days_before_notify || "0,1,7").toString();
     var dayParts = daysStr.split(",");
     var targetDaysMap = {};
     var maxDay = 7;
@@ -4643,22 +4722,47 @@ function runDailyLineNotifications(token) {
       }
     }
     
-    var items = buildLineReminderItems(maxDay + 2, cfg);
     var now = new Date();
     var todayIso = Utilities.formatDate(now, "GMT+7", "yyyy-MM-dd");
     var nowTimeStr = Utilities.formatDate(now, "GMT+7", "yyyy-MM-dd HH:mm:ss");
     
+    // ตรวจสอบเวลาที่ผูกบัญชีใน tb_line_contacts: หากผูกบัญชีในวันนี้หลังเวลา 08.00 น. (เกิน 08:05 น.)
+    // ในโหมดอัตโนมัติจะไม่ส่งแจ้งเตือนของวันนี้ย้อนหลัง (รอส่งรอบ 08.00 น. ของวันนัดถัดไปแทน)
+    var linkedAfter8AmTodayMap = {};
+    if (!isManualTrigger) {
+      try {
+        var contacts = getSheetData("tb_line_contacts");
+        for (var cIdx = 0; cIdx < contacts.length; cIdx++) {
+          var ct = contacts[cIdx];
+          var ctUid = (ct.line_user_id || "").toString().trim();
+          if (!ctUid || !ct.updated_at) continue;
+          var ctDate = (ct.updated_at instanceof Date) ? ct.updated_at : new Date(ct.updated_at);
+          if (!isNaN(ctDate.getTime())) {
+            var ctDateIso = Utilities.formatDate(ctDate, "GMT+7", "yyyy-MM-dd");
+            var ctTimeHm = Utilities.formatDate(ctDate, "GMT+7", "HH:mm");
+            if (ctDateIso === todayIso && ctTimeHm > "08:05") {
+              linkedAfter8AmTodayMap[ctUid] = true;
+            }
+          }
+        }
+      } catch (ignoreCtErr) {}
+    }
+    
+    var items = buildLineReminderItems(maxDay + 2, cfg);
     var totalSent = 0;
     var totalMatched = 0;
     var failMessages = [];
+    var sentInThisRunMap = {};
     
     for (var i = 0; i < items.length; i++) {
       var item = items[i];
       if (!targetDaysMap[item.diff_days]) continue;
       totalMatched++;
       
-      // ส่งหาเยาวชน (ถ้ามี line_user_id และวันนี้ยังไม่ได้ส่ง)
-      if (item.line_user_id && !item.youth_sent_today) {
+      // ส่งหาเยาวชน (ถ้ามี line_user_id และวันนี้ยังไม่ได้ส่ง และไม่ได้เพิ่งผูกหลัง 08.00 น. ของวันนี้)
+      var yBatchKey = item.line_user_id + "|" + item.target_date_iso;
+      if (item.line_user_id && !item.youth_sent_today && !sentInThisRunMap[yBatchKey] && !linkedAfter8AmTodayMap[item.line_user_id]) {
+        sentInThisRunMap[yBatchKey] = true;
         var resY = sendLinePushMessage(item.line_user_id, item.message_text, accessToken);
         appendRowToSheet("tb_line_logs", {
           log_id: "AUTO-" + now.getTime() + "-Y" + i,
@@ -4682,8 +4786,10 @@ function runDailyLineNotifications(token) {
         }
       }
       
-      // ส่งหาผู้ปกครอง (ถ้ามี parent_line_user_id และวันนี้ยังไม่ได้ส่ง)
-      if (item.parent_line_user_id && !item.parent_sent_today) {
+      // ส่งหาผู้ปกครอง (ถ้ามี parent_line_user_id และวันนี้ยังไม่ได้ส่ง และไม่ได้เพิ่งผูกหลัง 08.00 น. ของวันนี้)
+      var pBatchKey = item.parent_line_user_id + "|" + item.target_date_iso;
+      if (item.parent_line_user_id && !item.parent_sent_today && !sentInThisRunMap[pBatchKey] && !linkedAfter8AmTodayMap[item.parent_line_user_id]) {
+        sentInThisRunMap[pBatchKey] = true;
         var resP = sendLinePushMessage(item.parent_line_user_id, item.message_text, accessToken);
         appendRowToSheet("tb_line_logs", {
           log_id: "AUTO-" + now.getTime() + "-P" + i,
@@ -4714,7 +4820,7 @@ function runDailyLineNotifications(token) {
     var failSuffix = failMessages.length > 0 ? (" | ส่งไม่สำเร็จ " + failMessages.length + " รายการ (" + failMessages[0] + ")") : "";
     return {
       success: failMessages.length === 0 || totalSent > 0,
-      message: "ตรวจสอบนัดหมายตามเกณฑ์ล่วงหน้า (" + daysStr + " วัน) พบ " + totalMatched + " รายการ | ส่งข้อความแจ้งเตือนสำเร็จ " + totalSent + " ข้อความ" + failSuffix,
+      message: "ตรวจสอบนัดหมายตามเกณฑ์ (ล่วงหน้า " + daysStr + " วัน ยกเว้นนัดเก็บข้อมูลเบื้องต้น) พบ " + totalMatched + " รายการ | ส่งข้อความแจ้งเตือนสำเร็จ " + totalSent + " ข้อความ" + failSuffix,
       totalSent: totalSent,
       totalMatched: totalMatched
     };
@@ -4724,15 +4830,29 @@ function runDailyLineNotifications(token) {
 }
 
 /**
- * ตรวจสอบและรันการส่งแจ้งเตือนอัตโนมัติวันละ 1 ครั้งเมื่อมีการเข้าใช้งานระบบ
+ * ตรวจสอบและรันการส่งแจ้งเตือนอัตโนมัติวันละ 1 ครั้ง เฉพาะเวลา 08.00 น. เท่านั้น
+ * หากเลยช่วงเวลา 08.00 น. ไปแล้ว จะไม่ส่งข้อความย้อนหลังในวันนั้น
  */
 function checkAndRunDailyLineNotificationsAuto(cfgMap) {
   var cfg = cfgMap || getLineConfigMap();
   if (cfg.auto_send_enabled !== "true") return;
   if (!cfg.channel_access_token || cfg.channel_access_token.toString().trim() === "") return;
   
-  var todayIso = Utilities.formatDate(new Date(), "GMT+7", "yyyy-MM-dd");
-  if (cfg.last_auto_run_date === todayIso) return; // รันของวันนี้ไปแล้ว
+  var now = new Date();
+  var todayIso = Utilities.formatDate(now, "GMT+7", "yyyy-MM-dd");
+  var lastRunIso = formatDateAsIso(cfg.last_auto_run_date) || (cfg.last_auto_run_date || "").toString().trim();
+  if (lastRunIso === todayIso) return; // รันหรือข้ามของวันนี้ไปแล้ว
+  
+  var currentHour = parseInt(Utilities.formatDate(now, "GMT+7", "HH"), 10);
+  if (currentHour < 8) {
+    // ยังไม่ถึงเวลา 08.00 น. ให้รอจนถึงเวลา 08.00 น.
+    return;
+  }
+  if (currentHour > 8) {
+    // เลยเวลา 08.00 น. ของวันนี้มาแล้ว ไม่ต้องทำการแจ้งเตือนย้อนหลังในวันนี้ (รอแจ้งเตือนรอบ 08.00 น. ของวันถัดไป)
+    saveSingleLineConfigValue("last_auto_run_date", todayIso, "skip_past_8am");
+    return;
+  }
   
   runDailyLineNotifications(null);
 }
