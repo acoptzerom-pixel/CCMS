@@ -1783,6 +1783,8 @@ function upsertDefendant(defData, token) {
       "parent_line_id",
       "line_user_id",
       "parent_line_user_id",
+      "line_chat_url",
+      "parent_line_chat_url",
       "occupation",
       "occupation_guardian",
       "medical_history",
@@ -1835,14 +1837,16 @@ function upsertDefendant(defData, token) {
     defRow.phone_number = defData.phone_number || "";
     defRow.line_id = defData.line_id || "";
     defRow.line_user_id = defData.line_user_id !== undefined ? defData.line_user_id : (defRow.line_user_id || "");
+    defRow.line_chat_url = defData.line_chat_url !== undefined ? (defData.line_chat_url || "").toString().trim() : (defRow.line_chat_url || "");
     
-    // สกัดรหัส LINE User ID (U...) และ Bot ID อัตโนมัติหากวางลิงก์จาก chat.line.biz
-    var parsedYouthLine = parseLineChatInput(defRow.line_user_id || defRow.line_id);
-    if (parsedYouthLine.userId) {
-      defRow.line_user_id = parsedYouthLine.userId;
+    // หากวางลิงก์ chat.line.biz ไว้ในช่อง line_user_id ให้ย้ายไปเก็บที่ line_chat_url (ไม่ทับรหัส Messaging API ที่ใช้ส่งแจ้งเตือน)
+    if (/chat\.line\.biz\//i.test((defRow.line_user_id || "").toString())) {
+      if (!defRow.line_chat_url) defRow.line_chat_url = defRow.line_user_id.toString().trim();
+      defRow.line_user_id = existingDef ? (existingDef.line_user_id && !/chat\.line\.biz\//i.test(existingDef.line_user_id.toString()) ? existingDef.line_user_id : "") : "";
     }
-    if (parsedYouthLine.botId) {
-      saveSingleLineConfigValue("oa_bot_id", parsedYouthLine.botId);
+    var parsedYouthChat = parseLineChatInput(defRow.line_chat_url);
+    if (parsedYouthChat.botId) {
+      saveSingleLineConfigValue("oa_bot_id", parsedYouthChat.botId, "chat_url");
     }
     
     defRow.number_address = defData.number_address || "";
@@ -1862,13 +1866,15 @@ function upsertDefendant(defData, token) {
     defRow.phone_number_guardian = defData.phone_number_guardian || "";
     defRow.parent_line_id = defData.parent_line_id || "";
     defRow.parent_line_user_id = defData.parent_line_user_id !== undefined ? defData.parent_line_user_id : (defRow.parent_line_user_id || "");
+    defRow.parent_line_chat_url = defData.parent_line_chat_url !== undefined ? (defData.parent_line_chat_url || "").toString().trim() : (defRow.parent_line_chat_url || "");
     
-    var parsedParentLine = parseLineChatInput(defRow.parent_line_user_id || defRow.parent_line_id);
-    if (parsedParentLine.userId) {
-      defRow.parent_line_user_id = parsedParentLine.userId;
+    if (/chat\.line\.biz\//i.test((defRow.parent_line_user_id || "").toString())) {
+      if (!defRow.parent_line_chat_url) defRow.parent_line_chat_url = defRow.parent_line_user_id.toString().trim();
+      defRow.parent_line_user_id = existingDef ? (existingDef.parent_line_user_id && !/chat\.line\.biz\//i.test(existingDef.parent_line_user_id.toString()) ? existingDef.parent_line_user_id : "") : "";
     }
-    if (parsedParentLine.botId) {
-      saveSingleLineConfigValue("oa_bot_id", parsedParentLine.botId);
+    var parsedParentChat = parseLineChatInput(defRow.parent_line_chat_url);
+    if (parsedParentChat.botId) {
+      saveSingleLineConfigValue("oa_bot_id", parsedParentChat.botId, "chat_url");
     }
     
     defRow.occupation_guardian = defData.occupation_guardian || "";
@@ -3718,7 +3724,7 @@ function getOrCreateSheet(sheetName, headers) {
 function getDefaultLineConfig() {
   return {
     oa_basic_id: "@012cryec",
-    oa_bot_id: "Uc26f8cd9efde3d463307945a2077ff3f",
+    oa_bot_id: "",
     channel_access_token: "",
     channel_secret: "",
     auto_send_enabled: "true",
@@ -3770,6 +3776,9 @@ function getLineConfigMap() {
       var keyStr = r.config_key.toString().trim();
       existingKeys[keyStr] = true;
       if (r.config_value !== undefined && r.config_value !== null && r.config_value !== "") {
+        if (keyStr === "oa_bot_id" && (r.updated_by === "webhook" || r.updated_by === "line_api" || r.config_value.toString().trim() === "Uc26f8cd9efde3d463307945a2077ff3f")) {
+          continue;
+        }
         map[keyStr] = r.config_value.toString();
       }
     }
@@ -4347,6 +4356,8 @@ function buildLineReminderItems(daysAheadLimit, cfgMap) {
       line_user_id: lineUserId,
       parent_line_id: parentLineId,
       parent_line_user_id: parentLineUserId,
+      line_chat_url: matchedDef ? (matchedDef.line_chat_url || "").toString().trim() : "",
+      parent_line_chat_url: matchedDef ? (matchedDef.parent_line_chat_url || "").toString().trim() : "",
       youth_sent_today: !!sentTodayMap[youthKey],
       parent_sent_today: !!sentTodayMap[parentKey],
       youth_last_sent: everSentMap[youthKey] || "",
@@ -4503,9 +4514,6 @@ function saveLineOaSettings(newConfig, token) {
       if (botInfo) {
         if (botInfo.basicId) {
           saveSingleLineConfigValue("oa_basic_id", botInfo.basicId, "line_api");
-        }
-        if (botInfo.userId && (!newConfig.oa_bot_id || newConfig.oa_bot_id.toString().trim() === "")) {
-          saveSingleLineConfigValue("oa_bot_id", botInfo.userId, "line_api");
         }
         botInfoMsg = " (เชื่อมต่อกับบัญชี LINE OA: " + (botInfo.displayName || botInfo.basicId || "") + " สำเร็จ!)";
       }
@@ -4768,7 +4776,7 @@ function linkLineContactToDefendant(payload, token) {
       return { success: false, message: "กรุณาระบุเลขบัตรประชาชนของเยาวชนและบัญชี LINE ที่ต้องการผูก" };
     }
     
-    ensureColumnsExist("tb_defendants", ["line_id", "parent_line_id", "line_user_id", "parent_line_user_id"]);
+    ensureColumnsExist("tb_defendants", ["line_id", "parent_line_id", "line_user_id", "parent_line_user_id", "line_chat_url", "parent_line_chat_url"]);
     var defendants = getSheetData("tb_defendants");
     var foundDef = null;
     for (var i = 0; i < defendants.length; i++) {
@@ -4787,16 +4795,24 @@ function linkLineContactToDefendant(payload, token) {
       if (foundDef.hasOwnProperty(k)) rowCopy[k] = foundDef[k];
     }
     
+    var chatUrl = (payload.chat_url || "").toString().trim();
     if (targetRole === "parent") {
       rowCopy.parent_line_user_id = lineUserId;
+      if (chatUrl) rowCopy.parent_line_chat_url = chatUrl;
       if (displayName && (!rowCopy.parent_line_id || rowCopy.parent_line_id === "-")) {
         rowCopy.parent_line_id = displayName;
       }
     } else {
       rowCopy.line_user_id = lineUserId;
+      if (chatUrl) rowCopy.line_chat_url = chatUrl;
       if (displayName && (!rowCopy.line_id || rowCopy.line_id === "-")) {
         rowCopy.line_id = displayName;
       }
+    }
+    
+    var parsedChat = parseLineChatInput(chatUrl);
+    if (parsedChat.botId) {
+      saveSingleLineConfigValue("oa_bot_id", parsedChat.botId, "chat_url");
     }
     
     updateRowInSheet("tb_defendants", foundDef.rowNum, rowCopy);
@@ -4809,6 +4825,57 @@ function linkLineContactToDefendant(payload, token) {
     };
   } catch (e) {
     return { success: false, message: "เกิดข้อผิดพลาดในการผูกบัญชี: " + e.toString() };
+  }
+}
+
+/**
+ * บันทึกลิงก์ห้องแชท chat.line.biz ของเยาวชนหรือผู้ปกครองโดยตรง
+ */
+function saveDefendantLineChatUrl(payload, token) {
+  var userSession = verifySessionToken(token);
+  if (!userSession) return { success: false, message: "สิทธิ์ล็อกอินหมดอายุ" };
+  try {
+    var cid = cleanCitizenId(payload && payload.citizen_id);
+    var chatUrl = (payload && payload.chat_url ? payload.chat_url : "").toString().trim();
+    var targetRole = (payload && payload.target_role) ? payload.target_role.toString().trim() : "เยาวชน";
+    if (!cid || !chatUrl) {
+      return { success: false, message: "กรุณาวางลิงก์จากหน้าแชท chat.line.biz" };
+    }
+    ensureColumnsExist("tb_defendants", ["line_id", "parent_line_id", "line_user_id", "parent_line_user_id", "line_chat_url", "parent_line_chat_url"]);
+    var defendants = getSheetData("tb_defendants");
+    var foundDef = null;
+    for (var i = 0; i < defendants.length; i++) {
+      if (cleanCitizenId(defendants[i].citizen_id) === cid) {
+        foundDef = defendants[i];
+        break;
+      }
+    }
+    if (!foundDef) {
+      return { success: false, message: "ไม่พบข้อมูลเยาวชนเลขบัตรประชาชน " + cid };
+    }
+    var rowCopy = {};
+    for (var k in foundDef) {
+      if (foundDef.hasOwnProperty(k)) rowCopy[k] = foundDef[k];
+    }
+    var isParent = (targetRole === "parent" || targetRole === "ผู้ปกครอง");
+    if (isParent) {
+      rowCopy.parent_line_chat_url = chatUrl;
+    } else {
+      rowCopy.line_chat_url = chatUrl;
+    }
+    var parsedChat = parseLineChatInput(chatUrl);
+    if (parsedChat.botId && parsedChat.botId !== "Uc26f8cd9efde3d463307945a2077ff3f") {
+      saveSingleLineConfigValue("oa_bot_id", parsedChat.botId, "chat_url");
+    }
+    updateRowInSheet("tb_defendants", foundDef.rowNum, rowCopy);
+    return {
+      success: true,
+      chat_url: chatUrl,
+      oa_bot_id: parsedChat.botId || "",
+      message: "บันทึกลิงก์ห้องแชท LINE OA เรียบร้อยแล้ว ครั้งต่อไปคลิกที่ไอดีไลน์จะเปิดห้องแชทนี้ทันที"
+    };
+  } catch (e) {
+    return { success: false, message: "เกิดข้อผิดพลาด: " + e.toString() };
   }
 }
 

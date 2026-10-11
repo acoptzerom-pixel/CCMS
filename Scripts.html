@@ -969,13 +969,13 @@
         
         const defForm = reactive({
           citizen_id: '', title_name: 'นาย', first_name: '', last_name: '', nick_name: '',
-          gender: 'ชาย', birth_date: '', phone_number: '', line_id: '', line_user_id: '', occupation: '',
+          gender: 'ชาย', birth_date: '', phone_number: '', line_id: '', line_user_id: '', line_chat_url: '', occupation: '',
           education_level: '', school: '',
           number_address: '', village_address: '', village_number_address: '', road_address: '',
           sub_district_address: '', district_address: '', province_address: '', postcode_address: '',
           address: '',
           medical_history: '', drug_history: '', interested: '',
-          guardian_name: '', relationship: '', phone_number_guardian: '', parent_line_id: '', parent_line_user_id: '', occupation_guardian: '',
+          guardian_name: '', relationship: '', phone_number_guardian: '', parent_line_id: '', parent_line_user_id: '', parent_line_chat_url: '', occupation_guardian: '',
           psy_diagnosis: '', risk_assessment: 'มีความเสี่ยงในการกระทำผิดซ้ำต่ำ', counselor_note: ''
         });
 
@@ -998,11 +998,11 @@
         const lineOaContacts = ref([]);
         const lineOaPublicConfig = reactive({
           oa_basic_id: '@012cryec',
-          oa_bot_id: 'Uc26f8cd9efde3d463307945a2077ff3f'
+          oa_bot_id: ''
         });
         const lineOaConfigForm = reactive({
           oa_basic_id: '@012cryec',
-          oa_bot_id: 'Uc26f8cd9efde3d463307945a2077ff3f',
+          oa_bot_id: '',
           channel_access_token: '',
           channel_secret: '',
           auto_send_enabled: 'true',
@@ -3488,13 +3488,13 @@
         function resetDefForm(cid) {
           Object.assign(defForm, {
             citizen_id: cid || '', title_name: 'นาย', first_name: '', last_name: '', nick_name: '',
-            gender: 'ชาย', birth_date: '', phone_number: '', line_id: '', line_user_id: '', occupation: '',
+            gender: 'ชาย', birth_date: '', phone_number: '', line_id: '', line_user_id: '', line_chat_url: '', occupation: '',
             education_level: '', school: '',
             number_address: '', village_address: '', village_number_address: '', road_address: '',
             sub_district_address: '', district_address: '', province_address: '', postcode_address: '',
             address: '',
             medical_history: '', drug_history: '', interested: '',
-            guardian_name: '', relationship: 'บิดา', phone_number_guardian: '', parent_line_id: '', parent_line_user_id: '', occupation_guardian: '',
+            guardian_name: '', relationship: 'บิดา', phone_number_guardian: '', parent_line_id: '', parent_line_user_id: '', parent_line_chat_url: '', occupation_guardian: '',
             psy_diagnosis: '', risk_assessment: 'มีความเสี่ยงในการกระทำผิดซ้ำต่ำ', counselor_note: ''
           });
         }
@@ -5214,13 +5214,9 @@
           openLineChat(lid, uid, {
             citizen_id: item.citizen_id || '',
             target_role: item.target_role === 'parent' ? 'ผู้ปกครอง' : 'เยาวชน',
-            black_case: item.black_case || ''
+            black_case: item.black_case || '',
+            chat_url: item.line_chat_url || item.parent_line_chat_url || ''
           });
-          if (msg) {
-            setTimeout(() => {
-              lineDirectChatInput.value = msg;
-            }, 150);
-          }
         }
 
         function triggerAutoLineCheckNow() {
@@ -5471,46 +5467,84 @@
             return;
           }
 
-          const combined = uidParam + ' ' + val;
+          const resolvedCitizenId = ctx.citizen_id || (currentDef.value ? currentDef.value.citizen_id : '');
+          const resolvedRole = ctx.target_role || 'เยาวชน';
+          const isParentRole = (resolvedRole === 'parent' || resolvedRole === 'ผู้ปกครอง');
+          const savedChatUrl = ctx.chat_url || (currentDef.value ? (isParentRole ? currentDef.value.parent_line_chat_url : currentDef.value.line_chat_url) : '');
 
-          // 1. กรณีวางลิงก์ chat.line.biz/... ไว้โดยตรง
+          const combined = (savedChatUrl || '') + ' ' + uidParam + ' ' + val;
+
+          // 1. ใช้ลิงก์ห้องแชท chat.line.biz ที่คัดลอกมาจากหน้าเว็บ LINE OA จริง (ถูกต้อง 100%)
           const fullChatUrlMatch = combined.match(/https?:\/\/chat\.line\.biz\/[^\s"']+/i);
           if (fullChatUrlMatch) {
             window.open(fullChatUrlMatch[0], '_blank', 'noopener,noreferrer');
             return;
           }
 
-          // 2. ดึงรหัส LINE User ID (U ตามด้วยเลขฐานสิบหก 32 หลัก) ของเยาวชน/ผู้ปกครอง
-          let targetUserId = '';
-          const allUidMatches = combined.match(/U[0-9a-fA-F]{32}/g);
-          if (allUidMatches && allUidMatches.length > 0) {
-            targetUserId = allUidMatches[allUidMatches.length - 1];
-          } else if (lineOaContacts.value && lineOaContacts.value.length > 0) {
-            const cleanLookup = val.replace(/^[@~]/, '').toLowerCase();
-            const resolvedCitizenId = ctx.citizen_id || (currentDef.value ? currentDef.value.citizen_id : '');
-            const matchedContact = lineOaContacts.value.find(c =>
-              (cleanLookup && c.display_name && c.display_name.toLowerCase() === cleanLookup) ||
-              (resolvedCitizenId && c.linked_citizen_id && String(c.linked_citizen_id) === String(resolvedCitizenId))
-            );
-            if (matchedContact && matchedContact.line_user_id) {
-              targetUserId = matchedContact.line_user_id;
-            }
-          }
-
-          const botId = (lineOaPublicConfig.oa_bot_id || lineOaConfigForm.oa_bot_id || 'Uc26f8cd9efde3d463307945a2077ff3f').trim();
+          // 2. ยังไม่มีลิงก์ห้องแชท: เปิดหน้ารายการแชทของ LINE OA แล้วคัดลอกชื่อไว้ให้ค้นหา พร้อมช่องวางลิงก์ห้องแชทได้ทันที
+          const botId = (lineOaPublicConfig.oa_bot_id || lineOaConfigForm.oa_bot_id || '').trim();
+          const inboxUrl = (/^U[0-9a-fA-F]{32}$/.test(botId) && botId !== 'Uc26f8cd9efde3d463307945a2077ff3f')
+            ? ('https://chat.line.biz/' + botId)
+            : 'https://chat.line.biz/';
           const cleanId = val.replace(/^[@~]/, '');
-          if (cleanId && navigator.clipboard && navigator.clipboard.writeText) {
+          if (cleanId && cleanId !== '-' && navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(cleanId).catch(() => {});
           }
+          window.open(inboxUrl, '_blank', 'noopener,noreferrer');
 
-          if (targetUserId) {
-            // เปิดหน้าสนทนา 1-ต่อ-1 ของเยาวชน/ผู้ปกครองรายนั้นบนเว็บไซต์ LINE OA Chat (chat.line.biz) ทันที
-            const directChatUrl = 'https://chat.line.biz/' + botId + '/chat/' + targetUserId;
-            window.open(directChatUrl, '_blank', 'noopener,noreferrer');
-          } else {
-            // กรณีรายนี้ยังไม่ได้ผูก LINE User ID ให้เปิดหน้าแชทหลักของบัญชี LINE OA บนเว็บไซต์ chat.line.biz
-            const oaChatInboxUrl = 'https://chat.line.biz/' + botId;
-            window.open(oaChatInboxUrl, '_blank', 'noopener,noreferrer');
+          if (typeof Swal !== 'undefined' && resolvedCitizenId) {
+            Swal.fire({
+              icon: 'info',
+              title: 'ผูกทางลัดห้องแชท LINE OA (ทำครั้งเดียว)',
+              html: '<div style="text-align:left;font-size:0.86rem;line-height:1.6;">' +
+                    'เนื่องจากรหัสของระบบแจ้งเตือน (Messaging API) เป็นคนละรหัสกับลิงก์หน้าเว็บ <b>chat.line.biz</b> จึงต้องคัดลอกลิงก์ห้องแชทจริงมาวาง 1 ครั้ง:<br><br>' +
+                    '1. ในหน้า <b>LINE OA Chat</b> ที่เพิ่งเปิดขึ้น ให้คลิกเข้าห้องแชทของ <b>' + (cleanId || 'บุคคลนี้') + '</b>' + (cleanId ? ' <span style="color:#06C755;">(คัดลอกชื่อไว้แล้ว กด Ctrl+V ค้นหาได้เลย)</span>' : '') + '<br>' +
+                    '2. คัดลอกลิงก์จาก <b>แถบที่อยู่เว็บ (Address bar) ด้านบนสุด</b><br>' +
+                    '3. นำมาวางในช่องด้านล่างนี้แล้วกดบันทึก (ครั้งต่อไปคลิกปุ๊บจะเปิดห้องแชทของคนนี้ทันที)</div>',
+              input: 'text',
+              inputPlaceholder: 'วางลิงก์ https://chat.line.biz/... ที่นี่',
+              showCancelButton: true,
+              confirmButtonColor: '#06C755',
+              confirmButtonText: 'บันทึกลิงก์ห้องแชท',
+              cancelButtonText: 'ปิดหน้าต่างนี้'
+            }).then((result) => {
+              if (result.isConfirmed && result.value && result.value.trim()) {
+                const pastedUrl = result.value.trim();
+                if (typeof google !== 'undefined' && google.script && google.script.run && session.value && session.value.token) {
+                  google.script.run
+                    .withSuccessHandler((res) => {
+                      if (res && res.success) {
+                        if (currentDef.value && String(currentDef.value.citizen_id) === String(resolvedCitizenId)) {
+                          if (isParentRole) {
+                            currentDef.value.parent_line_chat_url = res.chat_url;
+                          } else {
+                            currentDef.value.line_chat_url = res.chat_url;
+                          }
+                        }
+                        if (res.oa_bot_id) {
+                          lineOaPublicConfig.oa_bot_id = res.oa_bot_id;
+                          lineOaConfigForm.oa_bot_id = res.oa_bot_id;
+                        }
+                        loadLineOaModule(true);
+                        Swal.fire({
+                          icon: 'success',
+                          title: 'บันทึกลิงก์ห้องแชทสำเร็จ!',
+                          text: 'ครั้งต่อไปเมื่อคลิกที่ไอดีไลน์ ระบบจะเปิดหน้าแชทของคนนี้โดยตรงทันที',
+                          timer: 2200,
+                          showConfirmButton: false
+                        });
+                      } else {
+                        alert(res ? res.message : 'ไม่สามารถบันทึกลิงก์ได้');
+                      }
+                    })
+                    .saveDefendantLineChatUrl({
+                      citizen_id: resolvedCitizenId,
+                      target_role: resolvedRole,
+                      chat_url: pastedUrl
+                    }, session.value.token);
+                }
+              }
+            });
           }
         }
 
