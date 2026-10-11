@@ -5144,6 +5144,36 @@
           linePreviewModalActive.value = true;
         }
 
+        function handleLineAuthErrorIfNeeded(msg) {
+          const text = (msg || '').toString();
+          if (text.indexOf('UrlFetchApp.fetch') !== -1 || text.indexOf('script.external_request') !== -1) {
+            const scriptEditorUrl = 'https://script.google.com/home/projects/1uqMKZv-lGcHkPMUbltjOOc6k1l1TqB5VurzzlHDxS_z_UXPhK09pU5IO/edit';
+            if (typeof Swal !== 'undefined') {
+              Swal.fire({
+                icon: 'warning',
+                title: 'ต้องกด "อนุญาตสิทธิ์" ใน Google Apps Script 1 ครั้ง',
+                html: '<div style="text-align:left;font-size:0.88rem;line-height:1.65;">' +
+                      'เนื่องจากระบบเพิ่มความสามารถเชื่อมต่อกับเซิร์ฟเวอร์ LINE (<code>UrlFetchApp</code>) ทาง Google จึงบังคับให้เจ้าของบัญชีต้องกดยืนยันอนุญาตสิทธิ์ด้วยตนเอง <b>เพียง 1 ครั้ง</b>:<br><br>' +
+                      '1. คลิกปุ่ม <b>"เปิดหน้า Google Apps Script"</b> ด้านล่าง<br>' +
+                      '2. ที่แถบเมนูด้านบน ให้คลิกปุ่ม <b>"▷ เรียกใช้ (Run)"</b> (ฟังก์ชัน <code>authorizeLineOaPermissions</code> จะถูกเลือกไว้ให้แล้ว)<br>' +
+                      '3. คลิก <b>"ตรวจสอบสิทธิ์ (Review permissions)"</b> &rarr; เลือกบัญชี Google ของคุณ<br>' +
+                      '4. หากขึ้นหน้าเตือน ให้คลิก <b>"ขั้นสูง (Advanced)"</b> &rarr; <b>"ไปที่ ... (ไม่ปลอดภัย)"</b> &rarr; คลิก <b>"อนุญาต (Allow)"</b><br>' +
+                      '5. กลับมาหน้านี้แล้วกดส่งข้อความได้เลยครับ!</div>',
+                showCancelButton: true,
+                confirmButtonColor: '#06C755',
+                confirmButtonText: 'เปิดหน้า Google Apps Script',
+                cancelButtonText: 'ปิด'
+              }).then((result) => {
+                if (result.isConfirmed) {
+                  window.open(scriptEditorUrl, '_blank', 'noopener,noreferrer');
+                }
+              });
+              return true;
+            }
+          }
+          return false;
+        }
+
         function confirmSendLineReminder() {
           if (!linePreviewItem.line_user_id && !linePreviewItem.parent_line_user_id) {
             // หากยังไม่ได้ผูก LINE User ID ให้คัดลอกข้อความและเปิดหน้าแชท LINE OA แทน
@@ -5171,7 +5201,10 @@
                     alert(res.message);
                   }
                 } else {
-                  alert(res ? res.message : 'ส่งข้อความไม่สำเร็จ');
+                  const errMsg = res ? res.message : 'ส่งข้อความไม่สำเร็จ';
+                  if (!handleLineAuthErrorIfNeeded(errMsg)) {
+                    alert(errMsg);
+                  }
                 }
               })
               .withFailureHandler((err) => {
@@ -5207,8 +5240,11 @@
             google.script.run
               .withSuccessHandler((res) => {
                 loading.value = false;
+                loadLineOaModule(true);
+                if (res && res.message && handleLineAuthErrorIfNeeded(res.message)) {
+                  return;
+                }
                 if (res && res.success) {
-                  loadLineOaModule(true);
                   if (typeof Swal !== 'undefined') {
                     Swal.fire({
                       icon: 'info',

@@ -7,6 +7,16 @@ var SPREADSHEET_ID = "1-D1Dpin3KTuH9oV1-cUyEDXuJ15gKaHi6z6K6MIYMBU";
 var SYSTEM_SECRET = "ccms_super_secure_secret_system_key_2026_rayong";
 
 /**
+ * ฟังก์ชันสำหรับกดปุ่ม "▷ เรียกใช้ (Run)" ในหน้า Google Apps Script เพียง 1 ครั้ง
+ * เพื่ออนุญาตสิทธิ์เชื่อมต่อภายนอก (UrlFetchApp / LINE Messaging API)
+ */
+function authorizeLineOaPermissions() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var res = UrlFetchApp.fetch("https://api.line.me/v2/bot/info", { muteHttpExceptions: true });
+  Logger.log("✅ อนุญาตสิทธิ์ UrlFetchApp และ SpreadsheetApp สำเร็จ! (HTTP Status: " + res.getResponseCode() + ", Sheet: " + ss.getName() + ")");
+}
+
+/**
  * เสิร์ฟหน้าเว็บแอปแรกแรกเริ่มรันระบบ
  */
 function doGet(e) {
@@ -4578,7 +4588,6 @@ function sendSingleLineReminder(itemData, token) {
       });
       if (pushRes.success) {
         sentCount++;
-        appendLineChatMessage(t.uid, "out", senderLabel, msgText, itemData.black_case || "", itemData.citizen_id || "");
       } else {
         errors.push(t.role + ": " + pushRes.message);
       }
@@ -4641,6 +4650,7 @@ function runDailyLineNotifications(token) {
     
     var totalSent = 0;
     var totalMatched = 0;
+    var failMessages = [];
     
     for (var i = 0; i < items.length; i++) {
       var item = items[i];
@@ -4667,7 +4677,8 @@ function runDailyLineNotifications(token) {
         });
         if (resY.success) {
           totalSent++;
-          appendLineChatMessage(item.line_user_id, "out", "ระบบแจ้งเตือนอัตโนมัติ (@012cryec)", item.message_text, item.black_case, item.citizen_id);
+        } else {
+          failMessages.push(resY.message);
         }
       }
       
@@ -4691,7 +4702,8 @@ function runDailyLineNotifications(token) {
         });
         if (resP.success) {
           totalSent++;
-          appendLineChatMessage(item.parent_line_user_id, "out", "ระบบแจ้งเตือนอัตโนมัติ (@012cryec)", item.message_text, item.black_case, item.citizen_id);
+        } else {
+          failMessages.push(resP.message);
         }
       }
     }
@@ -4699,9 +4711,10 @@ function runDailyLineNotifications(token) {
     clearSheetCache("tb_line_logs");
     saveSingleLineConfigValue("last_auto_run_date", todayIso, "auto_scheduler");
     
+    var failSuffix = failMessages.length > 0 ? (" | ส่งไม่สำเร็จ " + failMessages.length + " รายการ (" + failMessages[0] + ")") : "";
     return {
-      success: true,
-      message: "ตรวจสอบนัดหมายตามเกณฑ์ล่วงหน้า (" + daysStr + " วัน) พบ " + totalMatched + " รายการ | ส่งข้อความแจ้งเตือนสำเร็จ " + totalSent + " ข้อความ",
+      success: failMessages.length === 0 || totalSent > 0,
+      message: "ตรวจสอบนัดหมายตามเกณฑ์ล่วงหน้า (" + daysStr + " วัน) พบ " + totalMatched + " รายการ | ส่งข้อความแจ้งเตือนสำเร็จ " + totalSent + " ข้อความ" + failSuffix,
       totalSent: totalSent,
       totalMatched: totalMatched
     };
