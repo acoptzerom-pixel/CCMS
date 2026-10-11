@@ -1036,24 +1036,6 @@
           citizen_id: '',
           target_role: 'youth'
         });
-        const lineDirectChatModalActive = ref(false);
-        const lineDirectChatLoading = ref(false);
-        const lineDirectChatSending = ref(false);
-        const lineDirectChatInput = ref('');
-        const lineDirectChatMessages = ref([]);
-        const lineDirectChatRoom = reactive({
-          line_user_id: '',
-          citizen_id: '',
-          target_role: 'youth',
-          defendant_name: '',
-          guardian_name: '',
-          black_case: '',
-          line_id: '',
-          display_name: '',
-          picture_url: '',
-          is_linked: false
-        });
-        let lineDirectChatPollTimer = null;
 
         // Charts handles
         let comparisonChart = null;
@@ -5299,154 +5281,6 @@
           }
         }
 
-        function scrollLineDirectChatToBottom() {
-          setTimeout(() => {
-            const chatEl = document.getElementById('line-direct-chat-body');
-            if (chatEl) {
-              chatEl.scrollTop = chatEl.scrollHeight;
-            }
-          }, 80);
-        }
-
-        function closeLineDirectChatModal() {
-          lineDirectChatModalActive.value = false;
-          if (lineDirectChatPollTimer) {
-            clearInterval(lineDirectChatPollTimer);
-            lineDirectChatPollTimer = null;
-          }
-        }
-
-        function refreshLineDirectChatRoom(scrollToEnd) {
-          if (!session.value || !session.value.token) return;
-          if (typeof google === 'undefined' || !google.script || !google.script.run) return;
-
-          lineDirectChatLoading.value = true;
-          const payload = {
-            line_user_id: lineDirectChatRoom.line_user_id || '',
-            citizen_id: lineDirectChatRoom.citizen_id || '',
-            target_role: lineDirectChatRoom.target_role || 'youth',
-            black_case: lineDirectChatRoom.black_case || ''
-          };
-
-          google.script.run
-            .withSuccessHandler((res) => {
-              lineDirectChatLoading.value = false;
-              if (res && res.status === 'success' && res.room) {
-                lineDirectChatRoom.line_user_id = res.room.line_user_id || lineDirectChatRoom.line_user_id || '';
-                lineDirectChatRoom.citizen_id = res.room.citizen_id || lineDirectChatRoom.citizen_id || '';
-                lineDirectChatRoom.target_role = res.room.target_role || lineDirectChatRoom.target_role || 'youth';
-                lineDirectChatRoom.defendant_name = res.room.defendant_name || lineDirectChatRoom.defendant_name || '';
-                lineDirectChatRoom.guardian_name = res.room.guardian_name || lineDirectChatRoom.guardian_name || '';
-                lineDirectChatRoom.black_case = res.room.black_case || lineDirectChatRoom.black_case || '';
-                lineDirectChatRoom.line_id = res.room.line_id || lineDirectChatRoom.line_id || '';
-                lineDirectChatRoom.display_name = res.room.display_name || lineDirectChatRoom.display_name || '';
-                lineDirectChatRoom.picture_url = res.room.picture_url || lineDirectChatRoom.picture_url || '';
-                lineDirectChatRoom.is_linked = !!res.room.is_linked;
-
-                const prevLen = lineDirectChatMessages.value.length;
-                lineDirectChatMessages.value = Array.isArray(res.messages) ? res.messages : [];
-                if (scrollToEnd || lineDirectChatMessages.value.length !== prevLen) {
-                  scrollLineDirectChatToBottom();
-                }
-              }
-            })
-            .withFailureHandler(() => {
-              lineDirectChatLoading.value = false;
-            })
-            .getLineDirectChatRoomData(payload, session.value.token);
-        }
-
-        function openLineDirectChatModal(params) {
-          const p = params || {};
-          lineDirectChatRoom.line_user_id = p.line_user_id || '';
-          lineDirectChatRoom.citizen_id = p.citizen_id || '';
-          lineDirectChatRoom.target_role = p.target_role || 'youth';
-          lineDirectChatRoom.defendant_name = p.defendant_name || '';
-          lineDirectChatRoom.guardian_name = p.guardian_name || '';
-          lineDirectChatRoom.black_case = p.black_case || '';
-          lineDirectChatRoom.line_id = p.line_id || '';
-          lineDirectChatRoom.display_name = p.display_name || '';
-          lineDirectChatRoom.picture_url = p.picture_url || '';
-          lineDirectChatRoom.is_linked = !!(p.line_user_id && /^U[0-9a-fA-F]{32}$/.test(p.line_user_id));
-          lineDirectChatMessages.value = [];
-          lineDirectChatInput.value = '';
-          lineDirectChatModalActive.value = true;
-
-          refreshLineDirectChatRoom(true);
-
-          if (lineDirectChatPollTimer) {
-            clearInterval(lineDirectChatPollTimer);
-          }
-          lineDirectChatPollTimer = setInterval(() => {
-            if (lineDirectChatModalActive.value && !lineDirectChatSending.value) {
-              refreshLineDirectChatRoom(false);
-            }
-          }, 6000);
-        }
-
-        function insertQuickChatText(text) {
-          if (!text) return;
-          lineDirectChatInput.value = text;
-        }
-
-        function sendLineDirectChatMsg() {
-          const msgText = (lineDirectChatInput.value || '').trim();
-          if (!msgText || !lineDirectChatRoom.is_linked || lineDirectChatSending.value) return;
-          if (!session.value || !session.value.token) return;
-
-          lineDirectChatSending.value = true;
-          const payload = {
-            line_user_id: lineDirectChatRoom.line_user_id,
-            citizen_id: lineDirectChatRoom.citizen_id,
-            target_role: lineDirectChatRoom.target_role,
-            black_case: lineDirectChatRoom.black_case,
-            defendant_name: lineDirectChatRoom.defendant_name,
-            message_text: msgText
-          };
-
-          google.script.run
-            .withSuccessHandler((res) => {
-              lineDirectChatSending.value = false;
-              if (res && res.status === 'success') {
-                lineDirectChatInput.value = '';
-                if (res.sent_message) {
-                  lineDirectChatMessages.value.push(res.sent_message);
-                  scrollLineDirectChatToBottom();
-                } else {
-                  refreshLineDirectChatRoom(true);
-                }
-              } else {
-                alert((res && res.message) ? res.message : 'ไม่สามารถส่งข้อความได้');
-              }
-            })
-            .withFailureHandler(() => {
-              lineDirectChatSending.value = false;
-              alert('เกิดข้อผิดพลาดในการส่งข้อความ LINE OA');
-            })
-            .sendLineDirectChatMessage(payload, session.value.token);
-        }
-
-        function openExternalLineOaManagerFromChat() {
-          const basicId = (lineOaPublicConfig.oa_basic_id || lineOaConfigForm.oa_basic_id || '@012cryec').trim();
-          const searchHint = (lineDirectChatRoom.display_name || lineDirectChatRoom.line_id || lineDirectChatRoom.defendant_name || '').replace(/^[@~]/, '').trim();
-          if (searchHint && navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(searchHint).catch(() => {});
-          }
-          const oaManagerUrl = 'https://manager.line.biz/account/' + encodeURIComponent(basicId);
-          window.open(oaManagerUrl, '_blank', 'noopener,noreferrer');
-          if (typeof Swal !== 'undefined' && searchHint) {
-            Swal.fire({
-              toast: true,
-              position: 'top-end',
-              icon: 'info',
-              title: 'คัดลอกชื่อ "' + searchHint + '" แล้ว',
-              html: '<div style="font-size:0.8rem;line-height:1.45;">คลิกเมนู <b>"แชท (Chat)"</b> ด้านซ้ายมือของหน้า LINE OA Manager แล้วกด <b>Ctrl+V</b> ในช่องค้นหาได้เลย</div>',
-              showConfirmButton: false,
-              timer: 6000
-            });
-          }
-        }
-
         function openLineChat(rawVal, rawUserId, contextObj) {
           const val = rawVal ? String(rawVal).trim() : '';
           const uidParam = rawUserId ? String(rawUserId).trim() : '';
@@ -5550,8 +5384,6 @@
 
         return {
           openLineChat,
-          lineDirectChatModalActive, lineDirectChatLoading, lineDirectChatSending, lineDirectChatInput, lineDirectChatRoom, lineDirectChatMessages,
-          openLineDirectChatModal, closeLineDirectChatModal, refreshLineDirectChatRoom, sendLineDirectChatMsg, insertQuickChatText, openExternalLineOaManagerFromChat,
           lineNotifyTab, lineUpcomingDaysRange, lineUpcomingTypeFilter, lineOaUpcomingList, lineOaLogs, lineOaContacts,
           lineOaPublicConfig, lineOaConfigForm, filteredLineUpcomingList,
           linePreviewModalActive, linePreviewItem, lineLinkModalActive, lineLinkForm,
