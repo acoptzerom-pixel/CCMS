@@ -909,16 +909,17 @@
                     <div>
                       <template v-if="(currentDef.line_id && currentDef.line_id.trim() && currentDef.line_id.trim() !== '-') || (currentDef.line_user_id && currentDef.line_user_id.trim())">
                         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                          <span @click="openLineChat(currentDef.line_id, currentDef.line_user_id)"
+                          <span @click="openLineChat(currentDef.line_id, currentDef.line_user_id, { citizen_id: currentDef.citizen_id, target_role: 'เยาวชน' })"
                                 style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; color: #06C755; font-weight: 600; text-decoration: none;"
-                                title="คลิกเพื่อเข้าสู่หน้าสนทนาผ่าน LINE OA (@012cryec) ทันที">
+                                title="คลิกเพื่อเข้าสู่ห้องสนทนา 1-ต่อ-1 ผ่าน LINE OA (@012cryec) ทันที">
                             <i class="fa-brands fa-line" style="font-size: 1.15rem; color: #06C755;"></i>
                             <span>{{ (currentDef.line_id && currentDef.line_id.trim() !== '-') ? currentDef.line_id : 'เปิดแชท LINE OA' }}</span>
                           </span>
                           <span v-if="currentDef.line_user_id && currentDef.line_user_id.trim()"
-                                style="font-size: 0.7rem; background: rgba(6, 199, 85, 0.12); color: #06C755; border: 1px solid rgba(6, 199, 85, 0.3); padding: 1px 7px; border-radius: 99px; font-weight: 600;"
-                                title="ผูก LINE User ID กับ LINE OA (@012cryec) แล้ว พร้อมเปิดแชทตรงและส่งแจ้งเตือนอัตโนมัติ">
-                            <i class="fa-solid fa-check-circle"></i> ผูก LINE OA แล้ว
+                                @click="openLineChat(currentDef.line_id, currentDef.line_user_id, { citizen_id: currentDef.citizen_id, target_role: 'เยาวชน' })"
+                                style="cursor: pointer; font-size: 0.7rem; background: rgba(6, 199, 85, 0.12); color: #06C755; border: 1px solid rgba(6, 199, 85, 0.3); padding: 1px 7px; border-radius: 99px; font-weight: 600;"
+                                title="คลิกเพื่อเปิดห้องสนทนา 1-ต่อ-1 กับเยาวชนผ่าน LINE OA (@012cryec)">
+                            <i class="fa-solid fa-comments"></i> ผูก LINE OA แล้ว (คลิกแชท 1:1)
                           </span>
                         </div>
                       </template>
@@ -979,16 +980,17 @@
                     <div>
                       <template v-if="(currentDef.parent_line_id && currentDef.parent_line_id.trim() && currentDef.parent_line_id.trim() !== '-') || (currentDef.parent_line_user_id && currentDef.parent_line_user_id.trim())">
                         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                          <span @click="openLineChat(currentDef.parent_line_id, currentDef.parent_line_user_id)"
+                          <span @click="openLineChat(currentDef.parent_line_id, currentDef.parent_line_user_id, { citizen_id: currentDef.citizen_id, target_role: 'ผู้ปกครอง' })"
                                 style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; color: #06C755; font-weight: 600; text-decoration: none;"
-                                title="คลิกเพื่อเข้าสู่หน้าสนทนาผ่าน LINE OA (@012cryec) ทันที">
+                                title="คลิกเพื่อเข้าสู่ห้องสนทนา 1-ต่อ-1 ผ่าน LINE OA (@012cryec) ทันที">
                             <i class="fa-brands fa-line" style="font-size: 1.15rem; color: #06C755;"></i>
                             <span>{{ (currentDef.parent_line_id && currentDef.parent_line_id.trim() !== '-') ? currentDef.parent_line_id : 'เปิดแชท LINE OA' }}</span>
                           </span>
                           <span v-if="currentDef.parent_line_user_id && currentDef.parent_line_user_id.trim()"
-                                style="font-size: 0.7rem; background: rgba(6, 199, 85, 0.12); color: #06C755; border: 1px solid rgba(6, 199, 85, 0.3); padding: 1px 7px; border-radius: 99px; font-weight: 600;"
-                                title="ผูก LINE User ID กับ LINE OA (@012cryec) แล้ว พร้อมเปิดแชทตรงและส่งแจ้งเตือนอัตโนมัติ">
-                            <i class="fa-solid fa-check-circle"></i> ผูก LINE OA แล้ว
+                                @click="openLineChat(currentDef.parent_line_id, currentDef.parent_line_user_id, { citizen_id: currentDef.citizen_id, target_role: 'ผู้ปกครอง' })"
+                                style="cursor: pointer; font-size: 0.7rem; background: rgba(6, 199, 85, 0.12); color: #06C755; border: 1px solid rgba(6, 199, 85, 0.3); padding: 1px 7px; border-radius: 99px; font-weight: 600;"
+                                title="คลิกเพื่อเปิดห้องสนทนา 1-ต่อ-1 กับผู้ปกครองผ่าน LINE OA (@012cryec)">
+                            <i class="fa-solid fa-comments"></i> ผูก LINE OA แล้ว (คลิกแชท 1:1)
                           </span>
                         </div>
                       </template>
@@ -2907,12 +2909,14 @@
                       <div style="margin-bottom: 6px; font-size: 0.82rem;">
                         <strong style="color: var(--text-muted);">เยาวชน: </strong>
                         <template v-if="(item.line_id && item.line_id !== '-') || item.line_user_id">
-                          <span @click="openLineChat(item.line_id, item.line_user_id)"
+                          <span @click="openLineChat(item.line_id, item.line_user_id, { citizen_id: item.citizen_id, target_role: 'เยาวชน', black_case: item.black_case })"
                                 style="cursor: pointer; color: #06C755; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;"
-                                title="คลิกเพื่อเปิดห้องสนทนาใน LINE OA">
+                                title="คลิกเพื่อเปิดห้องสนทนา 1-ต่อ-1 ใน LINE OA">
                             <i class="fa-brands fa-line"></i> {{ item.line_id || 'เปิดแชท LINE OA' }}
                           </span>
-                          <span v-if="item.line_user_id" style="font-size: 0.68rem; background: rgba(6, 199, 85, 0.12); color: #06C755; padding: 1px 6px; border-radius: 99px; margin-left: 4px;">ผูก OA แล้ว</span>
+                          <span v-if="item.line_user_id"
+                                @click="openLineChat(item.line_id, item.line_user_id, { citizen_id: item.citizen_id, target_role: 'เยาวชน', black_case: item.black_case })"
+                                style="cursor: pointer; font-size: 0.68rem; background: rgba(6, 199, 85, 0.12); color: #06C755; padding: 1px 6px; border-radius: 99px; margin-left: 4px;">ผูก OA แล้ว (แชท 1:1)</span>
                           <span v-else style="font-size: 0.68rem; background: rgba(245, 158, 11, 0.12); color: #f59e0b; padding: 1px 6px; border-radius: 99px; margin-left: 4px;">ยังไม่ผูก OA</span>
                         </template>
                         <span v-else style="color: var(--text-muted);">-</span>
@@ -2921,12 +2925,14 @@
                       <div style="font-size: 0.82rem;">
                         <strong style="color: var(--text-muted);">ผู้ปกครอง: </strong>
                         <template v-if="(item.parent_line_id && item.parent_line_id !== '-') || item.parent_line_user_id">
-                          <span @click="openLineChat(item.parent_line_id, item.parent_line_user_id)"
+                          <span @click="openLineChat(item.parent_line_id, item.parent_line_user_id, { citizen_id: item.citizen_id, target_role: 'ผู้ปกครอง', black_case: item.black_case })"
                                 style="cursor: pointer; color: #06C755; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;"
-                                title="คลิกเพื่อเปิดห้องสนทนาใน LINE OA">
+                                title="คลิกเพื่อเปิดห้องสนทนา 1-ต่อ-1 ใน LINE OA">
                             <i class="fa-brands fa-line"></i> {{ item.parent_line_id || 'เปิดแชท LINE OA' }}
                           </span>
-                          <span v-if="item.parent_line_user_id" style="font-size: 0.68rem; background: rgba(6, 199, 85, 0.12); color: #06C755; padding: 1px 6px; border-radius: 99px; margin-left: 4px;">ผูก OA แล้ว</span>
+                          <span v-if="item.parent_line_user_id"
+                                @click="openLineChat(item.parent_line_id, item.parent_line_user_id, { citizen_id: item.citizen_id, target_role: 'ผู้ปกครอง', black_case: item.black_case })"
+                                style="cursor: pointer; font-size: 0.68rem; background: rgba(6, 199, 85, 0.12); color: #06C755; padding: 1px 6px; border-radius: 99px; margin-left: 4px;">ผูก OA แล้ว (แชท 1:1)</span>
                           <span v-else style="font-size: 0.68rem; background: rgba(245, 158, 11, 0.12); color: #f59e0b; padding: 1px 6px; border-radius: 99px; margin-left: 4px;">ยังไม่ผูก OA</span>
                         </template>
                         <span v-else style="color: var(--text-muted);">-</span>
@@ -3046,7 +3052,13 @@
                   <li>ในหน้า Messaging API เดียวกัน ที่หัวข้อ <strong>Webhook URL</strong> ให้วางลิงก์นี้แล้วกดเปิด <strong>Use webhook</strong>:<br>
                     <code style="display: inline-block; margin-top: 4px; padding: 4px 10px; background: rgba(0,0,0,0.08); border-radius: 6px; font-weight: 700; user-select: all;">https://script.google.com/macros/s/AKfycbw5WtKzkvbTjCvvvQV7ckVbUCpii1h29cbf3lugwKb0434hN7eaI82BWfCMxhuKHkZ7/exec</code>
                   </li>
-                  <li>เมื่อเยาวชนหรือผู้ปกครองแอดไลน์ <strong>@012cryec</strong> แล้วพิมพ์ <strong>เลขบัตรประชาชน 13 หลัก</strong> หรือ <strong>เลขคดี (เช่น มพ34/69)</strong> ระบบจะผูกห้องแชทให้อัตโนมัติทันที!</li>
+                  <li><strong>สำคัญมาก (เพื่อให้ใช้แชทใน LINE OA Manager คู่กับระบบอัตโนมัติได้):</strong> เข้าไปที่ <a href="https://manager.line.biz/account/@012cryec/setting/response" target="_blank" style="color: #06C755; font-weight: 700;">ตั้งค่าการตอบกลับ (manager.line.biz)</a> แล้วตั้งค่าดังนี้:
+                    <ul style="margin: 4px 0 4px 18px;">
+                      <li>โหมดตอบกลับ (Response mode): เลือกเป็น <strong>"แชท (Chat)"</strong> (เพราะตอนเปิด Messaging API ครั้งแรก LINE จะสลับเป็น "บอท" ทำให้หน้าเว็บ chat.line.biz แจ้งว่าไม่ได้รับสิทธิ์ใช้ฟังก์ชันแชท)</li>
+                      <li>Webhook: เลือกเป็น <strong>"เปิด (Enabled)"</strong></li>
+                    </ul>
+                  </li>
+                  <li>เมื่อเยาวชนหรือผู้ปกครองแอดไลน์ <strong>@012cryec</strong> แล้วพิมพ์ <strong>เลขบัตรประชาชน 13 หลัก</strong> หรือ <strong>เลขคดี (เช่น มพ26/69)</strong> ระบบจะผูกห้องแชท 1-ต่อ-1 ให้อัตโนมัติทันที!</li>
                 </ol>
               </div>
 
@@ -3058,8 +3070,8 @@
                   </div>
 
                   <div class="form-group">
-                    <label class="form-label">รหัส Bot ID สำหรับเปิดหน้าแชทตรงบน PC (ระบบดึงให้อัตโนมัติ)</label>
-                    <input type="text" class="form-control" v-model="lineOaConfigForm.oa_bot_id" placeholder="Uxxxxxxxx... (ดึงอัตโนมัติเมื่อใส่ Token หรือวางลิงก์แชท)">
+                    <label class="form-label">รหัสบัญชี chat.line.biz (ถ้าต้องการระบุเฉพาะ หรือเว้นว่างไว้ได้)</label>
+                    <input type="text" class="form-control" v-model="lineOaConfigForm.oa_bot_id" placeholder="เว้นว่างไว้ได้ (ระบบมีห้องแชท 1-ต่อ-1 ในตัวพร้อมใช้งานทันที)">
                   </div>
                 </div>
 
@@ -3087,7 +3099,7 @@
                 <i class="fa-solid fa-users-viewfinder" style="color: #06C755;"></i> รายชื่อผู้ติดต่อที่ทักแชทหรือเพิ่มเพื่อนเข้ามาใน LINE OA (@012cryec)
               </h3>
               <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">
-                หากเยาวชนหรือผู้ปกครองทักแชทเข้ามาแล้ว ท่านสามารถคลิกเปิดห้องแชทคุยได้ทันที หรือกดปุ่ม "ผูกกับเลขบัตร ปชช." เพื่อเชื่อมโยงเข้ากับประวัติเยาวชนได้จากตารางนี้
+                หากเยาวชนหรือผู้ปกครองทักแชทเข้ามาแล้ว ท่านสามารถคลิกเปิดห้องแชท 1-ต่อ-1 เพื่อพูดคุยได้ทันที หรือกดปุ่ม "ผูกกับเยาวชน/ผปค." เพื่อเชื่อมโยงเข้ากับประวัติเยาวชนได้จากตารางนี้
               </p>
 
               <div v-if="lineOaContacts.length === 0" style="text-align: center; padding: 30px; color: var(--text-muted);">
@@ -3116,8 +3128,8 @@
                       <td>{{ ct.linked_citizen_id || 'ยังไม่ได้ผูก' }}</td>
                       <td>{{ ct.linked_role || '-' }}</td>
                       <td style="text-align: center; display: flex; gap: 6px; justify-content: center;">
-                        <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.78rem;" @click="openLineChat(ct.display_name, ct.line_user_id)">
-                          <i class="fa-solid fa-comments"></i> เปิดห้องแชทตรง
+                        <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.78rem;" @click="openLineChat(ct.display_name, ct.line_user_id, { citizen_id: ct.linked_citizen_id, target_role: ct.linked_role || 'เยาวชน' })">
+                          <i class="fa-solid fa-comments"></i> เปิดห้องแชท 1:1
                         </button>
                         <button class="btn btn-primary" style="background: #06C755; border-color: #06C755; padding: 5px 10px; font-size: 0.78rem;" @click="promptManualLinkContact(ct)">
                           <i class="fa-solid fa-link"></i> ผูกกับเยาวชน/ผปค.
@@ -3849,6 +3861,162 @@
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         6.3 MODAL ห้องสนทนา LINE OA แบบ 1-ต่อ-1 (DIRECT 1-ON-1 CHAT ROOM)
+         ========================================== -->
+    <div v-if="lineDirectChatModalActive" class="modal-overlay animate-in" style="z-index: 3200;">
+      <div class="glass-card modal-card animate-in shadow" style="max-width: 680px; width: 95%; padding: 0; overflow: hidden; border-radius: 18px; display: flex; flex-direction: column; max-height: 88vh; border: 1px solid #cbd5e1;">
+        
+        <!-- ส่วนหัวห้องแชทสไตล์ LINE Official Account -->
+        <div style="background: linear-gradient(135deg, #06C755 0%, #059669 100%); color: white; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+            <div style="position: relative; flex-shrink: 0;">
+              <img v-if="lineDirectChatRoom.picture_url" :src="lineDirectChatRoom.picture_url" style="width: 46px; height: 46px; border-radius: 50%; object-fit: cover; border: 2px solid white; background: #fff;">
+              <div v-else style="width: 46px; height: 46px; border-radius: 50%; background: rgba(255,255,255,0.22); border: 2px solid rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center; font-size: 1.35rem; color: white;">
+                <i class="fa-brands fa-line"></i>
+              </div>
+              <span v-if="lineDirectChatRoom.is_linked" style="position: absolute; bottom: 0; right: 0; width: 13px; height: 13px; border-radius: 50%; background: #4ade80; border: 2px solid white;" title="ผูก LINE OA แล้ว"></span>
+            </div>
+            <div style="min-width: 0;">
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <span style="font-weight: 700; font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                  {{ lineDirectChatRoom.display_name || lineDirectChatRoom.defendant_name || lineDirectChatRoom.line_id || 'ห้องสนทนา LINE OA' }}
+                </span>
+                <span v-if="lineDirectChatRoom.target_role === 'parent'" style="background: rgba(255,255,255,0.22); padding: 2px 8px; border-radius: 12px; font-size: 0.72rem; font-weight: 600;">
+                  👨‍👩‍👦 ผู้ปกครอง
+                </span>
+                <span v-else style="background: rgba(255,255,255,0.22); padding: 2px 8px; border-radius: 12px; font-size: 0.72rem; font-weight: 600;">
+                  👦 เยาวชน
+                </span>
+              </div>
+              <div style="font-size: 0.78rem; opacity: 0.95; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px;">
+                <span v-if="lineDirectChatRoom.defendant_name"><i class="fa-solid fa-user"></i> {{ lineDirectChatRoom.defendant_name }}</span>
+                <span v-if="lineDirectChatRoom.black_case"><i class="fa-solid fa-folder-open"></i> คดี {{ lineDirectChatRoom.black_case }}</span>
+                <span v-if="lineDirectChatRoom.citizen_id"><i class="fa-solid fa-id-card"></i> {{ lineDirectChatRoom.citizen_id }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+            <button type="button" class="btn btn-sm" @click="refreshLineDirectChatRoom(false)" :disabled="lineDirectChatLoading" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.35); padding: 6px 10px; border-radius: 8px; font-size: 0.78rem;" title="รีเฟรชข้อความล่าสุด">
+              <i class="fa-solid fa-arrows-rotate" :class="{'fa-spin': lineDirectChatLoading}"></i> รีเฟรช
+            </button>
+            <button type="button" class="btn btn-sm" @click="openExternalLineOaManagerFromChat()" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.35); padding: 6px 10px; border-radius: 8px; font-size: 0.78rem;" title="เปิดหน้า LINE Official Account Manager (@012cryec)">
+              <i class="fa-solid fa-up-right-from-square"></i> LINE OA Manager
+            </button>
+            <button type="button" @click="closeLineDirectChatModal()" style="background: rgba(0,0,0,0.18); color: white; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem;">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- แถบสถานะการเชื่อมต่อ LINE OA แบบ 1-ต่อ-1 -->
+        <div style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 0.78rem; color: #475569;">
+          <div>
+            <span v-if="lineDirectChatRoom.is_linked" style="color: #059669; font-weight: 600;">
+              <i class="fa-solid fa-circle-check"></i> เชื่อมต่อตรงกับผู้ใช้ผ่าน LINE OA ({{ lineOaPublicConfig.oa_basic_id || lineOaConfigForm.oa_basic_id || '@012cryec' }}) พร้อมส่งข้อความ 1-ต่อ-1 ทันที
+            </span>
+            <span v-else style="color: #d97706; font-weight: 600;">
+              <i class="fa-solid fa-triangle-exclamation"></i> บัญชีนี้ยังไม่ได้ผูก LINE User ID (U...) กับ LINE OA
+            </span>
+          </div>
+          <div v-if="lineDirectChatRoom.line_user_id" style="font-family: monospace; font-size: 0.72rem; color: #64748b; background: #e2e8f0; padding: 2px 8px; border-radius: 6px;">
+            UID: {{ lineDirectChatRoom.line_user_id.substring(0, 10) }}...
+          </div>
+        </div>
+
+        <!-- พื้นที่แสดงข้อความสนทนา (LINE Chat Background) -->
+        <div id="line-direct-chat-body" style="flex: 1; min-height: 340px; max-height: 440px; overflow-y: auto; background: #8cabd9; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+          
+          <div v-if="lineDirectChatLoading && lineDirectChatMessages.length === 0" style="margin: auto; text-align: center; color: white; background: rgba(15, 23, 42, 0.45); padding: 14px 24px; border-radius: 12px;">
+            <i class="fa-solid fa-spinner fa-spin"></i> กำลังโหลดห้องสนทนา LINE OA...
+          </div>
+
+          <div v-else-if="!lineDirectChatRoom.is_linked" style="margin: auto; background: white; border-radius: 14px; padding: 20px; max-width: 480px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.12);">
+            <div style="width: 52px; height: 52px; border-radius: 50%; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin: 0 auto 10px auto;">
+              <i class="fa-solid fa-link-slash"></i>
+            </div>
+            <div style="font-weight: 700; color: #1e293b; font-size: 1rem; margin-bottom: 6px;">
+              ยังไม่ได้ผูกบัญชี LINE OA สำหรับรายการนี้
+            </div>
+            <div style="font-size: 0.85rem; color: #475569; line-height: 1.6; margin-bottom: 14px;">
+              ให้เยาวชนหรือผู้ปกครองเพิ่มเพื่อน LINE OA <b>{{ lineOaPublicConfig.oa_basic_id || lineOaConfigForm.oa_basic_id || '@012cryec' }}</b> แล้วพิมพ์ <b>เลขบัตรประชาชน 13 หลักของเยาวชน</b> ส่งเข้ามาในแชท ระบบจะผูกบัญชีอัตโนมัติและสามารถแชท 1-ต่อ-1 ในหน้านี้ได้ทันที
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" @click="openExternalLineOaManagerFromChat()" style="background: #06C755; border-color: #06C755;">
+              <i class="fa-brands fa-line"></i> เปิดหน้าแชทรวมใน LINE OA Manager
+            </button>
+          </div>
+
+          <div v-else-if="lineDirectChatMessages.length === 0" style="margin: auto; text-align: center; color: white; background: rgba(15, 23, 42, 0.45); padding: 14px 20px; border-radius: 12px; font-size: 0.85rem;">
+            <i class="fa-regular fa-comments" style="font-size: 1.3rem; display: block; margin-bottom: 6px;"></i>
+            ผูกบัญชี LINE OA เรียบร้อยแล้ว สามารถพิมพ์ข้อความด้านล่างเพื่อส่งหา <b>{{ lineDirectChatRoom.display_name || lineDirectChatRoom.defendant_name }}</b> ได้ทันที
+          </div>
+
+          <!-- รายการข้อความแชท -->
+          <template v-else>
+            <div v-for="msg in lineDirectChatMessages" :key="msg.msg_id"
+                 :style="{ display: 'flex', flexDirection: 'column', alignItems: msg.direction === 'in' ? 'flex-start' : 'flex-end' }">
+              
+              <div style="font-size: 0.72rem; color: #f8fafc; margin-bottom: 3px; padding: 0 4px; text-shadow: 0 1px 2px rgba(0,0,0,0.25);">
+                <span v-if="msg.direction === 'in'">{{ msg.sender_name || lineDirectChatRoom.display_name || 'ผู้รับบริการ' }}</span>
+                <span v-else>{{ msg.sender_name || 'เจ้าหน้าที่ศูนย์ฯ' }}</span>
+                <span style="opacity: 0.85; margin-left: 6px;">{{ msg.created_at }}</span>
+              </div>
+
+              <div :style="{
+                maxWidth: '78%',
+                padding: '10px 14px',
+                borderRadius: msg.direction === 'in' ? '4px 16px 16px 16px' : '16px 4px 16px 16px',
+                background: msg.direction === 'in' ? '#ffffff' : '#85e249',
+                color: '#0f172a',
+                fontSize: '0.9rem',
+                lineHeight: '1.5',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.12)'
+              }">{{ msg.message_text }}</div>
+            </div>
+          </template>
+        </div>
+
+        <!-- แถบข้อความด่วน (Quick Replies) -->
+        <div v-if="lineDirectChatRoom.is_linked" style="background: #f1f5f9; border-top: 1px solid #cbd5e1; padding: 8px 14px; display: flex; gap: 6px; overflow-x: auto; white-space: nowrap;">
+          <span style="font-size: 0.75rem; color: #64748b; font-weight: 600; align-self: center; margin-right: 4px;">
+            <i class="fa-solid fa-bolt" style="color: #f59e0b;"></i> ข้อความด่วน:
+          </span>
+          <button type="button" class="btn btn-sm" @click="insertQuickChatText('สวัสดีครับ/ค่ะ เจ้าหน้าที่จากศูนย์ให้คำปรึกษาแนะนำและประสานงาน ศาลเยาวชนและครอบครัวจังหวัดสมุทรปราการ ติดต่อเรื่องนัดหมายให้คำปรึกษาครับ/ค่ะ')" style="background: white; border: 1px solid #cbd5e1; color: #334155; padding: 3px 10px; border-radius: 14px; font-size: 0.75rem;">
+            👋 ทักทาย/แนะนำตัว
+          </button>
+          <button type="button" class="btn btn-sm" @click="insertQuickChatText('รบกวนยืนยันการเดินทางมาพบเจ้าหน้าที่ตามวันและเวลานัดหมายด้วยนะครับ/ค่ะ หากติดขัดประการใดสามารถแจ้งกลับในแชทนี้ได้เลยครับ/ค่ะ')" style="background: white; border: 1px solid #cbd5e1; color: #334155; padding: 3px 10px; border-radius: 14px; font-size: 0.75rem;">
+            📅 ขอคำยืนยันนัดหมาย
+          </button>
+          <button type="button" class="btn btn-sm" @click="insertQuickChatText('รบกวนนำบัตรประจำตัวประชาชนของเยาวชนและผู้ปกครองมาแสดงในวันนัดหมายด้วยนะครับ/ค่ะ')" style="background: white; border: 1px solid #cbd5e1; color: #334155; padding: 3px 10px; border-radius: 14px; font-size: 0.75rem;">
+            🪪 แจ้งเตรียมเอกสาร
+          </button>
+        </div>
+
+        <!-- กล่องพิมพ์และส่งข้อความ -->
+        <div style="background: white; border-top: 1px solid #e2e8f0; padding: 12px 16px; display: flex; gap: 10px; align-items: flex-end;">
+          <textarea class="form-control"
+                    v-model="lineDirectChatInput"
+                    :disabled="!lineDirectChatRoom.is_linked || lineDirectChatSending"
+                    @keydown.enter.exact.prevent="sendLineDirectChatMsg()"
+                    rows="2"
+                    placeholder="พิมพ์ข้อความเพื่อส่งเข้า LINE ของเยาวชน/ผู้ปกครองโดยตรง... (กด Enter เพื่อส่ง, Shift+Enter เพื่อขึ้นบรรทัดใหม่)"
+                    style="flex: 1; resize: none; border-radius: 12px; font-size: 0.9rem; padding: 10px 12px;"></textarea>
+          <button type="button"
+                  class="btn btn-primary"
+                  @click="sendLineDirectChatMsg()"
+                  :disabled="!lineDirectChatRoom.is_linked || lineDirectChatSending || !lineDirectChatInput.trim()"
+                  style="background: #06C755; border-color: #06C755; height: 46px; padding: 0 20px; border-radius: 12px; font-weight: 700; flex-shrink: 0;">
+            <i class="fa-solid" :class="lineDirectChatSending ? 'fa-spinner fa-spin' : 'fa-paper-plane'"></i>
+            {{ lineDirectChatSending ? 'กำลังส่ง...' : 'ส่งข้อความ' }}
+          </button>
+        </div>
+
       </div>
     </div>
 

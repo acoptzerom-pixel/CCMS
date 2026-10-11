@@ -3770,6 +3770,10 @@ function getLineConfigMap() {
       var keyStr = r.config_key.toString().trim();
       existingKeys[keyStr] = true;
       if (r.config_value !== undefined && r.config_value !== null && r.config_value !== "") {
+        if (keyStr === "oa_bot_id" && (r.updated_by === "webhook" || r.updated_by === "line_api" || r.config_value.toString().trim() === "Uc26f8cd9efde3d463307945a2077ff3f")) {
+          map[keyStr] = "";
+          continue;
+        }
         map[keyStr] = r.config_value.toString();
       }
     }
@@ -3853,7 +3857,7 @@ function fetchLineUserProfile(userId, channelAccessToken) {
 }
 
 /**
- * ดึงข้อมูล Bot Info (เช่น userId ของ LINE OA สำหรับสร้างลิงก์ chat.line.biz/{botId}/chat/{userId})
+ * ดึงข้อมูล Bot Info (เช่น basicId และ displayName ของ LINE OA)
  */
 function fetchLineBotInfo(channelAccessToken) {
   if (!channelAccessToken) return null;
@@ -3872,6 +3876,34 @@ function fetchLineBotInfo(channelAccessToken) {
     Logger.log("fetchLineBotInfo error: " + e.toString());
   }
   return null;
+}
+
+/**
+ * บันทึกประวัติข้อความสนทนา 1-ต่อ-1 (ทั้งขาเข้าและขาออก) ลงในชีท tb_line_messages
+ */
+function appendLineChatMessage(lineUserId, direction, senderName, messageText, blackCase, citizenId) {
+  if (!lineUserId || !messageText) return null;
+  try {
+    getOrCreateSheet("tb_line_messages", ["msg_id", "line_user_id", "direction", "sender_name", "message_text", "black_case", "citizen_id", "created_at"]);
+    var now = new Date();
+    var nowStr = Utilities.formatDate(now, "GMT+7", "yyyy-MM-dd HH:mm:ss");
+    var msgObj = {
+      msg_id: "MSG-" + now.getTime() + "-" + Math.floor(Math.random() * 1000),
+      line_user_id: lineUserId.toString().trim(),
+      direction: direction || "out",
+      sender_name: senderName || "",
+      message_text: messageText.toString(),
+      black_case: blackCase || "",
+      citizen_id: citizenId || "",
+      created_at: nowStr
+    };
+    appendRowToSheet("tb_line_messages", msgObj);
+    clearSheetCache("tb_line_messages");
+    return msgObj;
+  } catch (e) {
+    Logger.log("appendLineChatMessage error: " + e.toString());
+    return null;
+  }
 }
 
 /**
@@ -3994,11 +4026,6 @@ function doPost(e) {
     var cfg = getLineConfigMap();
     var accessToken = cfg.channel_access_token || "";
     
-    // บันทึก destination (ซึ่งคือ Bot User ID ของ LINE OA) อัตโนมัติเพื่อใช้สร้างลิงก์แชทตรงบน PC
-    if (payload.destination && (!cfg.oa_bot_id || cfg.oa_bot_id !== payload.destination)) {
-      saveSingleLineConfigValue("oa_bot_id", payload.destination, "webhook");
-    }
-    
     var events = payload.events || [];
     for (var i = 0; i < events.length; i++) {
       var ev = events[i];
@@ -4011,12 +4038,17 @@ function doPost(e) {
       
       if (ev.type === "follow") {
         upsertLineContactRecord(userId, displayName, "[เพิ่มเพื่อนใหม่]", "", "");
+        appendLineChatMessage(userId, "in", displayName || "ผู้ใช้ LINE", "[เพิ่มเพื่อนใหม่ใน LINE OA]", "", "");
         if (replyToken && accessToken && cfg.welcome_reply_template) {
-          sendLineReplyMessage(replyToken, [{ type: "text", text: cfg.welcome_reply_template }], accessToken);
+          var sentWelcome = sendLineReplyMessage(replyToken, [{ type: "text", text: cfg.welcome_reply_template }], accessToken);
+          if (sentWelcome) {
+            appendLineChatMessage(userId, "out", "ระบบตอบรับอัตโนมัติ (@012cryec)", cfg.welcome_reply_template, "", "");
+          }
         }
       } else if (ev.type === "message" && ev.message && ev.message.type === "text") {
         var text = (ev.message.text || "").toString().trim();
         upsertLineContactRecord(userId, displayName, text, undefined, undefined);
+        appendLineChatMessage(userId, "in", displayName || "ผู้ใช้ LINE", text, "", "");
         
         handleIncomingLineTextForBinding(userId, displayName, text, replyToken, accessToken);
       }
@@ -4078,7 +4110,10 @@ function handleIncomingLineTextForBinding(userId, displayName, text, replyToken,
           "👤 ข้อมูลของ: " + fullName.trim() + "\n" +
           "🏷️ สถานะของคุณ: " + roleLabel + "\n\n" +
           "ระบบจะส่งข้อความแจ้งเตือนวันนัดหมายและกิจกรรมให้ท่านผ่านห้องสนทนานี้โดยอัตโนมัติครับ/ค่ะ";
-        sendLineReplyMessage(replyToken, [{ type: "text", text: successMsg }], accessToken);
+        var repliedOk = sendLineReplyMessage(replyToken, [{ type: "text", text: successMsg }], accessToken);
+        if (repliedOk) {
+          appendLineChatMessage(userId, "out", "ระบบตอบรับอัตโนมัติ (@012cryec)", successMsg, "", targetCid);
+        }
       }
     }
     return;
@@ -4121,9 +4156,10 @@ function handleIncomingLineTextForBinding(userId, displayName, text, replyToken,
   
   if (matchedDef && matchedCid && replyToken && accessToken) {
     var defFullName = ((matchedDef.title_name || "") + (matchedDef.first_name || "") + " " + (matchedDef.last_name || "")).trim();
+    var promptText = "🔍 พบข้อมูลในระบบ:\nชื่อเยาวชน: " + defFullName + "\n\nกรุณากดปุ่มด้านล่างเพื่อยืนยันว่าท่านคือ เยาวชน หรือ ผู้ปกครอง:\n(หรือพิมพ์ \"เยาวชน " + matchedCid + "\" หรือ \"ผู้ปกครอง " + matchedCid + "\")";
     var promptMessage = {
       type: "text",
-      text: "🔍 พบข้อมูลในระบบ:\nชื่อเยาวชน: " + defFullName + "\n\nกรุณากดปุ่มด้านล่างเพื่อยืนยันว่าท่านคือ เยาวชน หรือ ผู้ปกครอง:\n(หรือพิมพ์ \"เยาวชน " + matchedCid + "\" หรือ \"ผู้ปกครอง " + matchedCid + "\")",
+      text: promptText,
       quickReply: {
         items: [
           {
@@ -4145,7 +4181,10 @@ function handleIncomingLineTextForBinding(userId, displayName, text, replyToken,
         ]
       }
     };
-    sendLineReplyMessage(replyToken, [promptMessage], accessToken);
+    var promptSent = sendLineReplyMessage(replyToken, [promptMessage], accessToken);
+    if (promptSent) {
+      appendLineChatMessage(userId, "out", "ระบบตอบรับอัตโนมัติ (@012cryec)", promptText, "", matchedCid);
+    }
   }
 }
 
@@ -4433,6 +4472,17 @@ function saveLineOaSettings(newConfig, token) {
   }
   
   try {
+    // หากผู้ใช้เผลอวางลิงก์เต็ม https://chat.line.biz/Uxxxx/chat/... ในช่อง oa_bot_id ให้สกัดเฉพาะรหัสบัญชี Uxxxx ของ chat.line.biz ออกมา
+    if (newConfig.oa_bot_id !== undefined && newConfig.oa_bot_id !== null) {
+      var rawBotVal = newConfig.oa_bot_id.toString().trim();
+      var chatBizMatch = rawBotVal.match(/chat\.line\.biz\/(U[0-9a-fA-F]{32})/i);
+      if (chatBizMatch) {
+        newConfig.oa_bot_id = chatBizMatch[1];
+      } else if (rawBotVal === "Uc26f8cd9efde3d463307945a2077ff3f") {
+        newConfig.oa_bot_id = "";
+      }
+    }
+
     var keysToSave = [
       "oa_basic_id",
       "oa_bot_id",
@@ -4452,14 +4502,16 @@ function saveLineOaSettings(newConfig, token) {
       }
     }
     
-    // หากมีการระบุ Channel Access Token ให้ดึง Bot User ID (U...) อัตโนมัติจาก LINE API เพื่อใช้เปิดแชทตรงบน PC
+    // ตรวจสอบการเชื่อมต่อกับ LINE Messaging API และอัปเดตเฉพาะ oa_basic_id (ไม่นำ botInfo.userId ไปทับ oa_bot_id เพราะคนละรหัสกับ chat.line.biz)
     var botInfoMsg = "";
     if (newConfig.channel_access_token && newConfig.channel_access_token.toString().trim() !== "") {
       var botInfo = fetchLineBotInfo(newConfig.channel_access_token.toString().trim());
-      if (botInfo && botInfo.userId) {
-        saveSingleLineConfigValue("oa_bot_id", botInfo.userId, "line_api");
+      if (botInfo) {
         if (botInfo.basicId) {
           saveSingleLineConfigValue("oa_basic_id", botInfo.basicId, "line_api");
+        }
+        if (botInfo.userId && newConfig.oa_bot_id === botInfo.userId) {
+          saveSingleLineConfigValue("oa_bot_id", "", "system");
         }
         botInfoMsg = " (เชื่อมต่อกับบัญชี LINE OA: " + (botInfo.displayName || botInfo.basicId || "") + " สำเร็จ!)";
       }
@@ -4534,6 +4586,7 @@ function sendSingleLineReminder(itemData, token) {
     
     var sentCount = 0;
     var errors = [];
+    var senderLabel = (userSession.fullName || userSession.username || "เจ้าหน้าที่") + " (แจ้งเตือนนัดหมาย)";
     
     for (var i = 0; i < targets.length; i++) {
       var t = targets[i];
@@ -4555,6 +4608,7 @@ function sendSingleLineReminder(itemData, token) {
       });
       if (pushRes.success) {
         sentCount++;
+        appendLineChatMessage(t.uid, "out", senderLabel, msgText, itemData.black_case || "", itemData.citizen_id || "");
       } else {
         errors.push(t.role + ": " + pushRes.message);
       }
@@ -4641,7 +4695,10 @@ function runDailyLineNotifications(token) {
           status: resY.success ? "สำเร็จ" : "ไม่สำเร็จ",
           error_message: resY.success ? "" : resY.message
         });
-        if (resY.success) totalSent++;
+        if (resY.success) {
+          totalSent++;
+          appendLineChatMessage(item.line_user_id, "out", "ระบบแจ้งเตือนอัตโนมัติ (@012cryec)", item.message_text, item.black_case, item.citizen_id);
+        }
       }
       
       // ส่งหาผู้ปกครอง (ถ้ามี parent_line_user_id และวันนี้ยังไม่ได้ส่ง)
@@ -4662,7 +4719,10 @@ function runDailyLineNotifications(token) {
           status: resP.success ? "สำเร็จ" : "ไม่สำเร็จ",
           error_message: resP.success ? "" : resP.message
         });
-        if (resP.success) totalSent++;
+        if (resP.success) {
+          totalSent++;
+          appendLineChatMessage(item.parent_line_user_id, "out", "ระบบแจ้งเตือนอัตโนมัติ (@012cryec)", item.message_text, item.black_case, item.citizen_id);
+        }
       }
     }
     
@@ -4757,4 +4817,258 @@ function linkLineContactToDefendant(payload, token) {
     return { success: false, message: "เกิดข้อผิดพลาดในการผูกบัญชี: " + e.toString() };
   }
 }
+
+/**
+ * ดึงข้อมูลห้องสนทนา LINE OA แบบ 1-ต่อ-1 (โปรไฟล์ LINE + ประวัติการแชททั้งหมดของเยาวชน/ผู้ปกครองรายนั้น)
+ */
+function getLineDirectChatRoomData(payload, token) {
+  var userSession = verifySessionToken(token);
+  if (!userSession) return { success: false, message: "สิทธิ์ล็อกอินหมดอายุ" };
+  
+  try {
+    var cfg = getLineConfigMap();
+    var accessToken = (cfg.channel_access_token || "").toString().trim();
+    
+    var rawUserId = (payload && payload.line_user_id) ? payload.line_user_id.toString().trim() : "";
+    var rawLineId = (payload && payload.line_id) ? payload.line_id.toString().trim() : "";
+    var cid = (payload && payload.citizen_id) ? cleanCitizenId(payload.citizen_id) : "";
+    var targetRole = (payload && payload.target_role) ? payload.target_role.toString().trim() : "";
+    var blackCaseStr = (payload && payload.black_case) ? payload.black_case.toString().trim() : "";
+    
+    var lineUserId = "";
+    var uidMatch = (rawUserId + " " + rawLineId).match(/(U[0-9a-fA-F]{32})/);
+    if (uidMatch) {
+      lineUserId = uidMatch[1];
+    }
+    
+    getOrCreateSheet("tb_line_contacts", ["line_user_id", "display_name", "last_message", "linked_citizen_id", "linked_role", "updated_at"]);
+    var contacts = getSheetData("tb_line_contacts");
+    var matchedContact = null;
+    
+    if (lineUserId) {
+      for (var i = 0; i < contacts.length; i++) {
+        if (contacts[i].line_user_id && contacts[i].line_user_id.toString().trim() === lineUserId) {
+          matchedContact = contacts[i];
+          break;
+        }
+      }
+    } else if (cid) {
+      for (var i = 0; i < contacts.length; i++) {
+        if (cleanCitizenId(contacts[i].linked_citizen_id) === cid) {
+          matchedContact = contacts[i];
+          lineUserId = (contacts[i].line_user_id || "").toString().trim();
+          break;
+        }
+      }
+    }
+    
+    if (!cid && matchedContact && matchedContact.linked_citizen_id) {
+      cid = cleanCitizenId(matchedContact.linked_citizen_id);
+    }
+    if (!targetRole && matchedContact && matchedContact.linked_role) {
+      targetRole = matchedContact.linked_role;
+    }
+    
+    var defendants = getSheetData("tb_defendants");
+    var matchedDef = null;
+    for (var i = 0; i < defendants.length; i++) {
+      var d = defendants[i];
+      var dCid = cleanCitizenId(d.citizen_id);
+      if (cid && dCid === cid) {
+        matchedDef = d;
+        break;
+      }
+      if (!matchedDef && lineUserId) {
+        if ((d.line_user_id && d.line_user_id.toString().indexOf(lineUserId) !== -1) ||
+            (d.parent_line_user_id && d.parent_line_user_id.toString().indexOf(lineUserId) !== -1)) {
+          matchedDef = d;
+          cid = dCid;
+          if (!targetRole) {
+            targetRole = (d.parent_line_user_id && d.parent_line_user_id.toString().indexOf(lineUserId) !== -1) ? "ผู้ปกครอง" : "เยาวชน";
+          }
+          break;
+        }
+      }
+    }
+    
+    var personName = "";
+    var roleLabel = targetRole || "เยาวชน";
+    if (matchedDef) {
+      var defFullName = ((matchedDef.title_name || "") + (matchedDef.first_name || "") + " " + (matchedDef.last_name || "")).trim();
+      if (roleLabel === "parent" || roleLabel === "ผู้ปกครอง") {
+        roleLabel = "ผู้ปกครอง";
+        personName = (matchedDef.guardian_name || "ผู้ปกครอง") + " (ผปค. ของ " + defFullName + ")";
+      } else {
+        roleLabel = "เยาวชน";
+        personName = defFullName + (matchedDef.nick_name ? " (" + matchedDef.nick_name + ")" : "");
+      }
+    }
+    
+    if (!blackCaseStr && cid) {
+      var cases = getSheetData("tb_cases");
+      var caseList = [];
+      for (var i = 0; i < cases.length; i++) {
+        if (cleanCitizenId(cases[i].citizen_id) === cid && cases[i].black_case) {
+          caseList.push(cases[i].black_case.toString().trim());
+        }
+      }
+      if (caseList.length > 0) {
+        blackCaseStr = caseList.join(", ");
+      }
+    }
+    
+    var profileInfo = { displayName: "", pictureUrl: "" };
+    if (lineUserId && accessToken) {
+      profileInfo = fetchLineUserProfile(lineUserId, accessToken);
+    }
+    var displayName = profileInfo.displayName || (matchedContact && matchedContact.display_name) || rawLineId || "ผู้ใช้ LINE";
+    var pictureUrl = profileInfo.pictureUrl || "";
+    
+    getOrCreateSheet("tb_line_messages", ["msg_id", "line_user_id", "direction", "sender_name", "message_text", "black_case", "citizen_id", "created_at"]);
+    var allMsgs = getSheetData("tb_line_messages");
+    var userMsgs = [];
+    for (var i = 0; i < allMsgs.length; i++) {
+      var m = allMsgs[i];
+      if (m.line_user_id && m.line_user_id.toString().trim() === lineUserId) {
+        userMsgs.push({
+          msg_id: m.msg_id || ("M-" + i),
+          line_user_id: lineUserId,
+          direction: m.direction || "out",
+          sender_name: m.sender_name || "",
+          message_text: m.message_text || "",
+          created_at: m.created_at ? m.created_at.toString() : ""
+        });
+      }
+    }
+    
+    // หากยังไม่มีประวัติใน tb_line_messages (เช่น ผูกบัญชีก่อนอัปเดตระบบแชท) ให้ดึงข้อความล่าสุดจาก tb_line_contacts และ tb_line_logs มาแสดงให้ครบถ้วน
+    if (userMsgs.length === 0 && lineUserId) {
+      if (matchedContact && matchedContact.last_message) {
+        var ctTime = matchedContact.updated_at ? matchedContact.updated_at.toString().replace("T", " ").substring(0, 19) : "";
+        userMsgs.push({
+          msg_id: "CONTACT-INIT",
+          line_user_id: lineUserId,
+          direction: "in",
+          sender_name: displayName,
+          message_text: matchedContact.last_message.toString(),
+          created_at: ctTime
+        });
+        if (matchedContact.linked_citizen_id) {
+          userMsgs.push({
+            msg_id: "CONTACT-BIND-REPLY",
+            line_user_id: lineUserId,
+            direction: "out",
+            sender_name: "ระบบตอบรับอัตโนมัติ (@012cryec)",
+            message_text: "✅ ผูกบัญชี LINE สำเร็จเรียบร้อย!\nสถานะ: " + (matchedContact.linked_role || roleLabel),
+            created_at: ctTime
+          });
+        }
+      }
+      
+      getOrCreateSheet("tb_line_logs", ["log_id", "sent_date", "sent_at", "notify_type", "black_case", "citizen_id", "recipient_role", "recipient_name", "line_user_id", "target_date", "title", "status", "error_message"]);
+      var logs = getSheetData("tb_line_logs");
+      for (var lIdx = 0; lIdx < logs.length; lIdx++) {
+        var lg = logs[lIdx];
+        if (lg.line_user_id && lg.line_user_id.toString().trim() === lineUserId && lg.status === "สำเร็จ") {
+          userMsgs.push({
+            msg_id: lg.log_id || ("LOG-" + lIdx),
+            line_user_id: lineUserId,
+            direction: "out",
+            sender_name: "แจ้งเตือนผ่าน LINE OA",
+            message_text: "📌 " + (lg.title || "แจ้งเตือนนัดหมาย/กิจกรรม") + (lg.black_case ? " (คดี " + lg.black_case + ")" : ""),
+            created_at: lg.sent_at ? lg.sent_at.toString() : (lg.sent_date ? lg.sent_date.toString() : "")
+          });
+        }
+      }
+    }
+    
+    return {
+      success: true,
+      profile: sanitizeObjectForSerialization({
+        line_user_id: lineUserId,
+        display_name: displayName,
+        picture_url: pictureUrl,
+        citizen_id: cid,
+        person_name: personName || displayName,
+        role_label: roleLabel,
+        black_case: blackCaseStr || "-",
+        oa_basic_id: cfg.oa_basic_id || "@012cryec"
+      }),
+      messages: sanitizeObjectForSerialization(userMsgs)
+    };
+  } catch (e) {
+    return { success: false, message: "ไม่สามารถโหลดข้อมูลห้องสนทนา LINE OA ได้: " + e.toString() };
+  }
+}
+
+/**
+ * ส่งข้อความสนทนา 1-ต่อ-1 จากหน้าเว็บเข้าสู่ LINE ของเยาวชนหรือผู้ปกครองโดยตรงผ่าน LINE OA (@012cryec)
+ */
+function sendLineDirectChatMessage(payload, token) {
+  var userSession = verifySessionToken(token);
+  if (!userSession) return { success: false, message: "สิทธิ์ล็อกอินหมดอายุ" };
+  if (userSession.role !== "admin" && userSession.role !== "psychologist" && userSession.role !== "counselor") {
+    return { success: false, message: "ไม่มีสิทธิ์ในการส่งข้อความผ่าน LINE OA" };
+  }
+  
+  try {
+    var lineUserId = (payload && payload.line_user_id) ? payload.line_user_id.toString().trim() : "";
+    var messageText = (payload && payload.message_text) ? payload.message_text.toString().trim() : "";
+    var cid = (payload && payload.citizen_id) ? cleanCitizenId(payload.citizen_id) : "";
+    var blackCase = (payload && payload.black_case) ? payload.black_case.toString().trim() : "-";
+    var recipientName = (payload && payload.person_name) ? payload.person_name.toString().trim() : "-";
+    var recipientRole = (payload && payload.role_label) ? payload.role_label.toString().trim() : "เยาวชน";
+    
+    if (!lineUserId) {
+      return { success: false, message: "ไม่พบรหัส LINE User ID (U...) ของผู้รับ" };
+    }
+    if (!messageText) {
+      return { success: false, message: "กรุณาพิมพ์ข้อความที่ต้องการส่ง" };
+    }
+    
+    var cfg = getLineConfigMap();
+    var accessToken = (cfg.channel_access_token || "").toString().trim();
+    if (!accessToken) {
+      return { success: false, message: "ยังไม่ได้ตั้งค่า Channel Access Token ของ LINE OA (@012cryec)" };
+    }
+    
+    var pushRes = sendLinePushMessage(lineUserId, messageText, accessToken);
+    var now = new Date();
+    var todayIso = Utilities.formatDate(now, "GMT+7", "yyyy-MM-dd");
+    var nowTimeStr = Utilities.formatDate(now, "GMT+7", "yyyy-MM-dd HH:mm:ss");
+    var senderName = userSession.fullName || userSession.username || "เจ้าหน้าที่ศูนย์ให้คำปรึกษาฯ";
+    
+    getOrCreateSheet("tb_line_logs", ["log_id", "sent_date", "sent_at", "notify_type", "black_case", "citizen_id", "recipient_role", "recipient_name", "line_user_id", "target_date", "title", "status", "error_message"]);
+    appendRowToSheet("tb_line_logs", {
+      log_id: "CHAT-" + now.getTime(),
+      sent_date: todayIso,
+      sent_at: nowTimeStr,
+      notify_type: "chat",
+      black_case: blackCase || "-",
+      citizen_id: cid || "-",
+      recipient_role: recipientRole,
+      recipient_name: recipientName,
+      line_user_id: lineUserId,
+      target_date: todayIso,
+      title: "แชทสนทนา 1-ต่อ-1: " + (messageText.length > 40 ? messageText.substring(0, 40) + "..." : messageText),
+      status: pushRes.success ? "สำเร็จ" : "ไม่สำเร็จ",
+      error_message: pushRes.success ? "" : pushRes.message
+    });
+    clearSheetCache("tb_line_logs");
+    
+    if (!pushRes.success) {
+      return { success: false, message: "ส่งข้อความไม่สำเร็จ: " + pushRes.message };
+    }
+    
+    var savedMsg = appendLineChatMessage(lineUserId, "out", senderName, messageText, blackCase, cid);
+    return {
+      success: true,
+      message: "ส่งข้อความเข้า LINE สำเร็จ",
+      newMessage: sanitizeObjectForSerialization(savedMsg)
+    };
+  } catch (e) {
+    return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อความ: " + e.toString() };
+  }
+}
+
 
