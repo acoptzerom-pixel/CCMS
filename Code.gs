@@ -3718,7 +3718,7 @@ function getOrCreateSheet(sheetName, headers) {
 function getDefaultLineConfig() {
   return {
     oa_basic_id: "@012cryec",
-    oa_bot_id: "",
+    oa_bot_id: "Uc26f8cd9efde3d463307945a2077ff3f",
     channel_access_token: "",
     channel_secret: "",
     auto_send_enabled: "true",
@@ -3770,10 +3770,6 @@ function getLineConfigMap() {
       var keyStr = r.config_key.toString().trim();
       existingKeys[keyStr] = true;
       if (r.config_value !== undefined && r.config_value !== null && r.config_value !== "") {
-        if (keyStr === "oa_bot_id" && (r.updated_by === "webhook" || r.updated_by === "line_api" || r.config_value.toString().trim() === "Uc26f8cd9efde3d463307945a2077ff3f")) {
-          map[keyStr] = "";
-          continue;
-        }
         map[keyStr] = r.config_value.toString();
       }
     }
@@ -4478,8 +4474,6 @@ function saveLineOaSettings(newConfig, token) {
       var chatBizMatch = rawBotVal.match(/chat\.line\.biz\/(U[0-9a-fA-F]{32})/i);
       if (chatBizMatch) {
         newConfig.oa_bot_id = chatBizMatch[1];
-      } else if (rawBotVal === "Uc26f8cd9efde3d463307945a2077ff3f") {
-        newConfig.oa_bot_id = "";
       }
     }
 
@@ -4502,7 +4496,7 @@ function saveLineOaSettings(newConfig, token) {
       }
     }
     
-    // ตรวจสอบการเชื่อมต่อกับ LINE Messaging API และอัปเดตเฉพาะ oa_basic_id (ไม่นำ botInfo.userId ไปทับ oa_bot_id เพราะคนละรหัสกับ chat.line.biz)
+    // ตรวจสอบการเชื่อมต่อกับ LINE Messaging API และดึง oa_bot_id / oa_basic_id อัตโนมัติ
     var botInfoMsg = "";
     if (newConfig.channel_access_token && newConfig.channel_access_token.toString().trim() !== "") {
       var botInfo = fetchLineBotInfo(newConfig.channel_access_token.toString().trim());
@@ -4510,8 +4504,8 @@ function saveLineOaSettings(newConfig, token) {
         if (botInfo.basicId) {
           saveSingleLineConfigValue("oa_basic_id", botInfo.basicId, "line_api");
         }
-        if (botInfo.userId && newConfig.oa_bot_id === botInfo.userId) {
-          saveSingleLineConfigValue("oa_bot_id", "", "system");
+        if (botInfo.userId && (!newConfig.oa_bot_id || newConfig.oa_bot_id.toString().trim() === "")) {
+          saveSingleLineConfigValue("oa_bot_id", botInfo.userId, "line_api");
         }
         botInfoMsg = " (เชื่อมต่อกับบัญชี LINE OA: " + (botInfo.displayName || botInfo.basicId || "") + " สำเร็จ!)";
       }
