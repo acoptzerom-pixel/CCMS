@@ -2808,8 +2808,8 @@
             </div>
 
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-              <button class="btn btn-primary" style="background: #06C755; border-color: #06C755; border-radius: 12px; padding: 10px 16px; display: inline-flex; align-items: center; gap: 8px;" @click="triggerAutoLineCheckNow">
-                <i class="fa-solid fa-paper-plane"></i> ส่งแจ้งเตือนตามเกณฑ์วันนัดทันที
+              <button class="btn btn-primary" style="background: #06C755; border-color: #06C755; border-radius: 12px; padding: 10px 16px; display: inline-flex; align-items: center; gap: 8px;" @click="triggerAutoLineCheckNow" title="กดเพื่อส่งข้อความด้วยตนเองทันที (แยกต่างหาก ไม่คิดรวมกับรอบส่งอัตโนมัติ 08.00 น.)">
+                <i class="fa-solid fa-paper-plane"></i> ส่งแจ้งเตือนตามเกณฑ์ทันที (แมนนวล)
               </button>
               <button class="btn btn-secondary" style="border-radius: 12px; padding: 10px 16px;" @click="loadLineOaModule">
                 <i class="fa-solid fa-rotate"></i> รีเฟรช
@@ -3169,7 +3169,11 @@
                 <tbody>
                   <tr v-for="lg in lineOaLogs" :key="lg.log_id">
                     <td style="font-size: 0.82rem;">{{ lg.sent_at || lg.sent_date }}</td>
-                    <td>{{ lg.notify_type === 'activity' ? 'กิจกรรม' : 'นัดหมาย' }}</td>
+                    <td>
+                      <div>{{ lg.notify_type === 'activity' ? 'กิจกรรม' : 'นัดหมาย' }}</div>
+                      <span v-if="String(lg.log_id || '').indexOf('AUTO8AM-') === 0" style="display: inline-block; margin-top: 2px; font-size: 0.68rem; font-weight: 600; padding: 1px 6px; border-radius: 99px; background: rgba(6, 199, 85, 0.14); color: #06C755;">อัตโนมัติ 08.00 น.</span>
+                      <span v-else style="display: inline-block; margin-top: 2px; font-size: 0.68rem; font-weight: 600; padding: 1px 6px; border-radius: 99px; background: rgba(59, 130, 246, 0.14); color: #3b82f6;">กดส่งเอง (แมนนวล)</span>
+                    </td>
                     <td style="font-weight: 700;">{{ lg.black_case }}</td>
                     <td>{{ lg.recipient_name }} ({{ lg.recipient_role }})</td>
                     <td>{{ lg.title }}</td>

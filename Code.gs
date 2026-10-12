@@ -23,8 +23,8 @@ function runScheduledLineNotificationsAt8AM() {
   var cfg = getLineConfigMap();
   if (cfg.auto_send_enabled !== "true") return;
   var todayIso = Utilities.formatDate(new Date(), "GMT+7", "yyyy-MM-dd");
-  var lastRunVal = (cfg.last_auto_run_date || "").toString().trim();
-  if (lastRunVal === "RUN_" + todayIso) return;
+  var lastRunVal = (cfg.last_auto_8am_run_date || "").toString().trim();
+  if (lastRunVal === "AUTO8AM_" + todayIso) return;
   runDailyLineNotifications(null);
 }
 
@@ -3772,7 +3772,8 @@ function getDefaultLineConfig() {
       "👉 \"เลขบัตรประชาชน 13 หลักของเยาวชน\" หรือ\n" +
       "👉 \"เลขคดี (เช่น มพ34/69)\"\n" +
       "ส่งเข้ามาในห้องแชทนี้ได้เลยครับ/ค่ะ",
-    last_auto_run_date: ""
+    last_auto_run_date: "",
+    last_auto_8am_run_date: ""
   };
 }
 
@@ -3808,9 +3809,9 @@ function getLineConfigMap() {
         if (keyStr === "oa_bot_id" && (r.updated_by === "webhook" || r.updated_by === "line_api" || r.config_value.toString().trim() === "Uc26f8cd9efde3d463307945a2077ff3f")) {
           continue;
         }
-        if (keyStr === "last_auto_run_date") {
+        if (keyStr === "last_auto_run_date" || keyStr === "last_auto_8am_run_date") {
           var rawLastRun = r.config_value.toString().trim();
-          map[keyStr] = rawLastRun.indexOf("RUN_") === 0 ? rawLastRun : (formatDateAsIso(r.config_value) || rawLastRun);
+          map[keyStr] = (rawLastRun.indexOf("RUN_") === 0 || rawLastRun.indexOf("AUTO8AM_") === 0) ? rawLastRun : (formatDateAsIso(r.config_value) || rawLastRun);
           continue;
         }
         if (keyStr === "days_before_notify") {
@@ -4277,29 +4278,29 @@ function buildLineReminderItems(daysAheadLimit, cfgMap) {
     }
   }
   
-  // 3. สร้าง Map ตรวจสอบประวัติการส่งของวันนี้และประวัติการส่งทั้งหมดสำหรับรายการนั้น
+  // 3. สร้าง Map ตรวจสอบประวัติการส่งอัตโนมัติ (เฉพาะรอบ 08.00 น. รหัส AUTO8AM-) แยกจากการกดส่งเองแบบแมนนวล
   var sentTodayMap = {};
   var sentTodayByUidMap = {};
   var everSentMap = {};
   for (var i = 0; i < logs.length; i++) {
     var lg = logs[i];
     if (lg.status === "สำเร็จ") {
+      var logIdStr = (lg.log_id || "").toString().trim();
+      var isAuto8AmLog = (logIdStr.indexOf("AUTO8AM-") === 0);
       var lgSentDateIso = formatDateAsIso(lg.sent_date) || (lg.sent_date ? lg.sent_date.toString().trim() : "");
       var lgTargetDateIso = formatDateAsIso(lg.target_date) || (lg.target_date ? lg.target_date.toString().trim() : "");
       var lgSentAtStr = (lg.sent_at instanceof Date)
         ? Utilities.formatDate(lg.sent_at, "GMT+7", "yyyy-MM-dd HH:mm:ss")
         : (lg.sent_at || lgSentDateIso || "ส่งแล้ว").toString();
       var itemKey = (lg.notify_type || "") + "|" + normalizeBlackCaseKey(lg.black_case) + "|" + lgTargetDateIso + "|" + (lg.recipient_role || "");
-      everSentMap[itemKey] = lgSentAtStr;
-      if (lgSentDateIso === todayIso) {
-        // ไม่นับรวม Log ที่ถูกส่งตอนเที่ยงคืน (00:xx - 01:xx น.) จากการทดสอบระบบก่อนเวลา 08.00 น.
-        var isBeforeMorningWindow = (lgSentAtStr.indexOf(todayIso + " 00:") === 0 || lgSentAtStr.indexOf(todayIso + " 01:") === 0);
-        if (!isBeforeMorningWindow) {
-          sentTodayMap[itemKey] = true;
-          var lgUid = (lg.line_user_id || "").toString().trim();
-          if (lgUid && lgTargetDateIso) {
-            sentTodayByUidMap[lgUid + "|" + lgTargetDateIso] = true;
-          }
+      everSentMap[itemKey] = lgSentAtStr + (isAuto8AmLog ? " (อัตโนมัติ 08.00 น.)" : " (กดส่งเอง)");
+      // นับว่าส่งอัตโนมัติของวันนี้ไปแล้ว เฉพาะรายการที่ส่งจากระบบอัตโนมัติ 08.00 น. (AUTO8AM-) เท่านั้น
+      // ส่วนที่เจ้าหน้าที่กดส่งทดสอบเองแบบแมนนวล จะไม่ถูกนำมาคิดรวม
+      if (isAuto8AmLog && lgSentDateIso === todayIso) {
+        sentTodayMap[itemKey] = true;
+        var lgUid = (lg.line_user_id || "").toString().trim();
+        if (lgUid && lgTargetDateIso) {
+          sentTodayByUidMap[lgUid + "|" + lgTargetDateIso] = true;
         }
       }
     }
@@ -4648,7 +4649,7 @@ function sendSingleLineReminder(itemData, token) {
       var t = targets[i];
       var pushRes = sendLinePushMessage(t.uid, msgText, accessToken);
       appendRowToSheet("tb_line_logs", {
-        log_id: "LOG-" + now.getTime() + "-" + i,
+        log_id: "MANUAL-" + now.getTime() + "-" + i,
         sent_date: todayIso,
         sent_at: nowTimeStr,
         notify_type: itemData.notify_type || "manual",
@@ -4674,7 +4675,7 @@ function sendSingleLineReminder(itemData, token) {
     if (sentCount > 0) {
       return {
         success: true,
-        message: "ส่งข้อความแจ้งเตือนผ่าน LINE OA สำเร็จ (" + sentCount + " บัญชี)" + (errors.length > 0 ? " | ข้อผิดพลาดบางส่วน: " + errors.join(", ") : "")
+        message: "ส่งข้อความแจ้งเตือนผ่าน LINE OA สำเร็จ (" + sentCount + " บัญชี | ไม่นับรวมกับรอบอัตโนมัติ 08.00 น.)" + (errors.length > 0 ? " | ข้อผิดพลาดบางส่วน: " + errors.join(", ") : "")
       };
     } else {
       return {
@@ -4688,14 +4689,16 @@ function sendSingleLineReminder(itemData, token) {
 }
 
 /**
- * ฟังก์ชันรันการส่งแจ้งเตือนอัตโนมัติประจำวัน เวลา 08.00 น.
+ * ฟังก์ชันรันการส่งแจ้งเตือนอัตโนมัติประจำวัน เวลา 08.00 น. (หรือกดสั่งทดสอบด้วยตนเองโดยเจ้าหน้าที่)
  * เงื่อนไข:
  * 1. แจ้งเตือนเฉพาะ: ก่อนวันนัด 1 สัปดาห์ (7 วัน), ก่อนวันนัด 1 วัน (1 วัน), และในวันนัดหมาย (0 วัน)
- * 2. ส่งเพียง 1 ครั้งต่อรอบเวลา 08.00 น. หากผ่านวันที่ต้องแจ้งเตือนหรือเลยเวลา 08.00 น. ของวันนั้นมาแล้วจะไม่ส่งย้อนหลัง
- * 3. ยกเว้นรายการที่ appointment_reason เท่ากับ "เก็บข้อมูลเบื้องต้น"
+ * 2. รอบอัตโนมัติ 08.00 น. (เมื่อไม่มี token): ส่งเพียง 1 ครั้งต่อวัน และไม่นำการกดส่งเองแบบแมนนวลมาคิดรวม
+ * 3. รอบกดส่งเองโดยเจ้าหน้าที่ (เมื่อมี token): ส่งทดสอบได้ตลอดเวลาโดยไม่ไปบล็อกหรือตัดสิทธิ์รอบอัตโนมัติ 08.00 น.
+ * 4. ยกเว้นรายการที่ appointment_reason เท่ากับ "เก็บข้อมูลเบื้องต้น"
  */
 function runDailyLineNotifications(token) {
-  if (token && typeof token === "string") {
+  var isManualTrigger = !!(token && typeof token === "string");
+  if (isManualTrigger) {
     var userSession = verifySessionToken(token);
     if (!userSession || (userSession.role !== "admin" && userSession.role !== "psychologist")) {
       return { success: false, message: "เฉพาะแอดมินและนักจิตวิทยาเท่านั้นที่สามารถสั่งรันระบบแจ้งเตือนได้" };
@@ -4736,19 +4739,23 @@ function runDailyLineNotifications(token) {
     var totalMatched = 0;
     var failMessages = [];
     var sentInThisRunMap = {};
+    var logPrefix = isManualTrigger ? "MANUAL-BATCH-" : "AUTO8AM-";
     
     for (var i = 0; i < items.length; i++) {
       var item = items[i];
       if (!targetDaysMap[item.diff_days]) continue;
       totalMatched++;
       
-      // ส่งหาเยาวชน (ถ้ามี line_user_id และวันนี้ยังไม่ได้ส่ง)
+      // ส่งหาเยาวชน:
+      // - หากรันอัตโนมัติ 08.00 น. (!isManualTrigger): เช็คว่าวันนี้ระบบอัตโนมัติ 08.00 น. เคยส่งให้หรือยัง (!item.youth_sent_today)
+      // - หากเจ้าหน้าที่กดส่งเอง (isManualTrigger): ส่งได้ทันทีโดยไม่นำประวัติการส่งก่อนหน้ามาบล็อก และไม่ไปบล็อกรอบ 08.00 น.
       var yBatchKey = item.line_user_id + "|" + item.target_date_iso;
-      if (item.line_user_id && !item.youth_sent_today && !sentInThisRunMap[yBatchKey]) {
+      var canSendYouth = item.line_user_id && !sentInThisRunMap[yBatchKey] && (isManualTrigger || !item.youth_sent_today);
+      if (canSendYouth) {
         sentInThisRunMap[yBatchKey] = true;
         var resY = sendLinePushMessage(item.line_user_id, item.message_text, accessToken);
         appendRowToSheet("tb_line_logs", {
-          log_id: "AUTO-" + now.getTime() + "-Y" + i,
+          log_id: logPrefix + now.getTime() + "-Y" + i,
           sent_date: todayIso,
           sent_at: nowTimeStr,
           notify_type: item.notify_type,
@@ -4769,13 +4776,14 @@ function runDailyLineNotifications(token) {
         }
       }
       
-      // ส่งหาผู้ปกครอง (ถ้ามี parent_line_user_id และวันนี้ยังไม่ได้ส่ง)
+      // ส่งหาผู้ปกครอง:
       var pBatchKey = item.parent_line_user_id + "|" + item.target_date_iso;
-      if (item.parent_line_user_id && !item.parent_sent_today && !sentInThisRunMap[pBatchKey]) {
+      var canSendParent = item.parent_line_user_id && !sentInThisRunMap[pBatchKey] && (isManualTrigger || !item.parent_sent_today);
+      if (canSendParent) {
         sentInThisRunMap[pBatchKey] = true;
         var resP = sendLinePushMessage(item.parent_line_user_id, item.message_text, accessToken);
         appendRowToSheet("tb_line_logs", {
-          log_id: "AUTO-" + now.getTime() + "-P" + i,
+          log_id: logPrefix + now.getTime() + "-P" + i,
           sent_date: todayIso,
           sent_at: nowTimeStr,
           notify_type: item.notify_type,
@@ -4798,12 +4806,16 @@ function runDailyLineNotifications(token) {
     }
     
     clearSheetCache("tb_line_logs");
-    saveSingleLineConfigValue("last_auto_run_date", "RUN_" + todayIso, "auto_scheduler");
+    // บันทึกสถานะว่ารันรอบอัตโนมัติ 08.00 น. ของวันนี้ไปแล้ว เฉพาะเมื่อเป็นการรันอัตโนมัติเท่านั้น (ไม่รวมกรณีเจ้าหน้าที่กดปุ่มเอง)
+    if (!isManualTrigger) {
+      saveSingleLineConfigValue("last_auto_8am_run_date", "AUTO8AM_" + todayIso, "auto_8am_scheduler");
+    }
     
+    var modeLabel = isManualTrigger ? "[ส่งแบบแมนนวลโดยเจ้าหน้าที่ - ไม่คิดรวมกับรอบอัตโนมัติ 08.00 น.] " : "[ระบบอัตโนมัติ 08.00 น.] ";
     var failSuffix = failMessages.length > 0 ? (" | ส่งไม่สำเร็จ " + failMessages.length + " รายการ (" + failMessages[0] + ")") : "";
     return {
       success: failMessages.length === 0 || totalSent > 0,
-      message: "ตรวจสอบนัดหมายตามเกณฑ์ (ล่วงหน้า " + rawDaysCfg + " วัน ยกเว้นนัดเก็บข้อมูลเบื้องต้น) พบ " + totalMatched + " รายการ | ส่งข้อความแจ้งเตือนสำเร็จ " + totalSent + " ข้อความ" + failSuffix,
+      message: modeLabel + "ตรวจสอบนัดหมายตามเกณฑ์ (ล่วงหน้า " + rawDaysCfg + " วัน ยกเว้นนัดเก็บข้อมูลเบื้องต้น) พบ " + totalMatched + " รายการ | ส่งข้อความแจ้งเตือนสำเร็จ " + totalSent + " ข้อความ" + failSuffix,
       totalSent: totalSent,
       totalMatched: totalMatched
     };
@@ -4822,12 +4834,12 @@ function checkAndRunDailyLineNotificationsAuto(cfgMap) {
   
   var now = new Date();
   var todayIso = Utilities.formatDate(now, "GMT+7", "yyyy-MM-dd");
-  var lastRunVal = (cfg.last_auto_run_date || "").toString().trim();
-  if (lastRunVal === "RUN_" + todayIso) return; // รันรอบเช้าของวันนี้ไปแล้ว (ส่งวันละ 1 ครั้งเท่านั้น)
+  var lastRunVal = (cfg.last_auto_8am_run_date || "").toString().trim();
+  if (lastRunVal === "AUTO8AM_" + todayIso) return; // รันรอบอัตโนมัติ 08.00 น. ของวันนี้ไปแล้ว (ส่งอัตโนมัติวันละ 1 ครั้งเท่านั้น)
   
   var currentHour = parseInt(Utilities.formatDate(now, "GMT+7", "HH"), 10);
   if (currentHour < 8) {
-    // ก่อนเวลา 08.00 น. ยังไม่ส่ง ให้รอจนถึงเวลา 08.00 น.
+    // ก่อนเวลา 08.00 น. ยังไม่ส่งอัตโนมัติ ให้รอจนถึงเวลา 08.00 น.
     return;
   }
   
