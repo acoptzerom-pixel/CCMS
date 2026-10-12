@@ -23,8 +23,8 @@ function runScheduledLineNotificationsAt8AM() {
   var cfg = getLineConfigMap();
   if (cfg.auto_send_enabled !== "true") return;
   var todayIso = Utilities.formatDate(new Date(), "GMT+7", "yyyy-MM-dd");
-  var lastRunIso = formatDateAsIso(cfg.last_auto_run_date) || (cfg.last_auto_run_date || "").toString().trim();
-  if (lastRunIso === todayIso) return;
+  var lastRunVal = (cfg.last_auto_run_date || "").toString().trim();
+  if (lastRunVal === "RUN_" + todayIso) return;
   runDailyLineNotifications(null);
 }
 
@@ -3809,21 +3809,27 @@ function getLineConfigMap() {
           continue;
         }
         if (keyStr === "last_auto_run_date") {
-          map[keyStr] = formatDateAsIso(r.config_value) || r.config_value.toString().trim();
+          var rawLastRun = r.config_value.toString().trim();
+          map[keyStr] = rawLastRun.indexOf("RUN_") === 0 ? rawLastRun : (formatDateAsIso(r.config_value) || rawLastRun);
           continue;
         }
-        if (keyStr === "days_before_notify" && r.config_value.toString().trim() === "1,3") {
-          map[keyStr] = "0,1,7";
-          try {
-            updateRowInSheet("tb_line_config", r.rowNum, {
-              config_key: "days_before_notify",
-              config_value: "0,1,7",
-              updated_at: new Date().toISOString(),
-              updated_by: "system"
-            });
-            clearSheetCache("tb_line_config");
-          } catch (ignoreUpdateErr) {}
-          continue;
+        if (keyStr === "days_before_notify") {
+          var rawDays = r.config_value.toString().replace(/\s+/g, "");
+          if (rawDays === "1,3" || rawDays === "13" || rawDays === "1.3" || rawDays === "17" || rawDays === "0,1,7") {
+            map[keyStr] = "0, 1, 7";
+            if (r.config_value.toString().trim() !== "0, 1, 7") {
+              try {
+                updateRowInSheet("tb_line_config", r.rowNum, {
+                  config_key: "days_before_notify",
+                  config_value: "'0, 1, 7",
+                  updated_at: new Date().toISOString(),
+                  updated_by: "system"
+                });
+                clearSheetCache("tb_line_config");
+              } catch (ignoreUpdateErr) {}
+            }
+            continue;
+          }
         }
         map[keyStr] = r.config_value.toString();
       }
@@ -3837,7 +3843,7 @@ function getLineConfigMap() {
       if (defaults.hasOwnProperty(dk)) {
         appendRowToSheet("tb_line_config", {
           config_key: dk,
-          config_value: defaults[dk],
+          config_value: dk === "days_before_notify" ? "'0, 1, 7" : defaults[dk],
           updated_at: nowIso,
           updated_by: "system"
         });
@@ -3857,12 +3863,16 @@ function saveSingleLineConfigValue(key, value, updatedBy) {
   getOrCreateSheet("tb_line_config", ["config_key", "config_value", "updated_at", "updated_by"]);
   var rows = getSheetData("tb_line_config");
   var nowIso = new Date().toISOString();
+  var strVal = value !== undefined && value !== null ? value.toString() : "";
+  if (key === "days_before_notify" && strVal.indexOf("'") !== 0) {
+    strVal = "'" + strVal;
+  }
   var found = false;
   for (var i = 0; i < rows.length; i++) {
     if (rows[i].config_key && rows[i].config_key.toString().trim() === key) {
       updateRowInSheet("tb_line_config", rows[i].rowNum, {
         config_key: key,
-        config_value: value !== undefined && value !== null ? value.toString() : "",
+        config_value: strVal,
         updated_at: nowIso,
         updated_by: updatedBy || "system"
       });
@@ -4282,10 +4292,14 @@ function buildLineReminderItems(daysAheadLimit, cfgMap) {
       var itemKey = (lg.notify_type || "") + "|" + normalizeBlackCaseKey(lg.black_case) + "|" + lgTargetDateIso + "|" + (lg.recipient_role || "");
       everSentMap[itemKey] = lgSentAtStr;
       if (lgSentDateIso === todayIso) {
-        sentTodayMap[itemKey] = true;
-        var lgUid = (lg.line_user_id || "").toString().trim();
-        if (lgUid && lgTargetDateIso) {
-          sentTodayByUidMap[lgUid + "|" + lgTargetDateIso] = true;
+        // ไม่นับรวม Log ที่ถูกส่งตอนเที่ยงคืน (00:xx - 01:xx น.) จากการทดสอบระบบก่อนเวลา 08.00 น.
+        var isBeforeMorningWindow = (lgSentAtStr.indexOf(todayIso + " 00:") === 0 || lgSentAtStr.indexOf(todayIso + " 01:") === 0);
+        if (!isBeforeMorningWindow) {
+          sentTodayMap[itemKey] = true;
+          var lgUid = (lg.line_user_id || "").toString().trim();
+          if (lgUid && lgTargetDateIso) {
+            sentTodayByUidMap[lgUid + "|" + lgTargetDateIso] = true;
+          }
         }
       }
     }
@@ -4296,43 +4310,25 @@ function buildLineReminderItems(daysAheadLimit, cfgMap) {
   
   var items = [];
   var seenEntryMap = {};
-  var skipCaseDateMap = {};
-  
-  // ตรวจสอบรายการใน tb_appointment ที่ appointment_reason เท่ากับ "เก็บข้อมูลเบื้องต้น" เพื่อยกเว้นการแจ้งเตือนในวันนั้นๆ
-  for (var sIdx = 0; sIdx < appointments.length; sIdx++) {
-    var apCheck = appointments[sIdx];
-    if (!apCheck.black_case || !apCheck.appointment_date) continue;
-    var rCheck = safeStr(apCheck.appointment_reason).replace(/\s+/g, "");
-    if (rCheck === "เก็บข้อมูลเบื้องต้น") {
-      var dCheck = normalizeSheetDate(apCheck.appointment_date);
-      if (dCheck) {
-        var dCheckIso = Utilities.formatDate(dCheck, "GMT+7", "yyyy-MM-dd");
-        var bcNormCheck = normalizeBlackCaseKey(apCheck.black_case);
-        if (bcNormCheck && dCheckIso) {
-          skipCaseDateMap[bcNormCheck + "|" + dCheckIso] = true;
-        }
-      }
-    }
-  }
+  var tParts = todayIso.split("-");
+  var todayUtcMs = Date.UTC(parseInt(tParts[0], 10), parseInt(tParts[1], 10) - 1, parseInt(tParts[2], 10));
   
   // Helper สร้างข้อมูลผู้รับและข้อความ
   function createReminderEntry(type, bcRaw, targetDateObj, titleText, subTitleText, extraVars) {
     if (!bcRaw || !targetDateObj) return;
     var dCopy = new Date(targetDateObj.getTime());
-    dCopy.setHours(0, 0, 0, 0);
-    var diffDays = Math.round((dCopy.getTime() - todayMs) / 86400000);
+    var targetDateIso = Utilities.formatDate(dCopy, "GMT+7", "yyyy-MM-dd");
+    var dParts = targetDateIso.split("-");
+    var targetUtcMs = Date.UTC(parseInt(dParts[0], 10), parseInt(dParts[1], 10) - 1, parseInt(dParts[2], 10));
+    var diffDays = Math.round((targetUtcMs - todayUtcMs) / 86400000);
     
     // แสดงตั้งแต่วันนี้ (diffDays >= 0) ไปจนถึง maxDays ข้างหน้า (หากผ่านวันที่ต้องแจ้งเตือนมาแล้วไม่ต้องแจ้งเตือนอีก)
     if (diffDays < 0 || diffDays > maxDays) return;
     
     var exactKey = bcRaw.toString().trim().replace(/\s+/g, "").toLowerCase();
     var normKey = normalizeBlackCaseKey(bcRaw);
-    var targetDateIso = Utilities.formatDate(dCopy, "GMT+7", "yyyy-MM-dd");
     
-    // หากวันนั้นของคดีนี้เป็นนัด "เก็บข้อมูลเบื้องต้น" ไม่ต้องทำการแจ้งเตือนข้อความในวันนั้นๆ
-    if (skipCaseDateMap[normKey + "|" + targetDateIso]) return;
-    
-    // ป้องกันการสร้างรายการแจ้งเตือนซ้ำซ้อนในวันเดียวกันของคดีเดียวกัน
+    // ป้องกันการสร้างรายการแจ้งเตือนซ้ำซ้อนในวันเดียวกันของคดีเดียวกันและประเภทเดียวกัน
     var uniqueEntryKey = type + "|" + normKey + "|" + targetDateIso;
     if (seenEntryMap[uniqueEntryKey]) return;
     seenEntryMap[uniqueEntryKey] = true;
@@ -4494,6 +4490,12 @@ function getLineOaModuleData(daysAhead, token) {
   
   try {
     var cfg = getLineConfigMap();
+    try {
+      checkAndRunDailyLineNotificationsAuto(cfg);
+      cfg = getLineConfigMap();
+    } catch (autoErr) {
+      Logger.log("Auto run in getLineOaModuleData error: " + autoErr.toString());
+    }
     var upcomingList = buildLineReminderItems(daysAhead || 30, cfg);
     
     getOrCreateSheet("tb_line_logs", ["log_id", "sent_date", "sent_at", "notify_type", "black_case", "citizen_id", "recipient_role", "recipient_name", "line_user_id", "target_date", "title", "status", "error_message"]);
@@ -4693,9 +4695,7 @@ function sendSingleLineReminder(itemData, token) {
  * 3. ยกเว้นรายการที่ appointment_reason เท่ากับ "เก็บข้อมูลเบื้องต้น"
  */
 function runDailyLineNotifications(token) {
-  var isManualTrigger = false;
   if (token && typeof token === "string") {
-    isManualTrigger = true;
     var userSession = verifySessionToken(token);
     if (!userSession || (userSession.role !== "admin" && userSession.role !== "psychologist")) {
       return { success: false, message: "เฉพาะแอดมินและนักจิตวิทยาเท่านั้นที่สามารถสั่งรันระบบแจ้งเตือนได้" };
@@ -4709,9 +4709,14 @@ function runDailyLineNotifications(token) {
       return { success: false, message: "ยังไม่ได้ตั้งค่า Channel Access Token ในระบบ" };
     }
     
-    // แปลงค่า days_before_notify เช่น "0,1,7" -> { 0: true, 1: true, 7: true }
-    var daysStr = (cfg.days_before_notify || "0,1,7").toString();
-    var dayParts = daysStr.split(",");
+    // แปลงค่า days_before_notify เช่น "0, 1, 7" -> { 0: true, 1: true, 7: true }
+    // ป้องกันกรณี Google Sheets แปลง "0,1,7" เป็นตัวเลข 17 หรือ "1,3" เป็น 13
+    var rawDaysCfg = (cfg.days_before_notify || "0, 1, 7").toString().replace(/^'/, "").trim();
+    var compactDays = rawDaysCfg.replace(/\s+/g, "");
+    if (!compactDays || compactDays === "17" || compactDays === "13" || compactDays === "1,3" || compactDays === "1.3" || compactDays === "0,1,7") {
+      rawDaysCfg = "0, 1, 7";
+    }
+    var dayParts = rawDaysCfg.split(",");
     var targetDaysMap = {};
     var maxDay = 7;
     for (var i = 0; i < dayParts.length; i++) {
@@ -4726,28 +4731,6 @@ function runDailyLineNotifications(token) {
     var todayIso = Utilities.formatDate(now, "GMT+7", "yyyy-MM-dd");
     var nowTimeStr = Utilities.formatDate(now, "GMT+7", "yyyy-MM-dd HH:mm:ss");
     
-    // ตรวจสอบเวลาที่ผูกบัญชีใน tb_line_contacts: หากผูกบัญชีในวันนี้หลังเวลา 08.00 น. (เกิน 08:05 น.)
-    // ในโหมดอัตโนมัติจะไม่ส่งแจ้งเตือนของวันนี้ย้อนหลัง (รอส่งรอบ 08.00 น. ของวันนัดถัดไปแทน)
-    var linkedAfter8AmTodayMap = {};
-    if (!isManualTrigger) {
-      try {
-        var contacts = getSheetData("tb_line_contacts");
-        for (var cIdx = 0; cIdx < contacts.length; cIdx++) {
-          var ct = contacts[cIdx];
-          var ctUid = (ct.line_user_id || "").toString().trim();
-          if (!ctUid || !ct.updated_at) continue;
-          var ctDate = (ct.updated_at instanceof Date) ? ct.updated_at : new Date(ct.updated_at);
-          if (!isNaN(ctDate.getTime())) {
-            var ctDateIso = Utilities.formatDate(ctDate, "GMT+7", "yyyy-MM-dd");
-            var ctTimeHm = Utilities.formatDate(ctDate, "GMT+7", "HH:mm");
-            if (ctDateIso === todayIso && ctTimeHm > "08:05") {
-              linkedAfter8AmTodayMap[ctUid] = true;
-            }
-          }
-        }
-      } catch (ignoreCtErr) {}
-    }
-    
     var items = buildLineReminderItems(maxDay + 2, cfg);
     var totalSent = 0;
     var totalMatched = 0;
@@ -4759,9 +4742,9 @@ function runDailyLineNotifications(token) {
       if (!targetDaysMap[item.diff_days]) continue;
       totalMatched++;
       
-      // ส่งหาเยาวชน (ถ้ามี line_user_id และวันนี้ยังไม่ได้ส่ง และไม่ได้เพิ่งผูกหลัง 08.00 น. ของวันนี้)
+      // ส่งหาเยาวชน (ถ้ามี line_user_id และวันนี้ยังไม่ได้ส่ง)
       var yBatchKey = item.line_user_id + "|" + item.target_date_iso;
-      if (item.line_user_id && !item.youth_sent_today && !sentInThisRunMap[yBatchKey] && !linkedAfter8AmTodayMap[item.line_user_id]) {
+      if (item.line_user_id && !item.youth_sent_today && !sentInThisRunMap[yBatchKey]) {
         sentInThisRunMap[yBatchKey] = true;
         var resY = sendLinePushMessage(item.line_user_id, item.message_text, accessToken);
         appendRowToSheet("tb_line_logs", {
@@ -4786,9 +4769,9 @@ function runDailyLineNotifications(token) {
         }
       }
       
-      // ส่งหาผู้ปกครอง (ถ้ามี parent_line_user_id และวันนี้ยังไม่ได้ส่ง และไม่ได้เพิ่งผูกหลัง 08.00 น. ของวันนี้)
+      // ส่งหาผู้ปกครอง (ถ้ามี parent_line_user_id และวันนี้ยังไม่ได้ส่ง)
       var pBatchKey = item.parent_line_user_id + "|" + item.target_date_iso;
-      if (item.parent_line_user_id && !item.parent_sent_today && !sentInThisRunMap[pBatchKey] && !linkedAfter8AmTodayMap[item.parent_line_user_id]) {
+      if (item.parent_line_user_id && !item.parent_sent_today && !sentInThisRunMap[pBatchKey]) {
         sentInThisRunMap[pBatchKey] = true;
         var resP = sendLinePushMessage(item.parent_line_user_id, item.message_text, accessToken);
         appendRowToSheet("tb_line_logs", {
@@ -4815,12 +4798,12 @@ function runDailyLineNotifications(token) {
     }
     
     clearSheetCache("tb_line_logs");
-    saveSingleLineConfigValue("last_auto_run_date", todayIso, "auto_scheduler");
+    saveSingleLineConfigValue("last_auto_run_date", "RUN_" + todayIso, "auto_scheduler");
     
     var failSuffix = failMessages.length > 0 ? (" | ส่งไม่สำเร็จ " + failMessages.length + " รายการ (" + failMessages[0] + ")") : "";
     return {
       success: failMessages.length === 0 || totalSent > 0,
-      message: "ตรวจสอบนัดหมายตามเกณฑ์ (ล่วงหน้า " + daysStr + " วัน ยกเว้นนัดเก็บข้อมูลเบื้องต้น) พบ " + totalMatched + " รายการ | ส่งข้อความแจ้งเตือนสำเร็จ " + totalSent + " ข้อความ" + failSuffix,
+      message: "ตรวจสอบนัดหมายตามเกณฑ์ (ล่วงหน้า " + rawDaysCfg + " วัน ยกเว้นนัดเก็บข้อมูลเบื้องต้น) พบ " + totalMatched + " รายการ | ส่งข้อความแจ้งเตือนสำเร็จ " + totalSent + " ข้อความ" + failSuffix,
       totalSent: totalSent,
       totalMatched: totalMatched
     };
@@ -4830,8 +4813,7 @@ function runDailyLineNotifications(token) {
 }
 
 /**
- * ตรวจสอบและรันการส่งแจ้งเตือนอัตโนมัติวันละ 1 ครั้ง เฉพาะเวลา 08.00 น. เท่านั้น
- * หากเลยช่วงเวลา 08.00 น. ไปแล้ว จะไม่ส่งข้อความย้อนหลังในวันนั้น
+ * ตรวจสอบและรันการส่งแจ้งเตือนอัตโนมัติวันละ 1 ครั้ง (ตั้งแต่เวลา 08.00 น. เป็นต้นไป)
  */
 function checkAndRunDailyLineNotificationsAuto(cfgMap) {
   var cfg = cfgMap || getLineConfigMap();
@@ -4840,17 +4822,12 @@ function checkAndRunDailyLineNotificationsAuto(cfgMap) {
   
   var now = new Date();
   var todayIso = Utilities.formatDate(now, "GMT+7", "yyyy-MM-dd");
-  var lastRunIso = formatDateAsIso(cfg.last_auto_run_date) || (cfg.last_auto_run_date || "").toString().trim();
-  if (lastRunIso === todayIso) return; // รันหรือข้ามของวันนี้ไปแล้ว
+  var lastRunVal = (cfg.last_auto_run_date || "").toString().trim();
+  if (lastRunVal === "RUN_" + todayIso) return; // รันรอบเช้าของวันนี้ไปแล้ว (ส่งวันละ 1 ครั้งเท่านั้น)
   
   var currentHour = parseInt(Utilities.formatDate(now, "GMT+7", "HH"), 10);
   if (currentHour < 8) {
-    // ยังไม่ถึงเวลา 08.00 น. ให้รอจนถึงเวลา 08.00 น.
-    return;
-  }
-  if (currentHour > 8) {
-    // เลยเวลา 08.00 น. ของวันนี้มาแล้ว ไม่ต้องทำการแจ้งเตือนย้อนหลังในวันนี้ (รอแจ้งเตือนรอบ 08.00 น. ของวันถัดไป)
-    saveSingleLineConfigValue("last_auto_run_date", todayIso, "skip_past_8am");
+    // ก่อนเวลา 08.00 น. ยังไม่ส่ง ให้รอจนถึงเวลา 08.00 น.
     return;
   }
   
