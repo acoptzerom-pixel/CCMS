@@ -3767,11 +3767,6 @@ function getDefaultLineConfig() {
       "📍 สถานที่: {activity_venue}\n" +
       "🏢 หน่วยงานรับผิดชอบ: {activity_responsible_agency}\n" +
       "กรุณาเข้าร่วมกิจกรรมตามวันและสถานที่ดังกล่าวครับ/ค่ะ",
-    welcome_reply_template: "สวัสดีครับ/ค่ะ ศูนย์ให้คำปรึกษาแนะนำและประสานการประชุมฯ ยินดีต้อนรับ 🙏\n\n" +
-      "เพื่อลงทะเบียนรับข้อความแจ้งเตือนวันนัดหมายและกิจกรรมอัตโนมัติ กรุณาพิมพ์:\n" +
-      "👉 \"เลขบัตรประชาชน 13 หลักของเยาวชน\" หรือ\n" +
-      "👉 \"เลขคดี (เช่น มพ34/69)\"\n" +
-      "ส่งเข้ามาในห้องแชทนี้ได้เลยครับ/ค่ะ",
     binding_prompt_template: "🔍 พบข้อมูลในระบบศูนย์ให้คำปรึกษาฯ:\n" +
       "👤 ชื่อเยาวชน: {defendant_name}\n" +
       "📋 เลขคดี: {black_case}\n\n" +
@@ -4085,9 +4080,6 @@ function doPost(e) {
       
       if (ev.type === "follow") {
         upsertLineContactRecord(userId, displayName, "[เพิ่มเพื่อนใหม่]", "", "");
-        if (replyToken && accessToken && cfg.welcome_reply_template) {
-          sendLineReplyMessage(replyToken, [{ type: "text", text: cfg.welcome_reply_template }], accessToken);
-        }
       } else if (ev.type === "message" && ev.message && ev.message.type === "text") {
         var text = (ev.message.text || "").toString().trim();
         upsertLineContactRecord(userId, displayName, text, undefined, undefined);
@@ -4612,7 +4604,6 @@ function saveLineOaSettings(newConfig, token) {
       "days_before_notify",
       "appointment_template",
       "activity_template",
-      "welcome_reply_template",
       "binding_prompt_template",
       "binding_success_template",
       "binding_not_found_template",
