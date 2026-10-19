@@ -2539,11 +2539,43 @@
           }
         }
 
-        function openInCaseManager(citizenId) {
+        function openInCaseManager(citizenId, defendantName, blackCase) {
           calendarDetailModalActive.value = false;
+          const normalizeDigits = (val) => String(val || '').replace(/[๐-๙]/g, ch => String('๐๑๒๓๔๕๖๗๘๙'.indexOf(ch))).replace(/\D/g, '');
+          let targetCid = normalizeDigits(citizenId);
+
+          if (!targetCid && blackCase) {
+            const cleanCase = String(blackCase).replace(/[\s\.\-\/]+/g, '').toLowerCase();
+            const foundByCase = defendantsList.value.find(d => (d.cases || []).some(c => {
+              const bc = String(c.black_case || '').replace(/[\s\.\-\/]+/g, '').toLowerCase();
+              const cbc = String(c.court_black_case || '').replace(/[\s\.\-\/]+/g, '').toLowerCase();
+              return (bc && bc === cleanCase) || (cbc && cbc === cleanCase);
+            }));
+            if (foundByCase) targetCid = normalizeDigits(foundByCase.citizen_id);
+          }
+
+          if (!targetCid && defendantName) {
+            const rawName = String(defendantName).replace(/\s*\(ผู้ปกครอง\)\s*$/g, '').trim();
+            const cleanTargetName = rawName.replace(/\s+/g, ' ').trim();
+            const foundByName = defendantsList.value.find(d => {
+              const fullWithTitle = ((d.title_name || '') + (d.first_name || '') + ' ' + (d.last_name || '')).replace(/\s+/g, ' ').trim();
+              const fullWithSpace = ((d.title_name || '') + ' ' + (d.first_name || '') + ' ' + (d.last_name || '')).replace(/\s+/g, ' ').trim();
+              const firstLast = ((d.first_name || '') + ' ' + (d.last_name || '')).replace(/\s+/g, ' ').trim();
+              return fullWithTitle === cleanTargetName || fullWithSpace === cleanTargetName || firstLast === cleanTargetName || (firstLast && cleanTargetName.includes(firstLast));
+            });
+            if (foundByName) targetCid = normalizeDigits(foundByName.citizen_id);
+          }
+
           switchView('search');
           nextTick(() => {
-            selectDefendantFromCard(citizenId);
+            if (targetCid) {
+              selectDefendantFromCard(targetCid);
+              if (typeof window !== 'undefined' && window.scrollTo) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+            } else if (defendantName) {
+              cardSearchQuery.value = String(defendantName).replace(/\s*\(ผู้ปกครอง\)\s*$/g, '').trim();
+            }
           });
         }
 
@@ -2564,55 +2596,67 @@
           errorMsg.value = '';
           
           if (!searchId.value) return;
-          const cleanId = searchId.value.replace(/\D/g, "");
+          const normalizeDigits = (val) => String(val || '').replace(/[๐-๙]/g, ch => String('๐๑๒๓๔๕๖๗๘๙'.indexOf(ch))).replace(/\D/g, '');
+          const cleanId = normalizeDigits(searchId.value);
+          if (!cleanId) return;
+          searchId.value = cleanId;
           
+          let showedLocal = false;
           // ค้นหาในหน่วยความจำเครื่องก่อน (Local List) เพื่อความเร็วระดับ 0ms (เว้นแต่จะบังคับรีเฟรชจากการบันทึก)
           if (!forceRefresh) {
-            const localDef = defendantsList.value.find(d => d.citizen_id === cleanId);
+            const localDef = defendantsList.value.find(d => normalizeDigits(d.citizen_id) === cleanId);
             if (localDef) {
               currentDef.value = localDef;
               linkedCases.value = localDef.cases || [];
               searchDone.value = true;
-              return;
+              showedLocal = true;
             }
           }
           
-          loading.value = true;
+          if (!showedLocal) {
+            loading.value = true;
+          }
           if (typeof google !== 'undefined' && google.script && google.script.run) {
             google.script.run
               .withSuccessHandler((res) => {
-                loading.value = false;
-                if (res.success) {
+                if (!showedLocal) {
+                  loading.value = false;
+                }
+                if (res && res.success) {
                   if (res.found) {
-                    currentDef.value = res.defendant;
-                    linkedCases.value = res.cases;
-                    searchDone.value = true;
-                    
-                    // บันทึกเก็บแคชลง defendantsList ในหน่วยความจำเพื่อความไวในการเปิดถัดไป
-                    const idx = defendantsList.value.findIndex(d => d.citizen_id === cleanId);
                     const updatedDef = { ...res.defendant, cases: res.cases };
+                    const idx = defendantsList.value.findIndex(d => normalizeDigits(d.citizen_id) === cleanId);
                     if (idx !== -1) {
                       defendantsList.value[idx] = updatedDef;
                     } else {
                       defendantsList.value.push(updatedDef);
                     }
                     updateCacheField('defendants', defendantsList.value);
-                  } else {
+
+                    // อัปเดตหน้าข้อมูลเด็กและเยาวชนด้วยข้อมูลล่าสุดจากเซิร์ฟเวอร์เสมอ (รวมถึงข้อมูลผูก LINE อัตโนมัติล่าสุด)
+                    if (!showedLocal || (searchDone.value && currentDef.value && normalizeDigits(currentDef.value.citizen_id) === cleanId)) {
+                      currentDef.value = res.defendant;
+                      linkedCases.value = res.cases;
+                      searchDone.value = true;
+                    }
+                  } else if (!showedLocal) {
                     // เปิดฟอร์มให้สร้างประวัติเด็กคนใหม่ขึ้นมาเลย
                     resetDefForm(searchId.value);
                     newDefFormActive.value = true;
                   }
-                } else {
-                  if (handleAuthError(res.message)) return;
-                  errorMsg.value = res.message;
+                } else if (!showedLocal) {
+                  if (res && handleAuthError(res.message)) return;
+                  errorMsg.value = res ? res.message : 'ไม่สามารถค้นหาข้อมูลได้';
                 }
               })
               .withFailureHandler((err) => {
-                loading.value = false;
-                errorMsg.value = "ขณะนี้แหล่งข้อมูลขัดข้อง: " + (err ? err.message || err.toString() : "ไม่ระบุสาเหตุ");
+                if (!showedLocal) {
+                  loading.value = false;
+                  errorMsg.value = "ขณะนี้แหล่งข้อมูลขัดข้อง: " + (err ? err.message || err.toString() : "ไม่ระบุสาเหตุ");
+                }
               })
-              .searchDefendantByCitizenId(searchId.value, session.value.token);
-          } else {
+              .searchDefendantByCitizenId(cleanId, session.value.token);
+          } else if (!showedLocal) {
             simulateOfflineSearch();
           }
         }
@@ -2674,7 +2718,8 @@
         }
 
         function openEditDefModal() {
-          // ดึงค่าเยาวชนคนปัจจุบันยัดลงฟอร์มในโมดอล
+          // รีเซ็ตฟอร์มก่อนดึงค่าเยาวชนคนปัจจุบันยัดลงฟอร์มในโมดอล เพื่อไม่ให้ข้อมูลค้างจากรายก่อนหน้า
+          resetDefForm(currentDef.value ? currentDef.value.citizen_id : '');
           Object.assign(defForm, currentDef.value);
           // จัดการความถูกต้องของวันที่เพื่อให้แสดงบน Tag input type=date ได้ถูกต้อง
           if (defForm.birth_date) {
