@@ -3775,11 +3775,6 @@ function getDefaultLineConfig() {
       "👤 ข้อมูลของ: {defendant_name}\n" +
       "🏷️ สถานะของคุณ: {role}\n\n" +
       "ระบบจะส่งข้อความแจ้งเตือนวันนัดหมายและกิจกรรมให้ท่านผ่านห้องสนทนานี้โดยอัตโนมัติครับ/ค่ะ",
-    binding_not_found_template: "❌ ไม่พบข้อมูลสำหรับ \"{keyword}\" ในระบบศูนย์ให้คำปรึกษาฯ\n\n" +
-      "กรุณาตรวจสอบเลขบัตรประชาชน 13 หลัก หรือเลขคดี (เช่น มพ34/69) อีกครั้ง หรือติดต่อเจ้าหน้าที่ศูนย์ให้คำปรึกษาฯ ในวันและเวลาราชการครับ/ค่ะ",
-    general_help_template: "สวัสดีครับ/ค่ะ {display_name} 🙏\n\n" +
-      "📌 หากต้องการลงทะเบียนรับการแจ้งเตือนวันนัดหมาย กรุณาพิมพ์ \"เลขบัตรประชาชน 13 หลักของเยาวชน\" หรือ \"เลขคดี (เช่น มพ34/69)\" ส่งเข้ามาในห้องแชทนี้ได้เลยครับ/ค่ะ\n\n" +
-      "💬 หากมีข้อสงสัยหรือต้องการติดต่อเจ้าหน้าที่ สามารถพิมพ์ข้อความทิ้งไว้ เจ้าหน้าที่จะมาตอบกลับในเวลาทำการครับ/ค่ะ",
     last_auto_run_date: "",
     last_auto_8am_run_date: ""
   };
@@ -4101,7 +4096,6 @@ function doPost(e) {
 function handleIncomingLineTextForBinding(userId, displayName, text, replyToken, accessToken) {
   ensureColumnsExist("tb_defendants", ["line_id", "parent_line_id", "line_user_id", "parent_line_user_id"]);
   var defendants = getSheetData("tb_defendants");
-  var cases = getSheetData("tb_cases");
   var cfg = getLineConfigMap();
   
   // 1. ตรวจสอบกรณีผู้ใช้กดปุ่มยืนยันสถานะ: "ยืนยันเยาวชน:1234567890123" หรือ "ยืนยันผู้ปกครอง:1234567890123"
@@ -4153,113 +4147,67 @@ function handleIncomingLineTextForBinding(userId, displayName, text, replyToken,
     return;
   }
   
-  // 2. ตรวจสอบกรณีพิมพ์เลขบัตรประชาชน 13 หลัก หรือ เลขคดี (เช่น มพ34/69)
-  var digitsOnly = text.replace(/\D/g, "");
-  var matchedDef = null;
-  var matchedCid = "";
-  var matchedCaseNo = "";
-  var isLikelyLookup = false;
-  
-  if (digitsOnly.length === 13) {
-    isLikelyLookup = true;
-    matchedCid = digitsOnly;
+  // 2. ตรวจสอบกรณีพิมพ์เลขบัตรประชาชน 13 หลักของเยาวชนเท่านั้น (เช่น 1234567890123 หรือ 1-2345-67890-12-3)
+  var trimmed = (text || "").toString().trim();
+  var digitsOnly = trimmed.replace(/\D/g, "");
+  if (digitsOnly.length === 13 && /^[0-9\s\-]+$/.test(trimmed)) {
+    var matchedDef = null;
     for (var i = 0; i < defendants.length; i++) {
-      if (cleanCitizenId(defendants[i].citizen_id) === matchedCid) {
+      if (cleanCitizenId(defendants[i].citizen_id) === digitsOnly) {
         matchedDef = defendants[i];
         break;
       }
     }
-    if (matchedDef) {
+    
+    // ส่งข้อความถามสถานะเฉพาะกรณีค้นพบข้อมูลในระบบเท่านั้น
+    if (matchedDef && replyToken && accessToken) {
+      var defFullName = ((matchedDef.title_name || "") + (matchedDef.first_name || "") + " " + (matchedDef.last_name || "")).trim();
+      var cases = getSheetData("tb_cases");
+      var matchedCaseNo = "-";
       for (var cIdx = 0; cIdx < cases.length; cIdx++) {
-        if (cleanCitizenId(cases[cIdx].citizen_id) === matchedCid && cases[cIdx].black_case) {
+        if (cleanCitizenId(cases[cIdx].citizen_id) === digitsOnly && cases[cIdx].black_case) {
           matchedCaseNo = cases[cIdx].black_case.toString().trim();
           break;
         }
       }
-    }
-  } else {
-    // ลองค้นหาจากเลขคดีดำใน tb_cases (เช่น มพ34/69)
-    var cleanInputCase = normalizeBlackCaseKey(text);
-    var casePattern = text.match(/[0-9]+\s*\/\s*[0-9]+/) || text.match(/(?:มพ|ผพ|คม|ฟ|ม|พ)\s*[0-9]+/i);
-    if (cleanInputCase.length >= 3 || casePattern) {
-      isLikelyLookup = true;
-      for (var cIdx = 0; cIdx < cases.length; cIdx++) {
-        var cCaseKey = normalizeBlackCaseKey(cases[cIdx].black_case);
-        if (cCaseKey && cCaseKey === cleanInputCase) {
-          matchedCid = cleanCitizenId(cases[cIdx].citizen_id);
-          matchedCaseNo = cases[cIdx].black_case ? cases[cIdx].black_case.toString().trim() : "";
-          break;
-        }
-      }
-      if (matchedCid) {
-        for (var dIdx = 0; dIdx < defendants.length; dIdx++) {
-          if (cleanCitizenId(defendants[dIdx].citizen_id) === matchedCid) {
-            matchedDef = defendants[dIdx];
-            break;
-          }
-        }
-      }
-    }
-  }
-  
-  if (matchedDef && matchedCid && replyToken && accessToken) {
-    var defFullName = ((matchedDef.title_name || "") + (matchedDef.first_name || "") + " " + (matchedDef.last_name || "")).trim();
-    var caseDisplay = matchedCaseNo || "-";
-    var tpl = cfg.binding_prompt_template || getDefaultLineConfig().binding_prompt_template;
-    var promptText = renderLineMessageTemplate(tpl, {
-      defendant_name: defFullName,
-      citizen_id: matchedCid,
-      black_case: caseDisplay
-    });
-    var promptMessage = {
-      type: "text",
-      text: promptText,
-      quickReply: {
-        items: [
-          {
-            type: "action",
-            action: {
-              type: "message",
-              label: "👦 ฉันคือเยาวชน",
-              text: "ยืนยันเยาวชน:" + matchedCid
-            }
-          },
-          {
-            type: "action",
-            action: {
-              type: "message",
-              label: "👨‍👩‍👦 ฉันคือผู้ปกครอง",
-              text: "ยืนยันผู้ปกครอง:" + matchedCid
-            }
-          }
-        ]
-      }
-    };
-    sendLineReplyMessage(replyToken, [promptMessage], accessToken);
-    return;
-  }
-  
-  // 3. กรณีพิมพ์เลข 13 หลัก หรือเลขคดี แต่ไม่พบข้อมูลในระบบ
-  if (isLikelyLookup && !matchedDef && replyToken && accessToken) {
-    var notFoundTpl = cfg.binding_not_found_template || getDefaultLineConfig().binding_not_found_template;
-    if (notFoundTpl && notFoundTpl.toString().trim() !== "") {
-      var notFoundMsg = renderLineMessageTemplate(notFoundTpl, {
-        keyword: text
+      var tpl = cfg.binding_prompt_template || getDefaultLineConfig().binding_prompt_template;
+      var promptText = renderLineMessageTemplate(tpl, {
+        defendant_name: defFullName,
+        citizen_id: digitsOnly,
+        black_case: matchedCaseNo
       });
-      sendLineReplyMessage(replyToken, [{ type: "text", text: notFoundMsg }], accessToken);
+      var promptMessage = {
+        type: "text",
+        text: promptText,
+        quickReply: {
+          items: [
+            {
+              type: "action",
+              action: {
+                type: "message",
+                label: "👦 ฉันคือเยาวชน",
+                text: "ยืนยันเยาวชน:" + digitsOnly
+              }
+            },
+            {
+              type: "action",
+              action: {
+                type: "message",
+                label: "👨‍👩‍👦 ฉันคือผู้ปกครอง",
+                text: "ยืนยันผู้ปกครอง:" + digitsOnly
+              }
+            }
+          ]
+        }
+      };
+      sendLineReplyMessage(replyToken, [promptMessage], accessToken);
+      return;
     }
+    // หากไม่พบข้อมูลในระบบ ไม่ต้องตอบกลับอัตโนมัติ เพื่อให้เจ้าหน้าที่ดูแลโดยตรง
     return;
   }
   
-  // 4. กรณีพิมพ์ข้อความทั่วไป (เช่น ทักทาย, ถามคำถาม)
-  if (replyToken && accessToken && cfg.general_help_template && cfg.general_help_template.toString().trim() !== "") {
-    var helpTpl = cfg.general_help_template;
-    var helpMsg = renderLineMessageTemplate(helpTpl, {
-      display_name: displayName || "คุณ"
-    });
-    sendLineReplyMessage(replyToken, [{ type: "text", text: helpMsg }], accessToken);
-    return;
-  }
+  // กรณีข้อความอื่นๆ ทุกกรณี (เช่น สวัสดี, สอบถาม, หรือข้อความทั่วไป): ไม่ต้องส่งข้อความตอบกลับอัตโนมัติ เพื่อให้เจ้าหน้าที่เปิดแชทสนทนาได้โดยตรง
 }
 
 /**
@@ -4605,9 +4553,7 @@ function saveLineOaSettings(newConfig, token) {
       "appointment_template",
       "activity_template",
       "binding_prompt_template",
-      "binding_success_template",
-      "binding_not_found_template",
-      "general_help_template"
+      "binding_success_template"
     ];
     
     for (var i = 0; i < keysToSave.length; i++) {
@@ -4692,7 +4638,7 @@ function sendSingleLineReminder(itemData, token) {
     if (targets.length === 0) {
       return {
         success: false,
-        message: "เยาวชนและผู้ปกครองในคดีนี้ยังไม่ได้ผูก LINE User ID (U...) กับ LINE OA (@012cryec) กรุณาให้เยาวชน/ผู้ปกครองแอดไลน์ @012cryec แล้วพิมพ์เลขบัตรประชาชน 13 หลัก หรือเลขคดี เพื่อผูกบัญชีก่อนครับ"
+        message: "เยาวชนและผู้ปกครองในคดีนี้ยังไม่ได้ผูก LINE User ID (U...) กับ LINE OA (@012cryec) กรุณาให้เยาวชน/ผู้ปกครองแอดไลน์ @012cryec แล้วพิมพ์เลขบัตรประชาชน 13 หลักของเยาวชน เพื่อผูกบัญชีก่อนครับ"
       };
     }
     
