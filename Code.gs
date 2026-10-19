@@ -3767,11 +3767,24 @@ function getDefaultLineConfig() {
       "📍 สถานที่: {activity_venue}\n" +
       "🏢 หน่วยงานรับผิดชอบ: {activity_responsible_agency}\n" +
       "กรุณาเข้าร่วมกิจกรรมตามวันและสถานที่ดังกล่าวครับ/ค่ะ",
-    welcome_reply_template: "สวัสดีครับ/ค่ะ ศูนย์ให้คำปรึกษาฯ (@012cryec) ยินดีต้อนรับ 🙏\n\n" +
+    welcome_reply_template: "สวัสดีครับ/ค่ะ ศูนย์ให้คำปรึกษาแนะนำและประสานการประชุมฯ ยินดีต้อนรับ 🙏\n\n" +
       "เพื่อลงทะเบียนรับข้อความแจ้งเตือนวันนัดหมายและกิจกรรมอัตโนมัติ กรุณาพิมพ์:\n" +
       "👉 \"เลขบัตรประชาชน 13 หลักของเยาวชน\" หรือ\n" +
       "👉 \"เลขคดี (เช่น มพ34/69)\"\n" +
       "ส่งเข้ามาในห้องแชทนี้ได้เลยครับ/ค่ะ",
+    binding_prompt_template: "🔍 พบข้อมูลในระบบศูนย์ให้คำปรึกษาฯ:\n" +
+      "👤 ชื่อเยาวชน: {defendant_name}\n" +
+      "📋 เลขคดี: {black_case}\n\n" +
+      "กรุณากดปุ่มด้านล่างเพื่อยืนยันว่าท่านคือ \"เยาวชน\" หรือ \"ผู้ปกครอง\" เพื่อรับการแจ้งเตือนครับ/ค่ะ:",
+    binding_success_template: "✅ ผูกบัญชี LINE สำเร็จเรียบร้อย!\n\n" +
+      "👤 ข้อมูลของ: {defendant_name}\n" +
+      "🏷️ สถานะของคุณ: {role}\n\n" +
+      "ระบบจะส่งข้อความแจ้งเตือนวันนัดหมายและกิจกรรมให้ท่านผ่านห้องสนทนานี้โดยอัตโนมัติครับ/ค่ะ",
+    binding_not_found_template: "❌ ไม่พบข้อมูลสำหรับ \"{keyword}\" ในระบบศูนย์ให้คำปรึกษาฯ\n\n" +
+      "กรุณาตรวจสอบเลขบัตรประชาชน 13 หลัก หรือเลขคดี (เช่น มพ34/69) อีกครั้ง หรือติดต่อเจ้าหน้าที่ศูนย์ให้คำปรึกษาฯ ในวันและเวลาราชการครับ/ค่ะ",
+    general_help_template: "สวัสดีครับ/ค่ะ {display_name} 🙏\n\n" +
+      "📌 หากต้องการลงทะเบียนรับการแจ้งเตือนวันนัดหมาย กรุณาพิมพ์ \"เลขบัตรประชาชน 13 หลักของเยาวชน\" หรือ \"เลขคดี (เช่น มพ34/69)\" ส่งเข้ามาในห้องแชทนี้ได้เลยครับ/ค่ะ\n\n" +
+      "💬 หากมีข้อสงสัยหรือต้องการติดต่อเจ้าหน้าที่ สามารถพิมพ์ข้อความทิ้งไว้ เจ้าหน้าที่จะมาตอบกลับในเวลาทำการครับ/ค่ะ",
     last_auto_run_date: "",
     last_auto_8am_run_date: ""
   };
@@ -4097,6 +4110,7 @@ function handleIncomingLineTextForBinding(userId, displayName, text, replyToken,
   ensureColumnsExist("tb_defendants", ["line_id", "parent_line_id", "line_user_id", "parent_line_user_id"]);
   var defendants = getSheetData("tb_defendants");
   var cases = getSheetData("tb_cases");
+  var cfg = getLineConfigMap();
   
   // 1. ตรวจสอบกรณีผู้ใช้กดปุ่มยืนยันสถานะ: "ยืนยันเยาวชน:1234567890123" หรือ "ยืนยันผู้ปกครอง:1234567890123"
   var confirmMatch = text.match(/^(?:ยืนยัน)?\s*(เยาวชน|ผู้ปกครอง|ผปค)[\s:]+(\d{13})$/);
@@ -4133,12 +4147,14 @@ function handleIncomingLineTextForBinding(userId, displayName, text, replyToken,
       upsertLineContactRecord(userId, displayName, text, targetCid, isParent ? "ผู้ปกครอง" : "เยาวชน");
       
       if (replyToken && accessToken) {
-        var fullName = (foundDef.title_name || "") + (foundDef.first_name || "") + " " + (foundDef.last_name || "");
+        var fullName = ((foundDef.title_name || "") + (foundDef.first_name || "") + " " + (foundDef.last_name || "")).trim();
         var roleLabel = isParent ? "ผู้ปกครอง" : "เยาวชน";
-        var successMsg = "✅ ผูกบัญชี LINE สำเร็จเรียบร้อย!\n\n" +
-          "👤 ข้อมูลของ: " + fullName.trim() + "\n" +
-          "🏷️ สถานะของคุณ: " + roleLabel + "\n\n" +
-          "ระบบจะส่งข้อความแจ้งเตือนวันนัดหมายและกิจกรรมให้ท่านผ่านห้องสนทนานี้โดยอัตโนมัติครับ/ค่ะ";
+        var tpl = cfg.binding_success_template || getDefaultLineConfig().binding_success_template;
+        var successMsg = renderLineMessageTemplate(tpl, {
+          defendant_name: fullName,
+          role: roleLabel,
+          citizen_id: targetCid
+        });
         sendLineReplyMessage(replyToken, [{ type: "text", text: successMsg }], accessToken);
       }
     }
@@ -4149,8 +4165,11 @@ function handleIncomingLineTextForBinding(userId, displayName, text, replyToken,
   var digitsOnly = text.replace(/\D/g, "");
   var matchedDef = null;
   var matchedCid = "";
+  var matchedCaseNo = "";
+  var isLikelyLookup = false;
   
   if (digitsOnly.length === 13) {
+    isLikelyLookup = true;
     matchedCid = digitsOnly;
     for (var i = 0; i < defendants.length; i++) {
       if (cleanCitizenId(defendants[i].citizen_id) === matchedCid) {
@@ -4158,14 +4177,25 @@ function handleIncomingLineTextForBinding(userId, displayName, text, replyToken,
         break;
       }
     }
+    if (matchedDef) {
+      for (var cIdx = 0; cIdx < cases.length; cIdx++) {
+        if (cleanCitizenId(cases[cIdx].citizen_id) === matchedCid && cases[cIdx].black_case) {
+          matchedCaseNo = cases[cIdx].black_case.toString().trim();
+          break;
+        }
+      }
+    }
   } else {
     // ลองค้นหาจากเลขคดีดำใน tb_cases (เช่น มพ34/69)
     var cleanInputCase = normalizeBlackCaseKey(text);
-    if (cleanInputCase.length >= 3) {
+    var casePattern = text.match(/[0-9]+\s*\/\s*[0-9]+/) || text.match(/(?:มพ|ผพ|คม|ฟ|ม|พ)\s*[0-9]+/i);
+    if (cleanInputCase.length >= 3 || casePattern) {
+      isLikelyLookup = true;
       for (var cIdx = 0; cIdx < cases.length; cIdx++) {
         var cCaseKey = normalizeBlackCaseKey(cases[cIdx].black_case);
         if (cCaseKey && cCaseKey === cleanInputCase) {
           matchedCid = cleanCitizenId(cases[cIdx].citizen_id);
+          matchedCaseNo = cases[cIdx].black_case ? cases[cIdx].black_case.toString().trim() : "";
           break;
         }
       }
@@ -4182,7 +4212,13 @@ function handleIncomingLineTextForBinding(userId, displayName, text, replyToken,
   
   if (matchedDef && matchedCid && replyToken && accessToken) {
     var defFullName = ((matchedDef.title_name || "") + (matchedDef.first_name || "") + " " + (matchedDef.last_name || "")).trim();
-    var promptText = "🔍 พบข้อมูลในระบบ:\nชื่อเยาวชน: " + defFullName + "\n\nกรุณากดปุ่มด้านล่างเพื่อยืนยันว่าท่านคือ เยาวชน หรือ ผู้ปกครอง:\n(หรือพิมพ์ \"เยาวชน " + matchedCid + "\" หรือ \"ผู้ปกครอง " + matchedCid + "\")";
+    var caseDisplay = matchedCaseNo || "-";
+    var tpl = cfg.binding_prompt_template || getDefaultLineConfig().binding_prompt_template;
+    var promptText = renderLineMessageTemplate(tpl, {
+      defendant_name: defFullName,
+      citizen_id: matchedCid,
+      black_case: caseDisplay
+    });
     var promptMessage = {
       type: "text",
       text: promptText,
@@ -4208,6 +4244,29 @@ function handleIncomingLineTextForBinding(userId, displayName, text, replyToken,
       }
     };
     sendLineReplyMessage(replyToken, [promptMessage], accessToken);
+    return;
+  }
+  
+  // 3. กรณีพิมพ์เลข 13 หลัก หรือเลขคดี แต่ไม่พบข้อมูลในระบบ
+  if (isLikelyLookup && !matchedDef && replyToken && accessToken) {
+    var notFoundTpl = cfg.binding_not_found_template || getDefaultLineConfig().binding_not_found_template;
+    if (notFoundTpl && notFoundTpl.toString().trim() !== "") {
+      var notFoundMsg = renderLineMessageTemplate(notFoundTpl, {
+        keyword: text
+      });
+      sendLineReplyMessage(replyToken, [{ type: "text", text: notFoundMsg }], accessToken);
+    }
+    return;
+  }
+  
+  // 4. กรณีพิมพ์ข้อความทั่วไป (เช่น ทักทาย, ถามคำถาม)
+  if (replyToken && accessToken && cfg.general_help_template && cfg.general_help_template.toString().trim() !== "") {
+    var helpTpl = cfg.general_help_template;
+    var helpMsg = renderLineMessageTemplate(helpTpl, {
+      display_name: displayName || "คุณ"
+    });
+    sendLineReplyMessage(replyToken, [{ type: "text", text: helpMsg }], accessToken);
+    return;
   }
 }
 
@@ -4553,7 +4612,11 @@ function saveLineOaSettings(newConfig, token) {
       "days_before_notify",
       "appointment_template",
       "activity_template",
-      "welcome_reply_template"
+      "welcome_reply_template",
+      "binding_prompt_template",
+      "binding_success_template",
+      "binding_not_found_template",
+      "general_help_template"
     ];
     
     for (var i = 0; i < keysToSave.length; i++) {

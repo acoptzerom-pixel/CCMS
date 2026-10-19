@@ -2982,56 +2982,180 @@
               </div>
 
               <!-- เทมเพลตที่ 1: ตารางนัดหมาย (tb_appointment) -->
-              <div class="form-group" style="margin-bottom: 25px;">
-                <label class="form-label" style="font-weight: 700; font-size: 1rem; color: var(--primary);">
-                  1. ข้อความตั้งค่าล่วงหน้าสำหรับ "ตารางวันนัดหมาย (tb_appointment)"
-                </label>
-                <div style="margin-bottom: 8px; font-size: 0.8rem; color: var(--text-muted);">
-                  ตัวแปรที่ใช้แทรกในข้อความได้:
-                  <code style="margin: 0 4px;">{defendant_name}</code> (ชื่อเยาวชน),
-                  <code style="margin: 0 4px;">{guardian_name}</code> (ชื่อผู้ปกครอง),
-                  <code style="margin: 0 4px;">{black_case}</code> (เลขคดี),
-                  <code style="margin: 0 4px;">{appointment_date}</code> (วันที่นัด),
-                  <code style="margin: 0 4px;">{appointment_time}</code> (เวลานัด),
-                  <code style="margin: 0 4px;">{appointment_reason}</code> (เหตุที่นัด),
-                  <code style="margin: 0 4px;">{counselor}</code> (ผู้ให้คำปรึกษา),
-                  <code style="margin: 0 4px;">{days_remaining}</code> (จำนวนวันที่เหลือ)
+              <div style="background: var(--bg-card, #ffffff); border: 1px solid var(--card-border, #e2e8f0); border-radius: 14px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--card-border, #e2e8f0); padding-bottom: 10px;">
+                  <label class="form-label" style="font-weight: 700; font-size: 1.05rem; color: var(--primary, #0284c7); margin-bottom: 0;">
+                    <i class="fa-solid fa-calendar-check" style="margin-right: 6px;"></i> 1. ข้อความแจ้งเตือนวันนัดหมาย (tb_appointment)
+                  </label>
+                  <span class="badge" style="background: rgba(2, 132, 199, 0.12); color: #0284c7; font-weight: 600; padding: 4px 10px; border-radius: 20px; font-size: 0.78rem;">
+                    <i class="fa-solid fa-clock"></i> ส่งรอบ 08.00 น. / ส่งทันทีโดยเจ้าหน้าที่
+                  </span>
                 </div>
-                <textarea class="form-control" rows="7" v-model="lineOaConfigForm.appointment_template" required></textarea>
+                <div style="background: rgba(2, 132, 199, 0.06); border-left: 4px solid #0284c7; border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; font-size: 0.82rem; color: var(--text-main);">
+                  <strong style="color: #0284c7;"><i class="fa-solid fa-bolt"></i> เงื่อนไขการส่ง:</strong>
+                  ส่งแจ้งเตือนอัตโนมัติในเวลา <strong>08.00 น.</strong> ตามรอบวันที่ตั้งไว้ (ล่วงหน้า 1 สัปดาห์ / ล่วงหน้า 1 วัน / ในวันนัดหมาย) ไปยัง LINE ของเยาวชนและผู้ปกครองที่มีนัดหมายในวันดังกล่าว หรือส่งทันทีเมื่อเจ้าหน้าที่กดปุ่ม "ส่งแจ้งเตือนทันที (ทดสอบ)"
+                  <div style="margin-top: 4px; color: #dc2626; font-weight: 600;">
+                    <i class="fa-solid fa-circle-exclamation"></i> ข้อยกเว้น: หากเหตุที่นัดหมายเท่ากับ "เก็บข้อมูลเบื้องต้น" ระบบจะไม่ส่งข้อความแจ้งเตือนในวันนั้นๆ
+                  </div>
+                </div>
+                <div style="margin-bottom: 8px; font-size: 0.8rem; color: var(--text-muted);">
+                  <strong>ตัวแปรที่ใช้แทรกในข้อความได้:</strong>
+                  <code>{defendant_name}</code> (ชื่อเยาวชน),
+                  <code>{guardian_name}</code> (ชื่อผู้ปกครอง),
+                  <code>{black_case}</code> (เลขคดี),
+                  <code>{appointment_date}</code> (วันที่นัด),
+                  <code>{appointment_time}</code> (เวลานัด),
+                  <code>{appointment_reason}</code> (เหตุที่นัด),
+                  <code>{counselor}</code> (ผู้ให้คำปรึกษา),
+                  <code>{days_remaining}</code> (จำนวนวันที่เหลือ)
+                </div>
+                <textarea class="form-control" rows="6" v-model="lineOaConfigForm.appointment_template" required style="font-family: inherit; line-height: 1.5;"></textarea>
               </div>
 
               <!-- เทมเพลตที่ 2: ตารางกิจกรรม (tb_activity) -->
-              <div class="form-group" style="margin-bottom: 25px;">
-                <label class="form-label" style="font-weight: 700; font-size: 1rem; color: #8b5cf6;">
-                  2. ข้อความตั้งค่าล่วงหน้าสำหรับ "ตารางกิจกรรม/โครงการ (tb_activity)"
-                </label>
-                <div style="margin-bottom: 8px; font-size: 0.8rem; color: var(--text-muted);">
-                  ตัวแปรที่ใช้แทรกในข้อความได้:
-                  <code style="margin: 0 4px;">{defendant_name}</code> (ชื่อเยาวชน),
-                  <code style="margin: 0 4px;">{guardian_name}</code> (ชื่อผู้ปกครอง),
-                  <code style="margin: 0 4px;">{black_case}</code> (เลขคดี เช่น มพ34/69),
-                  <code style="margin: 0 4px;">{activity_name}</code> (ชื่อกิจกรรม เช่น กิจกรรมครอบครัวสัมพันธ์ ครั้งที่ 2),
-                  <code style="margin: 0 4px;">{activity_type}</code> (ประเภทกิจกรรม),
-                  <code style="margin: 0 4px;">{activity_start_date}</code> (วันที่เริ่ม),
-                  <code style="margin: 0 4px;">{activity_finish_date}</code> (วันที่สิ้นสุด),
-                  <code style="margin: 0 4px;">{activity_venue}</code> (สถานที่),
-                  <code style="margin: 0 4px;">{activity_responsible_agency}</code> (หน่วยงานรับผิดชอบ),
-                  <code style="margin: 0 4px;">{days_remaining}</code> (จำนวนวันที่เหลือ)
+              <div style="background: var(--bg-card, #ffffff); border: 1px solid var(--card-border, #e2e8f0); border-radius: 14px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--card-border, #e2e8f0); padding-bottom: 10px;">
+                  <label class="form-label" style="font-weight: 700; font-size: 1.05rem; color: #8b5cf6; margin-bottom: 0;">
+                    <i class="fa-solid fa-people-roof" style="margin-right: 6px;"></i> 2. ข้อความแจ้งเตือนกิจกรรม/โครงการ (tb_activity)
+                  </label>
+                  <span class="badge" style="background: rgba(139, 92, 246, 0.12); color: #8b5cf6; font-weight: 600; padding: 4px 10px; border-radius: 20px; font-size: 0.78rem;">
+                    <i class="fa-solid fa-clock"></i> ส่งรอบ 08.00 น. / ส่งทันทีโดยเจ้าหน้าที่
+                  </span>
                 </div>
-                <textarea class="form-control" rows="7" v-model="lineOaConfigForm.activity_template" required></textarea>
+                <div style="background: rgba(139, 92, 246, 0.06); border-left: 4px solid #8b5cf6; border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; font-size: 0.82rem; color: var(--text-main);">
+                  <strong style="color: #8b5cf6;"><i class="fa-solid fa-bolt"></i> เงื่อนไขการส่ง:</strong>
+                  ส่งแจ้งเตือนอัตโนมัติในเวลา <strong>08.00 น.</strong> ตามรอบวันที่ตั้งไว้ ไปยัง LINE ของเยาวชนและผู้ปกครองที่มีรายชื่อเข้าร่วมกิจกรรม หรือส่งทันทีเมื่อเจ้าหน้าที่กดปุ่ม "ส่งแจ้งเตือนทันที (ทดสอบ)"
+                </div>
+                <div style="margin-bottom: 8px; font-size: 0.8rem; color: var(--text-muted);">
+                  <strong>ตัวแปรที่ใช้แทรกในข้อความได้:</strong>
+                  <code>{defendant_name}</code> (ชื่อเยาวชน),
+                  <code>{guardian_name}</code> (ชื่อผู้ปกครอง),
+                  <code>{black_case}</code> (เลขคดี เช่น มพ34/69),
+                  <code>{activity_name}</code> (ชื่อกิจกรรม),
+                  <code>{activity_type}</code> (ประเภทกิจกรรม),
+                  <code>{activity_start_date}</code> (วันที่เริ่ม),
+                  <code>{activity_finish_date}</code> (วันที่สิ้นสุด),
+                  <code>{activity_venue}</code> (สถานที่),
+                  <code>{activity_responsible_agency}</code> (หน่วยงานรับผิดชอบ),
+                  <code>{days_remaining}</code> (จำนวนวันที่เหลือ)
+                </div>
+                <textarea class="form-control" rows="6" v-model="lineOaConfigForm.activity_template" required style="font-family: inherit; line-height: 1.5;"></textarea>
               </div>
 
               <!-- เทมเพลตที่ 3: ข้อความต้อนรับเมื่อเยาวชน/ผู้ปกครองเพิ่มเพื่อน -->
-              <div class="form-group" style="margin-bottom: 25px;">
-                <label class="form-label" style="font-weight: 700; font-size: 1rem; color: #06C755;">
-                  3. ข้อความต้อนรับอัตโนมัติเมื่อเยาวชน/ผู้ปกครองกดเพิ่มเพื่อน LINE OA (@012cryec)
-                </label>
-                <textarea class="form-control" rows="4" v-model="lineOaConfigForm.welcome_reply_template"></textarea>
+              <div style="background: var(--bg-card, #ffffff); border: 1px solid var(--card-border, #e2e8f0); border-radius: 14px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--card-border, #e2e8f0); padding-bottom: 10px;">
+                  <label class="form-label" style="font-weight: 700; font-size: 1.05rem; color: #06C755; margin-bottom: 0;">
+                    <i class="fa-brands fa-line" style="margin-right: 6px;"></i> 3. ข้อความต้อนรับเมื่อเพิ่มเพื่อนใหม่ (Welcome Message)
+                  </label>
+                  <span class="badge" style="background: rgba(6, 199, 85, 0.12); color: #06C755; font-weight: 600; padding: 4px 10px; border-radius: 20px; font-size: 0.78rem;">
+                    <i class="fa-solid fa-user-plus"></i> ส่งตอบกลับทันที (Webhook)
+                  </span>
+                </div>
+                <div style="background: rgba(6, 199, 85, 0.06); border-left: 4px solid #06C755; border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; font-size: 0.82rem; color: var(--text-main);">
+                  <strong style="color: #06C755;"><i class="fa-solid fa-bolt"></i> เงื่อนไขการส่ง:</strong>
+                  ส่งตอบกลับอัตโนมัติทันที 1 ครั้ง เมื่อมีผู้ใช้ (เยาวชนหรือผู้ปกครอง) <strong>กดเพิ่มเพื่อน (Add Friend)</strong> หรือ <strong>ปลดบล็อกบัญชี LINE OA (@012cryec)</strong> เพื่อแนะนำขั้นตอนการพิมพ์เลขบัตรประชาชน 13 หลัก หรือเลขคดี เพื่อผูกบัญชีรับแจ้งเตือน
+                </div>
+                <div style="margin-bottom: 8px; font-size: 0.8rem; color: var(--text-muted);">
+                  <strong>ตัวแปรที่ใช้ได้:</strong> ข้อความคงที่ หรือข้อความแนะนำขั้นตอนการใช้งาน
+                </div>
+                <textarea class="form-control" rows="5" v-model="lineOaConfigForm.welcome_reply_template" style="font-family: inherit; line-height: 1.5;"></textarea>
               </div>
 
-              <div style="display: flex; justify-content: flex-end; gap: 12px;">
-                <button type="submit" class="btn btn-primary" style="background: #06C755; border-color: #06C755; padding: 12px 28px; border-radius: 12px; font-weight: 700;">
-                  <i class="fa-solid fa-floppy-disk"></i> บันทึกการตั้งค่าข้อความอัตโนมัติ
+              <!-- เทมเพลตที่ 4: ข้อความสอบถามสถานะเมื่อค้นพบข้อมูล (Binding Prompt) -->
+              <div style="background: var(--bg-card, #ffffff); border: 1px solid var(--card-border, #e2e8f0); border-radius: 14px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--card-border, #e2e8f0); padding-bottom: 10px;">
+                  <label class="form-label" style="font-weight: 700; font-size: 1.05rem; color: #0284c7; margin-bottom: 0;">
+                    <i class="fa-solid fa-id-card-clip" style="margin-right: 6px;"></i> 4. ข้อความสอบถามสถานะเมื่อค้นพบข้อมูลในระบบ (Binding Prompt)
+                  </label>
+                  <span class="badge" style="background: rgba(2, 132, 199, 0.12); color: #0284c7; font-weight: 600; padding: 4px 10px; border-radius: 20px; font-size: 0.78rem;">
+                    <i class="fa-solid fa-reply"></i> ส่งตอบกลับทันที (Webhook + Quick Reply)
+                  </span>
+                </div>
+                <div style="background: rgba(2, 132, 199, 0.06); border-left: 4px solid #0284c7; border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; font-size: 0.82rem; color: var(--text-main);">
+                  <strong style="color: #0284c7;"><i class="fa-solid fa-bolt"></i> เงื่อนไขการส่ง:</strong>
+                  ส่งตอบกลับอัตโนมัติทันทีเมื่อผู้ใช้พิมพ์ <strong>เลขบัตรประชาชน 13 หลัก</strong> หรือ <strong>เลขคดี (เช่น มพ34/69)</strong> เข้ามาในแชท แล้วระบบ <strong>ค้นพบข้อมูลเยาวชน/คดี</strong> ในฐานข้อมูล โดยระบบจะส่งข้อความนี้พร้อมแนบปุ่มตัวเลือกด่วน (Quick Reply) ให้กด: <code>[👦 ฉันคือเยาวชน]</code> หรือ <code>[👨‍👩‍👦 ฉันคือผู้ปกครอง]</code> ทันที
+                </div>
+                <div style="margin-bottom: 8px; font-size: 0.8rem; color: var(--text-muted);">
+                  <strong>ตัวแปรที่ใช้แทรกในข้อความได้:</strong>
+                  <code>{defendant_name}</code> (ชื่อเยาวชน),
+                  <code>{black_case}</code> (เลขคดี),
+                  <code>{citizen_id}</code> (เลขบัตรประชาชน 13 หลัก)
+                </div>
+                <textarea class="form-control" rows="5" v-model="lineOaConfigForm.binding_prompt_template" style="font-family: inherit; line-height: 1.5;"></textarea>
+              </div>
+
+              <!-- เทมเพลตที่ 5: ข้อความแจ้งเตือนผูกบัญชี LINE สำเร็จ (Binding Success) -->
+              <div style="background: var(--bg-card, #ffffff); border: 1px solid var(--card-border, #e2e8f0); border-radius: 14px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--card-border, #e2e8f0); padding-bottom: 10px;">
+                  <label class="form-label" style="font-weight: 700; font-size: 1.05rem; color: #16a34a; margin-bottom: 0;">
+                    <i class="fa-solid fa-circle-check" style="margin-right: 6px;"></i> 5. ข้อความยืนยันการผูกบัญชี LINE สำเร็จ (Binding Success)
+                  </label>
+                  <span class="badge" style="background: rgba(22, 163, 74, 0.12); color: #16a34a; font-weight: 600; padding: 4px 10px; border-radius: 20px; font-size: 0.78rem;">
+                    <i class="fa-solid fa-link"></i> ส่งตอบกลับทันที (Webhook)
+                  </span>
+                </div>
+                <div style="background: rgba(22, 163, 74, 0.06); border-left: 4px solid #16a34a; border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; font-size: 0.82rem; color: var(--text-main);">
+                  <strong style="color: #16a34a;"><i class="fa-solid fa-bolt"></i> เงื่อนไขการส่ง:</strong>
+                  ส่งตอบกลับอัตโนมัติทันทีเมื่อผู้ใช้กดยืนยันสถานะว่าเป็น <strong>"เยาวชน"</strong> หรือ <strong>"ผู้ปกครอง"</strong> สำเร็จ และระบบได้บันทึกรหัส LINE User ID ลงในตารางข้อมูล <code>tb_defendants</code> เพื่อแจ้งยืนยันว่าการผูกบัญชีเสร็จสมบูรณ์
+                </div>
+                <div style="margin-bottom: 8px; font-size: 0.8rem; color: var(--text-muted);">
+                  <strong>ตัวแปรที่ใช้แทรกในข้อความได้:</strong>
+                  <code>{defendant_name}</code> (ชื่อเยาวชน),
+                  <code>{role}</code> (สถานะ: เยาวชน หรือ ผู้ปกครอง),
+                  <code>{citizen_id}</code> (เลขบัตรประชาชน 13 หลัก)
+                </div>
+                <textarea class="form-control" rows="5" v-model="lineOaConfigForm.binding_success_template" style="font-family: inherit; line-height: 1.5;"></textarea>
+              </div>
+
+              <!-- เทมเพลตที่ 6: ข้อความแจ้งเมื่อค้นหาไม่พบข้อมูลในระบบ (Binding Not Found) -->
+              <div style="background: var(--bg-card, #ffffff); border: 1px solid var(--card-border, #e2e8f0); border-radius: 14px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--card-border, #e2e8f0); padding-bottom: 10px;">
+                  <label class="form-label" style="font-weight: 700; font-size: 1.05rem; color: #ea580c; margin-bottom: 0;">
+                    <i class="fa-solid fa-triangle-exclamation" style="margin-right: 6px;"></i> 6. ข้อความแจ้งเมื่อค้นหาไม่พบข้อมูลในระบบ (Not Found Reply)
+                  </label>
+                  <span class="badge" style="background: rgba(234, 88, 12, 0.12); color: #ea580c; font-weight: 600; padding: 4px 10px; border-radius: 20px; font-size: 0.78rem;">
+                    <i class="fa-solid fa-magnifying-glass"></i> ส่งตอบกลับทันที (Webhook)
+                  </span>
+                </div>
+                <div style="background: rgba(234, 88, 12, 0.06); border-left: 4px solid #ea580c; border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; font-size: 0.82rem; color: var(--text-main);">
+                  <strong style="color: #ea580c;"><i class="fa-solid fa-bolt"></i> เงื่อนไขการส่ง:</strong>
+                  ส่งตอบกลับอัตโนมัติทันทีเมื่อผู้ใช้พิมพ์ <strong>เลขบัตรประชาชน 13 หลัก</strong> หรือ <strong>รูปแบบเลขคดี</strong> เข้ามา แต่ระบบ <strong>ค้นหาไม่พบข้อมูล</strong> ในตาราง <code>tb_defendants</code> หรือ <code>tb_cases</code> เพื่อแจ้งให้ผู้ใช้ตรวจสอบความถูกต้องของเลขที่พิมพ์หรือติดต่อเจ้าหน้าที่
+                </div>
+                <div style="margin-bottom: 8px; font-size: 0.8rem; color: var(--text-muted);">
+                  <strong>ตัวแปรที่ใช้แทรกในข้อความได้:</strong>
+                  <code>{keyword}</code> (ข้อความ/ตัวเลขที่ผู้ใช้พิมพ์ค้นหา)
+                </div>
+                <textarea class="form-control" rows="5" v-model="lineOaConfigForm.binding_not_found_template" style="font-family: inherit; line-height: 1.5;"></textarea>
+              </div>
+
+              <!-- เทมเพลตที่ 7: ข้อความตอบกลับข้อความทั่วไป / ช่วยเหลือเบื้องต้น (General Help) -->
+              <div style="background: var(--bg-card, #ffffff); border: 1px solid var(--card-border, #e2e8f0); border-radius: 14px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--card-border, #e2e8f0); padding-bottom: 10px;">
+                  <label class="form-label" style="font-weight: 700; font-size: 1.05rem; color: #475569; margin-bottom: 0;">
+                    <i class="fa-solid fa-comments" style="margin-right: 6px;"></i> 7. ข้อความตอบกลับข้อความทั่วไป / ช่วยเหลือเบื้องต้น (General Help Reply)
+                  </label>
+                  <span class="badge" style="background: rgba(71, 85, 105, 0.12); color: #475569; font-weight: 600; padding: 4px 10px; border-radius: 20px; font-size: 0.78rem;">
+                    <i class="fa-solid fa-comment-dots"></i> ส่งตอบกลับทันที (Webhook)
+                  </span>
+                </div>
+                <div style="background: rgba(71, 85, 105, 0.06); border-left: 4px solid #475569; border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; font-size: 0.82rem; color: var(--text-main);">
+                  <strong style="color: #475569;"><i class="fa-solid fa-bolt"></i> เงื่อนไขการส่ง:</strong>
+                  ส่งตอบกลับอัตโนมัติเมื่อผู้ใช้ส่งข้อความทั่วไป (เช่น สวัสดี, สอบถามข้อมูล) ที่ไม่ใช่เลขบัตรประชาชน 13 หลัก, ไม่ใช่เลขคดี, และไม่ใช่คำสั่งยืนยันสถานะ
+                  <div style="margin-top: 4px; color: #0284c7; font-weight: 600;">
+                    <i class="fa-solid fa-lightbulb"></i> ข้อแนะนำ: หากเว้นว่างไว้ ระบบจะไม่ตอบกลับข้อความทั่วไป เพื่อให้เจ้าหน้าที่สามารถเปิดดูและสนทนาตอบเองได้
+                  </div>
+                </div>
+                <div style="margin-bottom: 8px; font-size: 0.8rem; color: var(--text-muted);">
+                  <strong>ตัวแปรที่ใช้แทรกในข้อความได้:</strong>
+                  <code>{display_name}</code> (ชื่อโปรไฟล์ LINE ของผู้ใช้)
+                </div>
+                <textarea class="form-control" rows="5" v-model="lineOaConfigForm.general_help_template" placeholder="หากเว้นว่างไว้ ระบบจะไม่ตอบกลับข้อความทั่วไปโดยอัตโนมัติ" style="font-family: inherit; line-height: 1.5;"></textarea>
+              </div>
+
+              <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px;">
+                <button type="submit" class="btn btn-primary" style="background: #06C755; border-color: #06C755; padding: 12px 28px; border-radius: 12px; font-weight: 700; font-size: 1rem; box-shadow: 0 4px 12px rgba(6, 199, 85, 0.25);">
+                  <i class="fa-solid fa-floppy-disk"></i> บันทึกการตั้งค่าข้อความอัตโนมัติทั้งหมด
                 </button>
               </div>
             </form>
