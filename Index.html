@@ -3167,6 +3167,27 @@
                 <textarea class="form-control" rows="5" v-model="lineOaConfigForm.binding_success_template" style="font-family: inherit; line-height: 1.5;"></textarea>
               </div>
 
+              <!-- เทมเพลตที่ 5: ข้อความแจ้งเตือนกรณีไม่พบข้อมูลเยาวชนในระบบ (Binding Not Found) -->
+              <div style="background: var(--bg-card, #ffffff); border: 1px solid var(--card-border, #e2e8f0); border-radius: 14px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--card-border, #e2e8f0); padding-bottom: 10px;">
+                  <label class="form-label" style="font-weight: 700; font-size: 1.05rem; color: #e11d48; margin-bottom: 0;">
+                    <i class="fa-solid fa-triangle-exclamation" style="margin-right: 6px;"></i> 5. ข้อความแจ้งเตือนกรณีไม่พบข้อมูลเยาวชนในระบบ (Binding Not Found)
+                  </label>
+                  <span class="badge" style="background: rgba(225, 29, 72, 0.12); color: #e11d48; font-weight: 600; padding: 4px 10px; border-radius: 20px; font-size: 0.78rem;">
+                    <i class="fa-solid fa-reply"></i> ส่งตอบกลับทันที (Webhook)
+                  </span>
+                </div>
+                <div style="background: rgba(225, 29, 72, 0.06); border-left: 4px solid #e11d48; border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; font-size: 0.82rem; color: var(--text-main);">
+                  <strong style="color: #e11d48;"><i class="fa-solid fa-bolt"></i> เงื่อนไขการส่ง:</strong>
+                  ส่งตอบกลับอัตโนมัติทันทีเมื่อผู้ใช้พิมพ์ <strong>เลขประจำตัวประชาชน 13 หลัก</strong> เข้ามาในแชท แต่ระบบ <strong>ไม่พบข้อมูลในตารางทะเบียนประวัติเยาวชน (tb_defendants)</strong> เพื่อแนะนำให้ตรวจสอบเลขหรือติดต่อเจ้าหน้าที่ (หากพิมพ์ข้อความอื่นๆ ที่ไม่ใช่เลข 13 หลัก ระบบจะไม่ตอบกลับใดๆ เพื่อให้เจ้าหน้าที่เปิดแชทสนทนาได้โดยตรง)
+                </div>
+                <div style="margin-bottom: 8px; font-size: 0.8rem; color: var(--text-muted);">
+                  <strong>ตัวแปรที่ใช้แทรกในข้อความได้:</strong>
+                  <code>{citizen_id}</code> (เลขบัตรประชาชน 13 หลักที่ผู้ใช้พิมพ์เข้ามา)
+                </div>
+                <textarea class="form-control" rows="5" v-model="lineOaConfigForm.binding_not_found_template" style="font-family: inherit; line-height: 1.5;"></textarea>
+              </div>
+
               <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px;">
                 <button type="submit" class="btn btn-primary" style="background: #06C755; border-color: #06C755; padding: 12px 28px; border-radius: 12px; font-weight: 700; font-size: 1rem; box-shadow: 0 4px 12px rgba(6, 199, 85, 0.25);">
                   <i class="fa-solid fa-floppy-disk"></i> บันทึกการตั้งค่าข้อความอัตโนมัติทั้งหมด
