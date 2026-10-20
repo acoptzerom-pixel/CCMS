@@ -930,10 +930,26 @@
                                   title="ยกเลิกการผูกบัญชี LINE ของเยาวชนรายนี้">
                             <i class="fa-solid fa-link-slash"></i> ยกเลิกผูก
                           </button>
+                          <button v-if="(!currentDef.line_user_id || !currentDef.line_user_id.trim()) && session.role !== 'user'"
+                                  @click.stop="promptManualLinkForDefendant(currentDef.citizen_id, 'youth')"
+                                  class="btn btn-secondary"
+                                  style="padding: 1px 8px; font-size: 0.68rem; color: #06C755; border-color: rgba(6, 199, 85, 0.35); border-radius: 99px; font-weight: 600; cursor: pointer;"
+                                  title="ผูกบัญชี LINE ของเยาวชนแบบแมนนวล">
+                            <i class="fa-solid fa-link"></i> ผูกบัญชีเอง
+                          </button>
                         </div>
                       </template>
                       <template v-else>
-                        <span>-</span>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                          <span>-</span>
+                          <button v-if="session.role !== 'user'"
+                                  @click.stop="promptManualLinkForDefendant(currentDef.citizen_id, 'youth')"
+                                  class="btn btn-secondary"
+                                  style="padding: 1px 8px; font-size: 0.68rem; color: #06C755; border-color: rgba(6, 199, 85, 0.35); border-radius: 99px; font-weight: 600; cursor: pointer;"
+                                  title="ผูกบัญชี LINE ของเยาวชนแบบแมนนวล">
+                            <i class="fa-solid fa-link"></i> ผูกบัญชีเอง
+                          </button>
+                        </div>
                       </template>
                     </div>
 
@@ -1008,10 +1024,26 @@
                                   title="ยกเลิกการผูกบัญชี LINE ของผู้ปกครอง">
                             <i class="fa-solid fa-link-slash"></i> ยกเลิกผูก
                           </button>
+                          <button v-if="(!currentDef.parent_line_user_id || !currentDef.parent_line_user_id.trim()) && session.role !== 'user'"
+                                  @click.stop="promptManualLinkForDefendant(currentDef.citizen_id, 'parent')"
+                                  class="btn btn-secondary"
+                                  style="padding: 1px 8px; font-size: 0.68rem; color: #06C755; border-color: rgba(6, 199, 85, 0.35); border-radius: 99px; font-weight: 600; cursor: pointer;"
+                                  title="ผูกบัญชี LINE ของผู้ปกครองแบบแมนนวล">
+                            <i class="fa-solid fa-link"></i> ผูกบัญชีเอง
+                          </button>
                         </div>
                       </template>
                       <template v-else>
-                        <span>-</span>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                          <span>-</span>
+                          <button v-if="session.role !== 'user'"
+                                  @click.stop="promptManualLinkForDefendant(currentDef.citizen_id, 'parent')"
+                                  class="btn btn-secondary"
+                                  style="padding: 1px 8px; font-size: 0.68rem; color: #06C755; border-color: rgba(6, 199, 85, 0.35); border-radius: 99px; font-weight: 600; cursor: pointer;"
+                                  title="ผูกบัญชี LINE ของผู้ปกครองแบบแมนนวล">
+                            <i class="fa-solid fa-link"></i> ผูกบัญชีเอง
+                          </button>
+                        </div>
                       </template>
                     </div>
 
@@ -2942,9 +2974,15 @@
                           <span v-if="item.line_user_id"
                                 @click="openLineChat(item.line_id, item.line_user_id, { citizen_id: item.citizen_id, target_role: 'เยาวชน', black_case: item.black_case, chat_url: item.line_chat_url })"
                                 style="cursor: pointer; font-size: 0.68rem; background: rgba(6, 199, 85, 0.12); color: #06C755; padding: 1px 6px; border-radius: 99px; margin-left: 4px;">ผูก OA แล้ว (แชท 1:1)</span>
-                          <span v-else style="font-size: 0.68rem; background: rgba(245, 158, 11, 0.12); color: #f59e0b; padding: 1px 6px; border-radius: 99px; margin-left: 4px;">ยังไม่ผูก OA</span>
+                          <span v-else
+                                @click="promptManualLinkForDefendant(item.citizen_id, 'youth')"
+                                title="คลิกเพื่อผูกบัญชี LINE ของเยาวชนแบบแมนนวล"
+                                style="cursor: pointer; font-size: 0.68rem; background: rgba(245, 158, 11, 0.12); color: #f59e0b; padding: 1px 6px; border-radius: 99px; margin-left: 4px;">ยังไม่ผูก OA (คลิกผูกเอง)</span>
                         </template>
-                        <span v-else style="color: var(--text-muted);">-</span>
+                        <span v-else
+                              @click="promptManualLinkForDefendant(item.citizen_id, 'youth')"
+                              title="คลิกเพื่อผูกบัญชี LINE ของเยาวชนแบบแมนนวล"
+                              style="cursor: pointer; font-size: 0.68rem; background: rgba(245, 158, 11, 0.12); color: #f59e0b; padding: 1px 6px; border-radius: 99px;">ยังไม่ผูก OA (คลิกผูกเอง)</span>
                       </div>
                       <!-- LINE ผู้ปกครอง -->
                       <div style="font-size: 0.82rem;">
@@ -2958,9 +2996,15 @@
                           <span v-if="item.parent_line_user_id"
                                 @click="openLineChat(item.parent_line_id, item.parent_line_user_id, { citizen_id: item.citizen_id, target_role: 'ผู้ปกครอง', black_case: item.black_case, chat_url: item.parent_line_chat_url })"
                                 style="cursor: pointer; font-size: 0.68rem; background: rgba(6, 199, 85, 0.12); color: #06C755; padding: 1px 6px; border-radius: 99px; margin-left: 4px;">ผูก OA แล้ว (แชท 1:1)</span>
-                          <span v-else style="font-size: 0.68rem; background: rgba(245, 158, 11, 0.12); color: #f59e0b; padding: 1px 6px; border-radius: 99px; margin-left: 4px;">ยังไม่ผูก OA</span>
+                          <span v-else
+                                @click="promptManualLinkForDefendant(item.citizen_id, 'parent')"
+                                title="คลิกเพื่อผูกบัญชี LINE ของผู้ปกครองแบบแมนนวล"
+                                style="cursor: pointer; font-size: 0.68rem; background: rgba(245, 158, 11, 0.12); color: #f59e0b; padding: 1px 6px; border-radius: 99px; margin-left: 4px;">ยังไม่ผูก OA (คลิกผูกเอง)</span>
                         </template>
-                        <span v-else style="color: var(--text-muted);">-</span>
+                        <span v-else
+                              @click="promptManualLinkForDefendant(item.citizen_id, 'parent')"
+                              title="คลิกเพื่อผูกบัญชี LINE ของผู้ปกครองแบบแมนนวล"
+                              style="cursor: pointer; font-size: 0.68rem; background: rgba(245, 158, 11, 0.12); color: #f59e0b; padding: 1px 6px; border-radius: 99px;">ยังไม่ผูก OA (คลิกผูกเอง)</span>
                       </div>
                     </td>
                     <td>
@@ -3479,7 +3523,8 @@
 
             <div class="form-group">
               <label class="form-label">คำนำหน้าชื่อ</label>
-              <select class="form-control" v-model="defForm.title_name" required>
+              <select class="form-control" v-model="defForm.title_name">
+                <option value="">- ไม่ระบุ -</option>
                 <option value="นาย">นาย</option>
                 <option value="นางสาว">นางสาว</option>
                 <option value="เด็กชาย">เด็กชาย</option>
@@ -3494,7 +3539,7 @@
 
             <div class="form-group">
               <label class="form-label">นามสกุลจริง</label>
-              <input type="text" class="form-control" v-model="defForm.last_name" required>
+              <input type="text" class="form-control" v-model="defForm.last_name">
             </div>
 
             <div class="form-group">
@@ -3504,7 +3549,8 @@
 
             <div class="form-group">
               <label class="form-label">เพศ</label>
-              <select class="form-control" v-model="defForm.gender" required>
+              <select class="form-control" v-model="defForm.gender">
+                <option value="">- ไม่ระบุ -</option>
                 <option value="ชาย">ชาย</option>
                 <option value="หญิง">หญิง</option>
               </select>
@@ -3515,9 +3561,9 @@
               <div class="be-date-picker-wrapper">
                 <input type="text" class="form-control" 
                        :value="formatThaiDateForInput(defForm.birth_date)" 
-                       readonly placeholder="วัน/เดือน/ปี" required>
+                       readonly placeholder="วัน/เดือน/ปี">
                 <span class="be-date-picker-icon"><i class="fa-regular fa-calendar"></i></span>
-                <input type="date" class="be-date-picker-native" v-model="defForm.birth_date" required>
+                <input type="date" class="be-date-picker-native" v-model="defForm.birth_date">
               </div>
             </div>
 
@@ -3998,8 +4044,8 @@
     <!-- ==========================================
          6.2 MODAL ผูกบัญชีผู้ติดต่อ LINE OA เข้ากับเลขบัตรประชาชน (LINE LINK MODAL)
          ========================================== -->
-    <div v-if="lineLinkModalActive && lineLinkForm" class="modal-overlay animate-in">
-      <div class="glass-card modal-card animate-in shadow" style="max-width: 520px; width: 95%;">
+    <div v-if="lineLinkModalActive && lineLinkForm" class="modal-overlay animate-in" style="z-index: 2000;">
+      <div class="glass-card modal-card animate-in shadow" style="max-width: 540px; width: 95%;">
         <button class="modal-close-btn" @click="lineLinkModalActive = false"><i class="fa-solid fa-xmark"></i></button>
 
         <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 18px; border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">
@@ -4007,19 +4053,45 @@
         </h3>
 
         <form @submit.prevent="submitManualLinkContact">
+          <div class="form-group" v-if="lineOaContacts && lineOaContacts.length > 0">
+            <label class="form-label">เลือกจากผู้ติดต่อที่ทักเข้ามาใน LINE OA (หรือระบุเองด้านล่าง)</label>
+            <select class="form-control" :value="lineLinkForm.line_user_id" @change="onSelectLineContactInModal">
+              <option value="">-- เลือกบัญชี LINE จากรายชื่อผู้ติดต่อล่าสุด --</option>
+              <option v-for="ct in lineOaContacts" :key="'modal_ct_' + ct.line_user_id" :value="ct.line_user_id">
+                {{ ct.display_name || 'ไม่ทราบชื่อ' }} — ({{ ct.last_message || 'ไม่มีข้อความ' }}) {{ ct.linked_citizen_id ? '[ผูกแล้ว: ' + ct.linked_citizen_id + ']' : '' }}
+              </option>
+            </select>
+          </div>
+
           <div class="form-group">
             <label class="form-label">ชื่อโปรไฟล์ LINE</label>
-            <input type="text" class="form-control" v-model="lineLinkForm.display_name" readonly>
+            <input type="text" class="form-control" v-model="lineLinkForm.display_name" placeholder="ชื่อโปรไฟล์ LINE">
           </div>
 
           <div class="form-group">
-            <label class="form-label">รหัส LINE User ID (U...)</label>
-            <input type="text" class="form-control" v-model="lineLinkForm.line_user_id" readonly>
+            <label class="form-label">รหัส LINE User ID (U...) <span style="color: #ef4444;">*</span></label>
+            <input type="text" class="form-control" v-model="lineLinkForm.line_user_id" placeholder="เช่น U0123456789abcdef0123456789abcdef" required>
           </div>
 
           <div class="form-group">
-            <label class="form-label">เลขบัตรประชาชน 13 หลักของเด็ก/เยาวชนที่ต้องการผูก <span style="color: #ef4444;">*</span></label>
-            <input type="text" class="form-control" v-model="lineLinkForm.citizen_id" placeholder="กรอกเลขบัตรประชาชน 13 หลักของเยาวชน" required>
+            <label class="form-label">เลขบัตรประชาชน 13 หลัก หรือ เลขคดีดำ (เช่น ศป22/69) <span style="color: #ef4444;">*</span></label>
+            <input type="text"
+                   class="form-control"
+                   list="line-link-defendants-datalist"
+                   v-model="lineLinkForm.citizen_id"
+                   placeholder="กรอกเลขบัตร 13 หลัก, เลขคดีดำ (เช่น ศป22/69) หรือพิมพ์ชื่อเพื่อค้นหา"
+                   required>
+            <datalist id="line-link-defendants-datalist">
+              <option v-for="d in defendantsList" :key="'dl_def_' + d.citizen_id" :value="d.citizen_id">
+                {{ d.title_name }}{{ d.first_name }} {{ d.last_name }} {{ (d.cases && d.cases.length > 0) ? '(' + d.cases.map(c => c.black_case).join(', ') + ')' : '' }}
+              </option>
+              <option v-for="item in lineOaUpcomingList" :key="'dl_up_' + item.id" :value="item.citizen_id || item.black_case">
+                คดี {{ item.black_case }} — {{ item.defendant_name }} (เลขบัตร: {{ item.citizen_id || '-' }})
+              </option>
+            </datalist>
+            <small style="color: var(--text-muted); font-size: 0.75rem; display: block; margin-top: 4px;">
+              * สามารถกรอกเลขบัตรประชาชน 13 หลัก หรือพิมพ์เลขคดีดำ (เช่น ศป22/69) หรือเลือกจากรายการได้เลย
+            </small>
           </div>
 
           <div class="form-group">

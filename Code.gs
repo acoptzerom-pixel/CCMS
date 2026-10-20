@@ -336,6 +336,20 @@ function updateRowInSheet(sheetName, rowNum, dataObj) {
   var sheet = ss.getSheetByName(sheetName);
   var lastCol = sheet.getLastColumn();
   var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var keys = dataObj ? Object.keys(dataObj) : [];
+
+  // กรณีอัปเดตเฉพาะบางคอลัมน์ (เช่น การผูก/ยกเลิกผูก LINE) ให้อัปเดตเฉพาะเซลล์ที่ระบุโดยตรง
+  // เพื่อป้องกันการเขียนทับสูตรหรือข้อมูลคอลัมน์อื่นในแถวเดียวกัน
+  if (keys.length > 0 && keys.length <= 8) {
+    for (var c = 0; c < lastCol; c++) {
+      var header = headers[c] ? headers[c].toString().trim() : "";
+      if (header && dataObj.hasOwnProperty(header)) {
+        sheet.getRange(rowNum, c + 1).setValue(dataObj[header]);
+      }
+    }
+    return;
+  }
+
   var rowRange = sheet.getRange(rowNum, 1, 1, lastCol);
   var rowValues = rowRange.getValues()[0];
   
@@ -1426,6 +1440,13 @@ function getAllDefendantsWithCases(token) {
       }
       
       if (seenCidMap[dCid]) {
+        var existingEntry = seenCidMap[dCid];
+        if (!existingEntry.line_user_id && d.line_user_id) existingEntry.line_user_id = d.line_user_id;
+        if ((!existingEntry.line_id || existingEntry.line_id === "-") && d.line_id) existingEntry.line_id = d.line_id;
+        if (!existingEntry.line_chat_url && d.line_chat_url) existingEntry.line_chat_url = d.line_chat_url;
+        if (!existingEntry.parent_line_user_id && d.parent_line_user_id) existingEntry.parent_line_user_id = d.parent_line_user_id;
+        if ((!existingEntry.parent_line_id || existingEntry.parent_line_id === "-") && d.parent_line_id) existingEntry.parent_line_id = d.parent_line_id;
+        if (!existingEntry.parent_line_chat_url && d.parent_line_chat_url) existingEntry.parent_line_chat_url = d.parent_line_chat_url;
         continue;
       }
       
@@ -1545,11 +1566,19 @@ function searchDefendantByCitizenId(citizenId, token) {
     for (var i = 0; i < defendants.length; i++) {
       var sheetCid = cleanCitizenId(defendants[i].citizen_id);
       if (sheetCid === cleanId) {
-        foundDef = {};
-        for (var fk in defendants[i]) {
-          if (defendants[i].hasOwnProperty(fk)) foundDef[fk] = defendants[i][fk];
+        if (!foundDef) {
+          foundDef = {};
+          for (var fk in defendants[i]) {
+            if (defendants[i].hasOwnProperty(fk)) foundDef[fk] = defendants[i][fk];
+          }
+        } else {
+          if (!foundDef.line_user_id && defendants[i].line_user_id) foundDef.line_user_id = defendants[i].line_user_id;
+          if ((!foundDef.line_id || foundDef.line_id === "-") && defendants[i].line_id) foundDef.line_id = defendants[i].line_id;
+          if (!foundDef.line_chat_url && defendants[i].line_chat_url) foundDef.line_chat_url = defendants[i].line_chat_url;
+          if (!foundDef.parent_line_user_id && defendants[i].parent_line_user_id) foundDef.parent_line_user_id = defendants[i].parent_line_user_id;
+          if ((!foundDef.parent_line_id || foundDef.parent_line_id === "-") && defendants[i].parent_line_id) foundDef.parent_line_id = defendants[i].parent_line_id;
+          if (!foundDef.parent_line_chat_url && defendants[i].parent_line_chat_url) foundDef.parent_line_chat_url = defendants[i].parent_line_chat_url;
         }
-        break;
       }
     }
     
@@ -4198,9 +4227,25 @@ function doPost(e) {
         upsertLineContactRecord(userId, displayName, "[เพิ่มเพื่อนใหม่]", undefined, undefined);
       } else if (ev.type === "message" && ev.message && ev.message.type === "text") {
         var text = (ev.message.text || "").toString().trim();
+        // เก็บข้อมูลติดต่อเดิมก่อนถูกเขียนทับด้วยข้อความใหม่ เผื่อกรณีผู้ใช้พิมพ์เลขบัตร 13 หลัก แล้วพิมพ์คำว่า "เยาวชน"/"ผู้ปกครอง" ตามมาในข้อความถัดไป
+        var prevContactInfo = null;
+        try {
+          var existingContacts = getSheetData("tb_line_contacts");
+          for (var ecIdx = 0; ecIdx < existingContacts.length; ecIdx++) {
+            if (existingContacts[ecIdx].line_user_id && existingContacts[ecIdx].line_user_id.toString().trim() === userId) {
+              prevContactInfo = {
+                linked_citizen_id: cleanCitizenId(existingContacts[ecIdx].linked_citizen_id),
+                linked_role: (existingContacts[ecIdx].linked_role || "").toString().trim(),
+                last_message: (existingContacts[ecIdx].last_message || "").toString().trim()
+              };
+              break;
+            }
+          }
+        } catch (prevErr) {}
+
         upsertLineContactRecord(userId, displayName, text, undefined, undefined);
         
-        handleIncomingLineTextForBinding(userId, displayName, text, replyToken, accessToken);
+        handleIncomingLineTextForBinding(userId, displayName, text, replyToken, accessToken, prevContactInfo);
       }
     }
     
@@ -4222,10 +4267,99 @@ function doPost(e) {
 }
 
 /**
+ * บันทึกการผูกบัญชี LINE ของเยาวชนหรือผู้ปกครองลงใน tb_defendants (หากยังไม่มีแถวใน tb_defendants แต่มีใน tb_cases จะสร้างแถวให้อัตโนมัติ)
+ */
+function saveLineBindingToDefendantsSheet(targetCid, userId, displayName, isParent, chatUrl) {
+  ensureColumnsExist("tb_defendants", ["line_id", "parent_line_id", "line_user_id", "parent_line_user_id", "line_chat_url", "parent_line_chat_url"]);
+  clearSheetCache("tb_defendants");
+  var defendants = getSheetData("tb_defendants");
+  var matchedRows = [];
+  for (var i = 0; i < defendants.length; i++) {
+    if (cleanCitizenId(defendants[i].citizen_id) === targetCid) {
+      matchedRows.push(defendants[i]);
+    }
+  }
+
+  var cases = getSheetData("tb_cases");
+  var matchedCaseNo = "";
+  var hasCase = false;
+  for (var cIdx = 0; cIdx < cases.length; cIdx++) {
+    if (cleanCitizenId(cases[cIdx].citizen_id) === targetCid) {
+      hasCase = true;
+      if (cases[cIdx].black_case && !matchedCaseNo) {
+        matchedCaseNo = cases[cIdx].black_case.toString().trim();
+      }
+    }
+  }
+
+  var defFullName = "";
+  if (matchedRows.length > 0) {
+    for (var m = 0; m < matchedRows.length; m++) {
+      var rowDef = matchedRows[m];
+      if (!defFullName) {
+        defFullName = ((rowDef.title_name || "") + (rowDef.first_name || "") + " " + (rowDef.last_name || "")).trim();
+      }
+      var partialUpdate = {};
+      if (isParent) {
+        partialUpdate.parent_line_user_id = userId;
+        if (chatUrl) partialUpdate.parent_line_chat_url = chatUrl;
+        var curParentLineId = (rowDef.parent_line_id || "").toString().trim();
+        if (!curParentLineId || curParentLineId === "-") {
+          partialUpdate.parent_line_id = displayName || userId;
+        }
+      } else {
+        partialUpdate.line_user_id = userId;
+        if (chatUrl) partialUpdate.line_chat_url = chatUrl;
+        var curYouthLineId = (rowDef.line_id || "").toString().trim();
+        if (!curYouthLineId || curYouthLineId === "-") {
+          partialUpdate.line_id = displayName || userId;
+        }
+      }
+      updateRowInSheet("tb_defendants", rowDef.rowNum, partialUpdate);
+    }
+    if (!defFullName) {
+      defFullName = matchedCaseNo ? ("เยาวชนคดี " + matchedCaseNo) : ("เลขบัตร " + targetCid);
+    }
+    clearSheetCache("tb_defendants");
+    return { matched: true, defFullName: defFullName, matchedCaseNo: matchedCaseNo };
+  }
+
+  if (!hasCase) {
+    return { matched: false, defFullName: "", matchedCaseNo: "" };
+  }
+
+  // กรณีมีเลขบัตรประชาชนใน tb_cases แต่ยังไม่มีแถวใน tb_defendants ให้สร้างแถวใน tb_defendants ทันทีเพื่อเก็บข้อมูลการผูก LINE
+  var nowIso = new Date().toISOString();
+  var placeholderFirstName = matchedCaseNo ? ("เยาวชนคดี " + matchedCaseNo) : ("เยาวชนเลขบัตร " + targetCid);
+  var newDefObj = {
+    citizen_id: targetCid,
+    title_name: "",
+    first_name: placeholderFirstName,
+    last_name: "",
+    nick_name: "",
+    gender: "",
+    line_id: isParent ? "" : (displayName || userId),
+    line_user_id: isParent ? "" : userId,
+    line_chat_url: isParent ? "" : (chatUrl || ""),
+    guardian_name: isParent ? (displayName || "") : "",
+    parent_line_id: isParent ? (displayName || userId) : "",
+    parent_line_user_id: isParent ? userId : "",
+    parent_line_chat_url: isParent ? (chatUrl || "") : "",
+    risk_assessment: "มีความเสี่ยงในการกระทำผิดซ้ำต่ำ",
+    created_at: nowIso,
+    updated_at: nowIso
+  };
+  appendRowToSheet("tb_defendants", newDefObj);
+  clearSheetCache("tb_defendants");
+  defFullName = matchedCaseNo ? ("เยาวชนคดี " + matchedCaseNo + " (เลขบัตร " + targetCid + ")") : ("เลขบัตร " + targetCid);
+  return { matched: true, defFullName: defFullName, matchedCaseNo: matchedCaseNo };
+}
+
+/**
  * ประมวลผลข้อความที่ส่งเข้ามาใน LINE OA เพื่อผูกบัญชีเยาวชนหรือผู้ปกครองอัตโนมัติ
  */
-function handleIncomingLineTextForBinding(userId, displayName, text, replyToken, accessToken) {
-  ensureColumnsExist("tb_defendants", ["line_id", "parent_line_id", "line_user_id", "parent_line_user_id"]);
+function handleIncomingLineTextForBinding(userId, displayName, text, replyToken, accessToken, prevContactInfo) {
+  ensureColumnsExist("tb_defendants", ["line_id", "parent_line_id", "line_user_id", "parent_line_user_id", "line_chat_url", "parent_line_chat_url"]);
   clearSheetCache("tb_defendants");
   var defendants = getSheetData("tb_defendants");
   var cfg = getLineConfigMap();
@@ -4240,49 +4374,9 @@ function handleIncomingLineTextForBinding(userId, displayName, text, replyToken,
 
   // Helper ภายในสำหรับบันทึกการผูกบัญชีลงทุกแถวที่ตรงกับเลขบัตรประชาชน และส่งข้อความยืนยัน
   function executeBindingAndReply(targetCid, isParent) {
-    var matchedRows = [];
-    for (var i = 0; i < defendants.length; i++) {
-      if (cleanCitizenId(defendants[i].citizen_id) === targetCid) {
-        matchedRows.push(defendants[i]);
-      }
-    }
-    
-    var defFullName = "";
-    if (matchedRows.length > 0) {
-      for (var m = 0; m < matchedRows.length; m++) {
-        var rowDef = matchedRows[m];
-        if (!defFullName) {
-          defFullName = ((rowDef.title_name || "") + (rowDef.first_name || "") + " " + (rowDef.last_name || "")).trim();
-        }
-        var partialUpdate = {};
-        if (isParent) {
-          partialUpdate.parent_line_user_id = userId;
-          var curParentLineId = (rowDef.parent_line_id || "").toString().trim();
-          if (!curParentLineId || curParentLineId === "-") {
-            partialUpdate.parent_line_id = displayName || userId;
-          }
-        } else {
-          partialUpdate.line_user_id = userId;
-          var curYouthLineId = (rowDef.line_id || "").toString().trim();
-          if (!curYouthLineId || curYouthLineId === "-") {
-            partialUpdate.line_id = displayName || userId;
-          }
-        }
-        updateRowInSheet("tb_defendants", rowDef.rowNum, partialUpdate);
-      }
-    } else {
-      // กรณีไม่พบใน tb_defendants ให้ตรวจสอบใน tb_cases
-      var cases = getSheetData("tb_cases");
-      var hasCase = false;
-      for (var cIdx = 0; cIdx < cases.length; cIdx++) {
-        if (cleanCitizenId(cases[cIdx].citizen_id) === targetCid) {
-          hasCase = true;
-          break;
-        }
-      }
-      if (!hasCase) return false;
-      defFullName = "เลขบัตร " + targetCid;
-    }
+    var bindRes = saveLineBindingToDefendantsSheet(targetCid, userId, displayName, isParent, "");
+    if (!bindRes.matched) return false;
+    var defFullName = bindRes.defFullName || ("เลขบัตร " + targetCid);
     
     var roleLabel = isParent ? "ผู้ปกครอง" : "เยาวชน";
     upsertLineContactRecord(userId, displayName, "ยืนยัน" + roleLabel + ":" + targetCid, targetCid, roleLabel);
@@ -4304,7 +4398,8 @@ function handleIncomingLineTextForBinding(userId, displayName, text, replyToken,
   
   // 1. ตรวจสอบกรณีผู้ใช้กดปุ่มยืนยันสถานะ: "ยืนยันเยาวชน:1234567890123" หรือ "ยืนยันผู้ปกครอง:1234567890123"
   // หรือพิมพ์สถานะพร้อมเลขบัตร 13 หลักในข้อความเดียวกัน
-  var confirmMatch = normalizedText.match(/^(?:ยืนยัน)?\s*(?:ฉันคือ)?\s*(เยาวชน|ผู้ปกครอง|ผปค\.?|บิดา|มารดา|พ่อ|แม่|ผู้ดูแล)[\s:\-]*(.*)$/);
+  var cleanedForRoleMatch = normalizedText.replace(/^[^ก-๙a-zA-Z0-9]+/, "").trim();
+  var confirmMatch = cleanedForRoleMatch.match(/^(?:ยืนยัน)?\s*(?:ฉันคือ|ผมคือ|หนูคือ|เป็น|ผมเป็น|หนูเป็น)?\s*(เยาวชน|ผู้ปกครอง|ผปค\.?|บิดา|มารดา|พ่อ|แม่|ผู้ดูแล)(?:ครับ|ค่ะ|คะ|จ้า)?[\s:\-]*(.*)$/);
   if (confirmMatch) {
     var roleWord = confirmMatch[1];
     var restDigits = (confirmMatch[2] || "").replace(/\D/g, "");
@@ -4315,15 +4410,29 @@ function handleIncomingLineTextForBinding(userId, displayName, text, replyToken,
     }
     // กรณีผู้ใช้พิมพ์เฉพาะคำว่า "เยาวชน" / "ฉันคือเยาวชน" / "ผู้ปกครอง" / "ฉันคือผู้ปกครอง" หลังจากเพิ่งพิมพ์เลขบัตร 13 หลักไปก่อนหน้า
     if (restDigits.length === 0) {
-      var contacts = getSheetData("tb_line_contacts");
       var prevCid = "";
-      for (var ctIdx = 0; ctIdx < contacts.length; ctIdx++) {
-        if (contacts[ctIdx].line_user_id && contacts[ctIdx].line_user_id.toString().trim() === userId) {
-          var candCid = cleanCitizenId(contacts[ctIdx].linked_citizen_id);
-          if (candCid && candCid.length === 13) {
-            prevCid = candCid;
+      if (prevContactInfo) {
+        if (prevContactInfo.linked_citizen_id && prevContactInfo.linked_citizen_id.length === 13) {
+          prevCid = prevContactInfo.linked_citizen_id;
+        } else if (prevContactInfo.last_message) {
+          var prevDigits = prevContactInfo.last_message.replace(/[๐-๙]/g, function(ch) {
+            return String.fromCharCode(ch.charCodeAt(0) - 0x0E50 + 48);
+          }).replace(/\D/g, "");
+          if (prevDigits.length === 13) {
+            prevCid = prevDigits;
           }
-          break;
+        }
+      }
+      if (!prevCid) {
+        var contacts = getSheetData("tb_line_contacts");
+        for (var ctIdx = 0; ctIdx < contacts.length; ctIdx++) {
+          if (contacts[ctIdx].line_user_id && contacts[ctIdx].line_user_id.toString().trim() === userId) {
+            var candCid = cleanCitizenId(contacts[ctIdx].linked_citizen_id);
+            if (candCid && candCid.length === 13) {
+              prevCid = candCid;
+            }
+            break;
+          }
         }
       }
       if (prevCid) {
@@ -4554,6 +4663,14 @@ function buildLineReminderItems(daysAheadLimit, cfgMap) {
           if (d.hasOwnProperty(dk)) dCopy[dk] = d[dk];
         }
         defMap[cid] = dCopy;
+      } else {
+        var ex = defMap[cid];
+        if (!ex.line_user_id && d.line_user_id) ex.line_user_id = d.line_user_id;
+        if ((!ex.line_id || ex.line_id === "-") && d.line_id) ex.line_id = d.line_id;
+        if (!ex.line_chat_url && d.line_chat_url) ex.line_chat_url = d.line_chat_url;
+        if (!ex.parent_line_user_id && d.parent_line_user_id) ex.parent_line_user_id = d.parent_line_user_id;
+        if ((!ex.parent_line_id || ex.parent_line_id === "-") && d.parent_line_id) ex.parent_line_id = d.parent_line_id;
+        if (!ex.parent_line_chat_url && d.parent_line_chat_url) ex.parent_line_chat_url = d.parent_line_chat_url;
       }
     }
   }
@@ -4788,8 +4905,54 @@ function getLineOaModuleData(daysAhead, token) {
     
     getOrCreateSheet("tb_line_contacts", ["line_user_id", "display_name", "last_message", "linked_citizen_id", "linked_role", "updated_at"]);
     var allContacts = getSheetData("tb_line_contacts");
-    
-    // ตรวจสอบความสอดคล้องกับ tb_defendants (ถ้าข้อมูลใน tb_defendants ถูกลบหรือแก้ไขในฐานข้อมูล ให้ล้างการเชื่อมโยงที่ค้างใน tb_line_contacts ให้ตรงกัน)
+    var anyReconciled = false;
+
+    // 1. กู้คืนรายการที่ผู้ใช้กดยืนยันใน LINE OA สำเร็จแล้ว (last_message = "ยืนยันเยาวชน:..." หรือ "ยืนยันผู้ปกครอง:...")
+    // แต่เคยถูกล้างค่า linked_citizen_id / linked_role หรือยังไม่ได้สร้างแถวใน tb_defendants (จะไม่แตะต้องรายการที่เจ้าหน้าที่กดยกเลิกผูกแล้ว)
+    for (var rIdx = 0; rIdx < allContacts.length; rIdx++) {
+      var rCt = allContacts[rIdx];
+      var rUid = (rCt.line_user_id || "").toString().trim();
+      var rName = (rCt.display_name || "").toString().trim();
+      var rCid = cleanCitizenId(rCt.linked_citizen_id);
+      var rRole = (rCt.linked_role || "").toString().trim();
+      var rLastMsg = (rCt.last_message || "").toString().trim();
+      if (!rUid) continue;
+
+      if (!rCid && !rRole && rLastMsg.indexOf("ยกเลิก") === -1) {
+        var confM = rLastMsg.match(/^ยืนยัน(เยาวชน|ผู้ปกครอง):(\d{13})$/);
+        if (confM) {
+          var recRoleLabel = confM[1];
+          var recCid = confM[2];
+          var recIsParent = (recRoleLabel === "ผู้ปกครอง");
+          var saveRes = saveLineBindingToDefendantsSheet(recCid, rUid, rName, recIsParent, "");
+          if (saveRes.matched) {
+            rCt.linked_citizen_id = recCid;
+            rCt.linked_role = recRoleLabel;
+            updateRowInSheet("tb_line_contacts", rCt.rowNum, {
+              linked_citizen_id: recCid,
+              linked_role: recRoleLabel
+            });
+            anyReconciled = true;
+          }
+        } else {
+          var pendingM = rLastMsg.match(/^(\d{13})$/);
+          if (pendingM) {
+            rCt.linked_citizen_id = pendingM[1];
+            rCt.linked_role = "รอยืนยันสถานะ";
+            updateRowInSheet("tb_line_contacts", rCt.rowNum, {
+              linked_citizen_id: pendingM[1],
+              linked_role: "รอยืนยันสถานะ"
+            });
+          }
+        }
+      }
+    }
+
+    // 2. ตรวจสอบความสอดคล้องกับ tb_defendants:
+    // - ข้ามรายการที่อยู่ในสถานะ "รอยืนยันสถานะ" (ไม่ล้างข้อมูลระหว่างรอผู้ใช้กดปุ่มยืนยัน)
+    // - หากเป็นรายการที่ผูกสำเร็จแล้ว และใน tb_defendants ยังไม่มีการผูกสำหรับเลขบัตรนั้น (เช่น เพิ่งมีเฉพาะใน tb_cases) ให้บันทึกเข้า tb_defendants อัตโนมัติ
+    // - หากใน tb_defendants มีแถวของเลขบัตรนั้นอยู่แล้ว แต่ช่อง line_user_id / parent_line_user_id ถูกลบออกไปจากฐานข้อมูลโดยตรง ให้ล้างการผูกใน tb_line_contacts ให้ตรงกันและทำเครื่องหมายว่ายกเลิกผูกแล้ว
+    clearSheetCache("tb_defendants");
     var defendants = getSheetData("tb_defendants");
     var defLineUidMap = {};
     for (var dIdx = 0; dIdx < defendants.length; dIdx++) {
@@ -4808,17 +4971,41 @@ function getLineOaModuleData(daysAhead, token) {
       if (!ctCid) continue;
       var ctUid = (ct.line_user_id || "").toString().trim();
       var ctRole = (ct.linked_role || "").toString().trim();
+      if (ctRole === "รอยืนยันสถานะ") continue;
+
       var isParent = (ctRole === "ผู้ปกครอง" || ctRole === "parent");
-      
+      if (!defLineUidMap[ctCid]) {
+        // กรณีเลขบัตรนี้อยู่ใน tb_cases แต่ยังไม่มีแถวใน tb_defendants ให้สร้างแถวใน tb_defendants เพื่อให้ข้อมูลตรงกันทั้งระบบ
+        var syncRes = saveLineBindingToDefendantsSheet(ctCid, ctUid, (ct.display_name || "").toString().trim(), isParent, "");
+        if (syncRes.matched) {
+          defLineUidMap[ctCid] = {
+            youth: isParent ? "" : ctUid,
+            parent: isParent ? ctUid : ""
+          };
+          anyReconciled = true;
+          continue;
+        }
+      }
+
       var expectedUid = defLineUidMap[ctCid] ? (isParent ? defLineUidMap[ctCid].parent : defLineUidMap[ctCid].youth) : "";
       if (!expectedUid || expectedUid !== ctUid) {
+        var oldLastMsg = (ct.last_message || "").toString().trim();
+        var updatedLastMsg = /^ยืนยัน(เยาวชน|ผู้ปกครอง):/.test(oldLastMsg) ? (oldLastMsg + " (ยกเลิกผูกแล้ว)") : oldLastMsg;
         ct.linked_citizen_id = "";
         ct.linked_role = "";
+        ct.last_message = updatedLastMsg;
         updateRowInSheet("tb_line_contacts", ct.rowNum, {
           linked_citizen_id: "",
-          linked_role: ""
+          linked_role: "",
+          last_message: updatedLastMsg
         });
       }
+    }
+
+    if (anyReconciled) {
+      clearSheetCache("tb_defendants");
+      clearSheetCache("tb_line_contacts");
+      upcomingList = buildLineReminderItems(daysAhead || 30, cfg);
     }
     
     allContacts.sort(function(a, b) {
@@ -5201,51 +5388,101 @@ function checkAndRunDailyLineNotificationsAuto(cfgMap) {
 function linkLineContactToDefendant(payload, token) {
   var userSession = verifySessionToken(token);
   if (!userSession) return { success: false, message: "สิทธิ์ล็อกอินหมดอายุ" };
-  if (userSession.role !== "admin" && userSession.role !== "psychologist") {
-    return { success: false, message: "เฉพาะแอดมินและนักจิตวิทยาเท่านั้นที่มีสิทธิ์ผูกบัญชี LINE OA" };
+  if (userSession.role === "user") {
+    return { success: false, message: "ไม่มีสิทธิ์ในการผูกบัญชี LINE OA" };
   }
   
   try {
-    var cid = cleanCitizenId(payload.citizen_id);
-    var lineUserId = (payload.line_user_id || "").toString().trim();
-    var displayName = (payload.display_name || "").toString().trim();
-    var targetRole = payload.target_role || "youth"; // 'youth' or 'parent'
+    var rawCitizenOrCase = (payload && payload.citizen_id ? payload.citizen_id : "").toString().trim();
+    var lineUserId = (payload && payload.line_user_id ? payload.line_user_id : "").toString().trim();
+    var displayName = (payload && payload.display_name ? payload.display_name : "").toString().trim();
+    var targetRole = (payload && payload.target_role) ? payload.target_role : "youth"; // 'youth' or 'parent'
+    var isParent = (targetRole === "parent" || targetRole === "ผู้ปกครอง");
     
-    if (!cid || !lineUserId) {
-      return { success: false, message: "กรุณาระบุเลขบัตรประชาชนของเยาวชนและบัญชี LINE ที่ต้องการผูก" };
+    // รองรับกรณีวางลิงก์ chat.line.biz ในช่อง line_user_id
+    var chatUrl = (payload && payload.chat_url ? payload.chat_url : "").toString().trim();
+    if (/chat\.line\.biz\//i.test(lineUserId)) {
+      if (!chatUrl) chatUrl = lineUserId;
+      var parsedUid = parseLineChatInput(lineUserId);
+      if (parsedUid.userId) lineUserId = parsedUid.userId;
     }
-    
-    ensureColumnsExist("tb_defendants", ["line_id", "parent_line_id", "line_user_id", "parent_line_user_id", "line_chat_url", "parent_line_chat_url"]);
+
+    if (!rawCitizenOrCase || !lineUserId) {
+      return { success: false, message: "กรุณาระบุเลขบัตรประชาชน (หรือเลขคดีดำ) ของเยาวชน และบัญชี LINE ที่ต้องการผูก" };
+    }
+
+    clearSheetCache("tb_defendants");
+    clearSheetCache("tb_cases");
     var defendants = getSheetData("tb_defendants");
-    var matchedRows = [];
-    for (var i = 0; i < defendants.length; i++) {
-      if (cleanCitizenId(defendants[i].citizen_id) === cid) {
-        matchedRows.push(defendants[i]);
-      }
-    }
-    
-    if (matchedRows.length === 0) {
-      return { success: false, message: "ไม่พบข้อมูลเยาวชนเลขบัตรประชาชน " + cid + " ในระบบ" };
-    }
-    
-    var chatUrl = (payload.chat_url || "").toString().trim();
-    for (var m = 0; m < matchedRows.length; m++) {
-      var foundDef = matchedRows[m];
-      var partialUpdate = {};
-      if (targetRole === "parent") {
-        partialUpdate.parent_line_user_id = lineUserId;
-        if (chatUrl) partialUpdate.parent_line_chat_url = chatUrl;
-        if (displayName && (!foundDef.parent_line_id || foundDef.parent_line_id === "-")) {
-          partialUpdate.parent_line_id = displayName;
-        }
+    var cases = getSheetData("tb_cases");
+
+    // รองรับทั้งการกรอกเลขบัตรประชาชน 13 หลัก, เลขคดีดำ (เช่น ศป22/69), หรือการเลือกจากรายการที่มีวงเล็บเลขบัตร
+    var cid = "";
+    var explicit13Match = rawCitizenOrCase.replace(/[๐-๙]/g, function(ch) {
+      return String.fromCharCode(ch.charCodeAt(0) - 0x0E50 + 48);
+    }).match(/\d{13}/);
+    if (explicit13Match) {
+      cid = explicit13Match[0];
+    } else {
+      var candidateDigits = cleanCitizenId(rawCitizenOrCase);
+      if (candidateDigits && candidateDigits.length === 13 && /^[\d\s\-๐-๙]+$/.test(rawCitizenOrCase)) {
+        cid = candidateDigits;
       } else {
-        partialUpdate.line_user_id = lineUserId;
-        if (chatUrl) partialUpdate.line_chat_url = chatUrl;
-        if (displayName && (!foundDef.line_id || foundDef.line_id === "-")) {
-          partialUpdate.line_id = displayName;
+        // ค้นหาจากเลขคดีดำใน tb_cases
+        var normInputCase = normalizeBlackCaseKey(rawCitizenOrCase);
+        for (var cIdx = 0; cIdx < cases.length; cIdx++) {
+          var cBlack = cases[cIdx].black_case ? cases[cIdx].black_case.toString().trim() : "";
+          if (cBlack && (normalizeBlackCaseKey(cBlack) === normInputCase || cBlack.toLowerCase() === rawCitizenOrCase.toLowerCase())) {
+            var caseCid = cleanCitizenId(cases[cIdx].citizen_id);
+            if (caseCid) {
+              cid = caseCid;
+              break;
+            }
+          }
+        }
+        // หากยังไม่พบ ให้ค้นหาจากชื่อ-นามสกุลใน tb_defendants
+        if (!cid) {
+          var cleanInputName = rawCitizenOrCase.replace(/\s+/g, " ").toLowerCase();
+          for (var dIdx = 0; dIdx < defendants.length; dIdx++) {
+            var d = defendants[dIdx];
+            var full1 = ((d.title_name || "") + (d.first_name || "") + " " + (d.last_name || "")).replace(/\s+/g, " ").trim().toLowerCase();
+            var full2 = ((d.first_name || "") + " " + (d.last_name || "")).replace(/\s+/g, " ").trim().toLowerCase();
+            if ((full1 && full1.indexOf(cleanInputName) !== -1) || (full2 && full2.indexOf(cleanInputName) !== -1)) {
+              cid = cleanCitizenId(d.citizen_id);
+              if (cid) break;
+            }
+          }
         }
       }
-      updateRowInSheet("tb_defendants", foundDef.rowNum, partialUpdate);
+    }
+
+    if (!cid || cid.length !== 13) {
+      return { success: false, message: "ไม่พบเลขบัตรประชาชน 13 หลัก หรือเลขคดีที่ตรงกับ \"" + rawCitizenOrCase + "\" กรุณาตรวจสอบอีกครั้ง" };
+    }
+    
+    var bindRes = saveLineBindingToDefendantsSheet(cid, lineUserId, displayName, isParent, chatUrl);
+    if (!bindRes.matched) {
+      // กรณีเจ้าหน้าที่ระบุเลขบัตร 13 หลักโดยตรง แม้ยังไม่มีใน tb_defendants หรือ tb_cases ก็ให้สร้างแถวใน tb_defendants เพื่อผูกไว้ล่วงหน้าได้ทันที
+      var nowIso = new Date().toISOString();
+      ensureColumnsExist("tb_defendants", ["line_id", "parent_line_id", "line_user_id", "parent_line_user_id", "line_chat_url", "parent_line_chat_url"]);
+      appendRowToSheet("tb_defendants", {
+        citizen_id: cid,
+        title_name: "",
+        first_name: "เยาวชนเลขบัตร " + cid,
+        last_name: "",
+        line_id: isParent ? "" : (displayName || lineUserId),
+        line_user_id: isParent ? "" : lineUserId,
+        line_chat_url: isParent ? "" : chatUrl,
+        guardian_name: isParent ? (displayName || "") : "",
+        parent_line_id: isParent ? (displayName || lineUserId) : "",
+        parent_line_user_id: isParent ? lineUserId : "",
+        parent_line_chat_url: isParent ? chatUrl : "",
+        risk_assessment: "มีความเสี่ยงในการกระทำผิดซ้ำต่ำ",
+        created_at: nowIso,
+        updated_at: nowIso
+      });
+      clearSheetCache("tb_defendants");
+      bindRes = { matched: true, defFullName: "เลขบัตร " + cid };
     }
     
     var parsedChat = parseLineChatInput(chatUrl);
@@ -5253,13 +5490,19 @@ function linkLineContactToDefendant(payload, token) {
       saveSingleLineConfigValue("oa_bot_id", parsedChat.botId, "chat_url");
     }
     
-    upsertLineContactRecord(lineUserId, displayName, undefined, cid, targetRole === "parent" ? "ผู้ปกครอง" : "เยาวชน");
+    var roleLabel = isParent ? "ผู้ปกครอง" : "เยาวชน";
+    upsertLineContactRecord(lineUserId, displayName, "ยืนยัน" + roleLabel + ":" + cid, cid, roleLabel);
+    try {
+      SpreadsheetApp.flush();
+    } catch (flushErr) {}
     
-    var firstDef = matchedRows[0];
-    var defFullName = ((firstDef.title_name || "") + (firstDef.first_name || "") + " " + (firstDef.last_name || "")).trim();
     return {
       success: true,
-      message: "ผูกบัญชี LINE (" + (displayName || lineUserId) + ") เข้ากับ " + defFullName + " (" + (targetRole === "parent" ? "ผู้ปกครอง" : "เยาวชน") + ") สำเร็จ!"
+      citizen_id: cid,
+      target_role: isParent ? "parent" : "youth",
+      line_user_id: lineUserId,
+      display_name: displayName || lineUserId,
+      message: "ผูกบัญชี LINE (" + (displayName || lineUserId) + ") เข้ากับ " + bindRes.defFullName + " (" + roleLabel + ") สำเร็จ!"
     };
   } catch (e) {
     return { success: false, message: "เกิดข้อผิดพลาดในการผูกบัญชี: " + e.toString() };
@@ -5337,9 +5580,12 @@ function clearLineContactLinkForDefendant(citizenIdStr, role, oldUid) {
       var isTargetUid = cleanedOldUid && (ctUid === cleanedOldUid);
       
       if (isTargetCid || isTargetUid) {
+        var oldMsg = (ct.last_message || "").toString().trim();
+        var newMsg = /^ยืนยัน(เยาวชน|ผู้ปกครอง):/.test(oldMsg) ? (oldMsg + " (ยกเลิกผูกแล้ว)") : oldMsg;
         updateRowInSheet("tb_line_contacts", ct.rowNum, {
           linked_citizen_id: "",
-          linked_role: ""
+          linked_role: "",
+          last_message: newMsg
         });
       }
     }
@@ -5442,9 +5688,12 @@ function unlinkDefendantLine(payload, token) {
       var ctRole = (ct.linked_role || "").toString().trim();
       var ctUid = (ct.line_user_id || "").toString().trim();
       if ((ctCid === cid && (ctRole === targetRoleLabel || !ctRole)) || (ctUid && unlinkedUids.indexOf(ctUid) !== -1)) {
+        var oldCtMsg = (ct.last_message || "").toString().trim();
+        var newCtMsg = /^ยืนยัน(เยาวชน|ผู้ปกครอง):/.test(oldCtMsg) ? (oldCtMsg + " (ยกเลิกผูกแล้ว)") : oldCtMsg;
         updateRowInSheet("tb_line_contacts", ct.rowNum, {
           linked_citizen_id: "",
-          linked_role: ""
+          linked_role: "",
+          last_message: newCtMsg
         });
       }
     }
@@ -5493,9 +5742,12 @@ function unlinkLineContact(payload, token) {
     var isParent = (linkedRole === "ผู้ปกครอง" || linkedRole === "parent");
     
     if (foundContact) {
+      var oldFoundMsg = (foundContact.last_message || "").toString().trim();
+      var newFoundMsg = /^ยืนยัน(เยาวชน|ผู้ปกครอง):/.test(oldFoundMsg) ? (oldFoundMsg + " (ยกเลิกผูกแล้ว)") : oldFoundMsg;
       updateRowInSheet("tb_line_contacts", foundContact.rowNum, {
         linked_citizen_id: "",
-        linked_role: ""
+        linked_role: "",
+        last_message: newFoundMsg
       });
     }
     

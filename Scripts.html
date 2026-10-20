@@ -5431,16 +5431,67 @@
         }
 
         function promptManualLinkContact(contact) {
-          lineLinkForm.line_user_id = contact.line_user_id || '';
-          lineLinkForm.display_name = contact.display_name || '';
-          lineLinkForm.citizen_id = contact.linked_citizen_id || '';
-          lineLinkForm.target_role = contact.linked_role === 'ผู้ปกครอง' || contact.linked_role === 'parent' ? 'parent' : 'youth';
+          if (!contact) return;
+          lineLinkForm.line_user_id = (contact.line_user_id || '').toString().trim();
+          lineLinkForm.display_name = (contact.display_name || '').toString().trim();
+
+          let autoCid = (contact.linked_citizen_id || '').toString().trim();
+          const rawLastMsg = (contact.last_message || '').toString()
+            .replace(/[๐-๙]/g, ch => String('๐๑๒๓๔๕๖๗๘๙'.indexOf(ch)));
+          if (!autoCid && rawLastMsg) {
+            const m13 = rawLastMsg.match(/\d{13}/);
+            if (m13) autoCid = m13[0];
+          }
+          lineLinkForm.citizen_id = autoCid;
+
+          const roleStr = (contact.linked_role || '').toString().trim();
+          if (roleStr === 'ผู้ปกครอง' || roleStr === 'parent') {
+            lineLinkForm.target_role = 'parent';
+          } else if (roleStr === 'เยาวชน' || roleStr === 'youth') {
+            lineLinkForm.target_role = 'youth';
+          } else if (/ผู้ปกครอง|ผปค|บิดา|มารดา|พ่อ|แม่|ผู้ดูแล/.test(rawLastMsg)) {
+            lineLinkForm.target_role = 'parent';
+          } else {
+            lineLinkForm.target_role = 'youth';
+          }
           lineLinkModalActive.value = true;
         }
 
+        function promptManualLinkForDefendant(citizenId, role) {
+          const cid = (citizenId || (currentDef.value ? currentDef.value.citizen_id : '') || '').toString().trim();
+          const isParent = (role === 'parent' || role === 'ผู้ปกครอง');
+          lineLinkForm.citizen_id = cid;
+          lineLinkForm.target_role = isParent ? 'parent' : 'youth';
+          if (currentDef.value && String(currentDef.value.citizen_id).trim() === cid) {
+            lineLinkForm.line_user_id = isParent ? (currentDef.value.parent_line_user_id || '') : (currentDef.value.line_user_id || '');
+            lineLinkForm.display_name = isParent ? (currentDef.value.parent_line_id || '') : (currentDef.value.line_id || '');
+          } else {
+            lineLinkForm.line_user_id = '';
+            lineLinkForm.display_name = '';
+          }
+          if (!lineOaContacts.value || lineOaContacts.value.length === 0) {
+            loadLineOaModule(true);
+          }
+          lineLinkModalActive.value = true;
+        }
+
+        function onSelectLineContactInModal(event) {
+          const selectedUid = event && event.target ? event.target.value : '';
+          if (!selectedUid) return;
+          const found = (lineOaContacts.value || []).find(ct => ct.line_user_id === selectedUid);
+          if (found) {
+            lineLinkForm.line_user_id = found.line_user_id || '';
+            lineLinkForm.display_name = found.display_name || '';
+          }
+        }
+
         function submitManualLinkContact() {
-          if (!lineLinkForm.citizen_id) {
-            alert("กรุณากรอกเลขบัตรประชาชน 13 หลักของเยาวชนที่ต้องการผูกกับบัญชี LINE นี้");
+          if (!lineLinkForm.citizen_id || !String(lineLinkForm.citizen_id).trim()) {
+            alert("กรุณากรอกเลขบัตรประชาชน 13 หลัก หรือเลขคดีดำของเยาวชนที่ต้องการผูกกับบัญชี LINE นี้");
+            return;
+          }
+          if (!lineLinkForm.line_user_id || !String(lineLinkForm.line_user_id).trim()) {
+            alert("กรุณาเลือกผู้ติดต่อ LINE หรือระบุรหัส LINE User ID (U...)");
             return;
           }
           loading.value = true;
@@ -5450,6 +5501,21 @@
                 loading.value = false;
                 if (res && res.success) {
                   lineLinkModalActive.value = false;
+                  const boundCid = res.citizen_id || String(lineLinkForm.citizen_id).replace(/\D/g, '');
+                  const isParent = (lineLinkForm.target_role === 'parent' || lineLinkForm.target_role === 'ผู้ปกครอง');
+                  if (currentDef.value && String(currentDef.value.citizen_id).replace(/\D/g, '') === boundCid) {
+                    if (isParent) {
+                      currentDef.value.parent_line_user_id = res.line_user_id || lineLinkForm.line_user_id;
+                      if (!currentDef.value.parent_line_id || currentDef.value.parent_line_id === '-') {
+                        currentDef.value.parent_line_id = res.display_name || lineLinkForm.display_name || lineLinkForm.line_user_id;
+                      }
+                    } else {
+                      currentDef.value.line_user_id = res.line_user_id || lineLinkForm.line_user_id;
+                      if (!currentDef.value.line_id || currentDef.value.line_id === '-') {
+                        currentDef.value.line_id = res.display_name || lineLinkForm.display_name || lineLinkForm.line_user_id;
+                      }
+                    }
+                  }
                   loadLineOaModule(true);
                   loadDefendantsList(true);
                   if (typeof Swal !== 'undefined') {
@@ -5457,14 +5523,23 @@
                       icon: 'success',
                       title: 'ผูกบัญชี LINE สำเร็จ',
                       text: res.message,
-                      timer: 2000,
+                      timer: 2200,
                       showConfirmButton: false
                     });
                   } else {
                     alert(res.message);
                   }
                 } else {
-                  alert(res ? res.message : 'ผูกบัญชีไม่สำเร็จ');
+                  if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                      icon: 'error',
+                      title: 'ผูกบัญชีไม่สำเร็จ',
+                      text: res ? res.message : 'ไม่สามารถผูกบัญชีได้',
+                      confirmButtonColor: '#ef4444'
+                    });
+                  } else {
+                    alert(res ? res.message : 'ผูกบัญชีไม่สำเร็จ');
+                  }
                 }
               })
               .withFailureHandler((err) => {
@@ -5645,7 +5720,7 @@
           lineOaPublicConfig, lineOaConfigForm, filteredLineUpcomingList,
           linePreviewModalActive, linePreviewItem, lineLinkModalActive, lineLinkForm,
           loadLineOaModule, saveLineOaConfigSettings, openLinePreviewSendModal, confirmSendLineReminder,
-          copyMessageAndOpenLineOa, triggerAutoLineCheckNow, promptManualLinkContact, submitManualLinkContact,
+          copyMessageAndOpenLineOa, triggerAutoLineCheckNow, promptManualLinkContact, promptManualLinkForDefendant, onSelectLineContactInModal, submitManualLinkContact,
           confirmUnlinkDefendantLine, clearDefFormLine, confirmUnlinkContact, loadUsersList,
           showBackToTop, scrollToTop,
           session, currentView, authView, loading, errorMsg, cacheTime, isOffline, authAlert, adminProfileImage, isEditingProfile, cancelEditingProfile,
