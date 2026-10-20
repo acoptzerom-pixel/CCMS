@@ -4871,10 +4871,6 @@ function buildLineReminderItems(daysAheadLimit, cfgMap) {
  */
 function cleanupStubDefendantRows() {
   try {
-    var ss = getSpreadsheet();
-    var defSheet = ss.getSheetByName("tb_defendants");
-    if (!defSheet) return;
-    clearSheetCache("tb_defendants");
     var rows = getSheetData("tb_defendants");
     var toDelete = [];
     for (var i = 0; i < rows.length; i++) {
@@ -4886,6 +4882,9 @@ function cleanupStubDefendantRows() {
       }
     }
     if (toDelete.length > 0) {
+      var ss = getSpreadsheet();
+      var defSheet = ss.getSheetByName("tb_defendants");
+      if (!defSheet) return;
       toDelete.sort(function(a, b) { return b - a; });
       for (var d = 0; d < toDelete.length; d++) {
         defSheet.deleteRow(toDelete[d]);
@@ -4909,31 +4908,34 @@ function getLineOaModuleData(daysAhead, token) {
   }
   
   try {
-    // ล้างแถวข้อมูลจำลอง stub ออกจาก tb_defendants อัตโนมัติ (หากมี)
-    cleanupStubDefendantRows();
-
     var cfg = getLineConfigMap();
     try {
       checkAndRunDailyLineNotificationsAuto(cfg);
-      cfg = getLineConfigMap();
     } catch (autoErr) {
       Logger.log("Auto run in getLineOaModuleData error: " + autoErr.toString());
     }
-    var upcomingList = buildLineReminderItems(daysAhead || 30, cfg);
-    
-    getOrCreateSheet("tb_line_logs", ["log_id", "sent_date", "sent_at", "notify_type", "black_case", "citizen_id", "recipient_role", "recipient_name", "line_user_id", "target_date", "title", "status", "error_message"]);
-    var allLogs = getSheetData("tb_line_logs");
-    allLogs.sort(function(a, b) {
-      return (b.rowNum || 0) - (a.rowNum || 0);
-    });
-    var recentLogs = allLogs.slice(0, 100);
-    
-    getOrCreateSheet("tb_line_contacts", ["line_user_id", "display_name", "last_message", "linked_citizen_id", "linked_role", "updated_at"]);
+
+    // 1. อ่านข้อมูล tb_defendants และ tb_line_contacts เพื่อตรวจสอบความสอดคล้อง
+    cleanupStubDefendantRows();
+    var defendants = getSheetData("tb_defendants");
     var allContacts = getSheetData("tb_line_contacts");
+    
+    var defMap = {};
+    var defLineUidMap = {};
+    for (var dIdx = 0; dIdx < defendants.length; dIdx++) {
+      var dCid = cleanCitizenId(defendants[dIdx].citizen_id);
+      if (!dCid) continue;
+      defMap[dCid] = defendants[dIdx];
+      if (!defLineUidMap[dCid]) defLineUidMap[dCid] = { youth: "", parent: "" };
+      var yUid = (defendants[dIdx].line_user_id || "").toString().trim();
+      var pUid = (defendants[dIdx].parent_line_user_id || "").toString().trim();
+      if (yUid) defLineUidMap[dCid].youth = yUid;
+      if (pUid) defLineUidMap[dCid].parent = pUid;
+    }
+
     var anyReconciled = false;
 
-    // 1. กู้คืนรายการที่ผู้ใช้กดยืนยันใน LINE OA สำเร็จแล้ว (last_message = "ยืนยันเยาวชน:..." หรือ "ยืนยันผู้ปกครอง:...")
-    // เฉพาะที่มีข้อมูลใน tb_defendants เท่านั้น (จะไม่แตะต้องรายการที่เจ้าหน้าที่กดยกเลิกผูกแล้ว)
+    // 2. ตรวจสอบความถูกต้องของการผูกบัญชีใน tb_line_contacts กับ tb_defendants
     for (var rIdx = 0; rIdx < allContacts.length; rIdx++) {
       var rCt = allContacts[rIdx];
       var rUid = (rCt.line_user_id || "").toString().trim();
@@ -4949,29 +4951,26 @@ function getLineOaModuleData(daysAhead, token) {
           var recRoleLabel = confM[1];
           var recCid = confM[2];
           var recIsParent = (recRoleLabel === "ผู้ปกครอง");
-          var saveRes = saveLineBindingToDefendantsSheet(recCid, rUid, rName, recIsParent, "");
-          if (saveRes.matched) {
-            rCt.linked_citizen_id = recCid;
-            rCt.linked_role = recRoleLabel;
-            updateRowInSheet("tb_line_contacts", rCt.rowNum, {
-              linked_citizen_id: recCid,
-              linked_role: recRoleLabel
-            });
-            anyReconciled = true;
+          if (defMap[recCid]) {
+            var saveRes = saveLineBindingToDefendantsSheet(recCid, rUid, rName, recIsParent, "");
+            if (saveRes.matched) {
+              rCt.linked_citizen_id = recCid;
+              rCt.linked_role = recRoleLabel;
+              updateRowInSheet("tb_line_contacts", rCt.rowNum, {
+                linked_citizen_id: recCid,
+                linked_role: recRoleLabel
+              });
+              if (!defLineUidMap[recCid]) defLineUidMap[recCid] = { youth: "", parent: "" };
+              if (recIsParent) defLineUidMap[recCid].parent = rUid;
+              else defLineUidMap[recCid].youth = rUid;
+              anyReconciled = true;
+            }
           }
         } else {
           var pendingM = rLastMsg.match(/^(\d{13})$/);
           if (pendingM) {
             var pendingCid = pendingM[1];
-            var defsForPending = getSheetData("tb_defendants");
-            var hasPendingDef = false;
-            for (var pd = 0; pd < defsForPending.length; pd++) {
-              if (cleanCitizenId(defsForPending[pd].citizen_id) === pendingCid) {
-                hasPendingDef = true;
-                break;
-              }
-            }
-            if (hasPendingDef) {
+            if (defMap[pendingCid]) {
               rCt.linked_citizen_id = pendingCid;
               rCt.linked_role = "รอยืนยันสถานะ";
               updateRowInSheet("tb_line_contacts", rCt.rowNum, {
@@ -4981,71 +4980,55 @@ function getLineOaModuleData(daysAhead, token) {
             }
           }
         }
-      }
-    }
-
-    // 2. ตรวจสอบความสอดคล้องกับ tb_defendants:
-    // - ข้ามรายการที่อยู่ในสถานะ "รอยืนยันสถานะ" (ไม่ล้างข้อมูลระหว่างรอผู้ใช้กดปุ่มยืนยัน)
-    // - หากไม่มีเลขบัตรประชาชนนี้ใน tb_defendants หรือช่อง line_user_id / parent_line_user_id ถูกลบออกไปจาก tb_defendants ให้ล้างการผูกใน tb_line_contacts ให้ตรงกัน
-    clearSheetCache("tb_defendants");
-    var defendants = getSheetData("tb_defendants");
-    var defLineUidMap = {};
-    for (var dIdx = 0; dIdx < defendants.length; dIdx++) {
-      var dCid = cleanCitizenId(defendants[dIdx].citizen_id);
-      if (!dCid) continue;
-      if (!defLineUidMap[dCid]) defLineUidMap[dCid] = { youth: "", parent: "" };
-      var yUid = (defendants[dIdx].line_user_id || "").toString().trim();
-      var pUid = (defendants[dIdx].parent_line_user_id || "").toString().trim();
-      if (yUid) defLineUidMap[dCid].youth = yUid;
-      if (pUid) defLineUidMap[dCid].parent = pUid;
-    }
-    
-    for (var cIdx = 0; cIdx < allContacts.length; cIdx++) {
-      var ct = allContacts[cIdx];
-      var ctCid = cleanCitizenId(ct.linked_citizen_id);
-      if (!ctCid) continue;
-      var ctUid = (ct.line_user_id || "").toString().trim();
-      var ctRole = (ct.linked_role || "").toString().trim();
-      if (ctRole === "รอยืนยันสถานะ") continue;
-
-      var isParent = (ctRole === "ผู้ปกครอง" || ctRole === "parent");
-      if (!defLineUidMap[ctCid]) {
-        // หากเลขบัตรนี้ไม่มีใน tb_defendants ให้ล้างค่าผูกใน tb_line_contacts ให้ตรงกัน
-        var oldLastMsg = (ct.last_message || "").toString().trim();
-        var updatedLastMsg = /^ยืนยัน(เยาวชน|ผู้ปกครอง):/.test(oldLastMsg) ? (oldLastMsg + " (ไม่พบในทะเบียนประวัติ)") : oldLastMsg;
-        ct.linked_citizen_id = "";
-        ct.linked_role = "";
-        ct.last_message = updatedLastMsg;
-        updateRowInSheet("tb_line_contacts", ct.rowNum, {
-          linked_citizen_id: "",
-          linked_role: "",
-          last_message: updatedLastMsg
-        });
-        anyReconciled = true;
-        continue;
-      }
-
-      var expectedUid = defLineUidMap[ctCid] ? (isParent ? defLineUidMap[ctCid].parent : defLineUidMap[ctCid].youth) : "";
-      if (!expectedUid || expectedUid !== ctUid) {
-        var oldLastMsg = (ct.last_message || "").toString().trim();
-        var updatedLastMsg = /^ยืนยัน(เยาวชน|ผู้ปกครอง):/.test(oldLastMsg) ? (oldLastMsg + " (ยกเลิกผูกแล้ว)") : oldLastMsg;
-        ct.linked_citizen_id = "";
-        ct.linked_role = "";
-        ct.last_message = updatedLastMsg;
-        updateRowInSheet("tb_line_contacts", ct.rowNum, {
-          linked_citizen_id: "",
-          linked_role: "",
-          last_message: updatedLastMsg
-        });
+      } else if (rCid && rRole !== "รอยืนยันสถานะ") {
+        var isParent = (rRole === "ผู้ปกครอง" || rRole === "parent");
+        if (!defLineUidMap[rCid]) {
+          // หากเลขบัตรนี้ไม่มีใน tb_defendants ให้ล้างค่าผูกใน tb_line_contacts ให้ตรงกัน
+          var oldLastMsg = (rCt.last_message || "").toString().trim();
+          var updatedLastMsg = /^ยืนยัน(เยาวชน|ผู้ปกครอง):/.test(oldLastMsg) ? (oldLastMsg + " (ไม่พบในทะเบียนประวัติ)") : oldLastMsg;
+          rCt.linked_citizen_id = "";
+          rCt.linked_role = "";
+          rCt.last_message = updatedLastMsg;
+          updateRowInSheet("tb_line_contacts", rCt.rowNum, {
+            linked_citizen_id: "",
+            linked_role: "",
+            last_message: updatedLastMsg
+          });
+          anyReconciled = true;
+        } else {
+          var expectedUid = isParent ? defLineUidMap[rCid].parent : defLineUidMap[rCid].youth;
+          if (!expectedUid || expectedUid !== rUid) {
+            var oldLastMsg = (rCt.last_message || "").toString().trim();
+            var updatedLastMsg = /^ยืนยัน(เยาวชน|ผู้ปกครอง):/.test(oldLastMsg) ? (oldLastMsg + " (ยกเลิกผูกแล้ว)") : oldLastMsg;
+            rCt.linked_citizen_id = "";
+            rCt.linked_role = "";
+            rCt.last_message = updatedLastMsg;
+            updateRowInSheet("tb_line_contacts", rCt.rowNum, {
+              linked_citizen_id: "",
+              linked_role: "",
+              last_message: updatedLastMsg
+            });
+            anyReconciled = true;
+          }
+        }
       }
     }
 
     if (anyReconciled) {
       clearSheetCache("tb_defendants");
       clearSheetCache("tb_line_contacts");
-      upcomingList = buildLineReminderItems(daysAhead || 30, cfg);
     }
+
+    // 3. ดึงรายการแจ้งเตือนที่จะถึง (เรียกครั้งเดียว)
+    var upcomingList = buildLineReminderItems(daysAhead || 30, cfg);
     
+    // 4. ดึง Logs ประวัติการส่งล่าสุด 100 รายการ
+    var allLogs = getSheetData("tb_line_logs");
+    allLogs.sort(function(a, b) {
+      return (b.rowNum || 0) - (a.rowNum || 0);
+    });
+    var recentLogs = allLogs.slice(0, 100);
+
     allContacts.sort(function(a, b) {
       return (b.rowNum || 0) - (a.rowNum || 0);
     });

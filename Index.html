@@ -2839,7 +2839,7 @@
              3.8 ระบบแจ้งเตือนวันนัดหมายและกิจกรรมผ่าน LINE OA (LINE_NOTIFY)
              ==================================== -->
         <div v-show="currentView === 'line_notify'" class="animate-in" style="position: relative;">
-          <div v-if="loading" class="loading-overlay">
+          <div v-if="loading && lineOaUpcomingList.length === 0 && lineOaContacts.length === 0" class="loading-overlay">
             <span class="loader"></span>
             <p style="font-weight: 500;">กำลังประมวลผลข้อมูลระบบแจ้งเตือน LINE OA...</p>
           </div>
@@ -2859,8 +2859,8 @@
               <button class="btn btn-primary" style="background: #06C755; border-color: #06C755; border-radius: 12px; padding: 10px 16px; display: inline-flex; align-items: center; gap: 8px;" @click="triggerAutoLineCheckNow" title="กดเพื่อส่งข้อความด้วยตนเองทันที (แยกต่างหาก ไม่คิดรวมกับรอบส่งอัตโนมัติ 08.00 น.)">
                 <i class="fa-solid fa-paper-plane"></i> ส่งแจ้งเตือนตามเกณฑ์ทันที (แมนนวล)
               </button>
-              <button class="btn btn-secondary" style="border-radius: 12px; padding: 10px 16px;" @click="loadLineOaModule">
-                <i class="fa-solid fa-rotate"></i> รีเฟรช
+              <button class="btn btn-secondary" style="border-radius: 12px; padding: 10px 16px;" @click="loadLineOaModule(false)" :disabled="lineOaLoading">
+                <i class="fa-solid fa-rotate" :class="{ 'fa-spin': lineOaLoading }"></i> {{ lineOaLoading ? 'กำลังอัปเดต...' : 'รีเฟรช' }}
               </button>
             </div>
           </div>

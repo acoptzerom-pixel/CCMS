@@ -996,6 +996,7 @@
         const lineOaUpcomingList = ref([]);
         const lineOaLogs = ref([]);
         const lineOaContacts = ref([]);
+        const lineOaLoading = ref(false);
         const lineOaPublicConfig = reactive({
           oa_basic_id: '@012cryec',
           oa_bot_id: ''
@@ -2255,7 +2256,11 @@
           } else if (viewName === 'monthly_report') {
             loadMonthlyReport();
           } else if (viewName === 'line_notify') {
-            loadLineOaModule();
+            if (lineOaUpcomingList.value.length === 0 && lineOaContacts.value.length === 0) {
+              loadLineOaModule();
+            } else {
+              loadLineOaModule(true); // ดึงข้อมูลล่าสุดเบื้องหลังเงียบๆ (Stale-While-Revalidate) เหมือนฟังก์ชันเด็กและเยาวชน
+            }
           }
         }
 
@@ -5229,10 +5234,12 @@
           if (!session.value || !session.value.token) return;
           const isSilent = silent === true;
           if (!isSilent) loading.value = true;
+          lineOaLoading.value = true;
           if (typeof google !== 'undefined' && google.script && google.script.run) {
             google.script.run
               .withSuccessHandler((res) => {
                 if (!isSilent) loading.value = false;
+                lineOaLoading.value = false;
                 if (res && res.success) {
                   if (res.config) {
                     Object.assign(lineOaConfigForm, res.config);
@@ -5248,11 +5255,13 @@
               })
               .withFailureHandler((err) => {
                 if (!isSilent) loading.value = false;
+                lineOaLoading.value = false;
                 console.error("Failed to load LINE OA module:", err);
               })
               .getLineOaModuleData(lineUpcomingDaysRange.value || 30, session.value.token);
           } else {
             if (!isSilent) loading.value = false;
+            lineOaLoading.value = false;
           }
         }
 
@@ -5717,7 +5726,7 @@
 
         return {
           openLineChat,
-          lineNotifyTab, lineUpcomingDaysRange, lineUpcomingTypeFilter, lineOaUpcomingList, lineOaLogs, lineOaContacts,
+          lineNotifyTab, lineUpcomingDaysRange, lineUpcomingTypeFilter, lineOaUpcomingList, lineOaLogs, lineOaContacts, lineOaLoading,
           lineOaPublicConfig, lineOaConfigForm, filteredLineUpcomingList,
           linePreviewModalActive, linePreviewItem, lineLinkModalActive, lineLinkForm,
           loadLineOaModule, saveLineOaConfigSettings, openLinePreviewSendModal, confirmSendLineReminder,
