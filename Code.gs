@@ -1885,11 +1885,12 @@ function upsertDefendant(defData, token) {
     defRow.phone_number = defData.phone_number || "";
     
     // จัดการข้อมูล LINE เยาวชน (รองรับการยกเลิกผูก หรือแก้ไข/ล้างข้อมูล)
+    var oldYouthUid = existingDef ? (existingDef.line_user_id || "").toString().trim() : "";
     if (defData.unlink_youth_line) {
       defRow.line_user_id = "";
       defRow.line_id = "";
       defRow.line_chat_url = "";
-      clearLineContactLinkForDefendant(citizenIdStr, "youth");
+      clearLineContactLinkForDefendant(citizenIdStr, "youth", oldYouthUid);
     } else {
       if (defData.line_id !== undefined) {
         defRow.line_id = String(defData.line_id).trim();
@@ -1910,11 +1911,14 @@ function upsertDefendant(defData, token) {
       if (defData.line_user_id !== undefined && defData.line_user_id !== null) {
         var inLineUid = String(defData.line_user_id).trim();
         defRow.line_user_id = inLineUid;
-        if (!inLineUid && existingDef && existingDef.line_user_id) {
-          clearLineContactLinkForDefendant(citizenIdStr, "youth");
+        if (!inLineUid) {
+          clearLineContactLinkForDefendant(citizenIdStr, "youth", oldYouthUid);
+        } else if (inLineUid !== oldYouthUid) {
+          if (oldYouthUid) clearLineContactLinkForDefendant(citizenIdStr, "youth", oldYouthUid);
+          setLineContactLinkForDefendant(citizenIdStr, "youth", inLineUid);
         }
-      } else if (existingDef && existingDef.line_user_id) {
-        defRow.line_user_id = existingDef.line_user_id;
+      } else if (oldYouthUid) {
+        defRow.line_user_id = oldYouthUid;
       } else {
         defRow.line_user_id = "";
       }
@@ -1947,11 +1951,12 @@ function upsertDefendant(defData, token) {
     defRow.phone_number_guardian = defData.phone_number_guardian || "";
     
     // จัดการข้อมูล LINE ผู้ปกครอง (รองรับการยกเลิกผูก หรือแก้ไข/ล้างข้อมูล)
+    var oldParentUid = existingDef ? (existingDef.parent_line_user_id || "").toString().trim() : "";
     if (defData.unlink_parent_line) {
       defRow.parent_line_user_id = "";
       defRow.parent_line_id = "";
       defRow.parent_line_chat_url = "";
-      clearLineContactLinkForDefendant(citizenIdStr, "parent");
+      clearLineContactLinkForDefendant(citizenIdStr, "parent", oldParentUid);
     } else {
       if (defData.parent_line_id !== undefined) {
         defRow.parent_line_id = String(defData.parent_line_id).trim();
@@ -1972,11 +1977,14 @@ function upsertDefendant(defData, token) {
       if (defData.parent_line_user_id !== undefined && defData.parent_line_user_id !== null) {
         var inParentLineUid = String(defData.parent_line_user_id).trim();
         defRow.parent_line_user_id = inParentLineUid;
-        if (!inParentLineUid && existingDef && existingDef.parent_line_user_id) {
-          clearLineContactLinkForDefendant(citizenIdStr, "parent");
+        if (!inParentLineUid) {
+          clearLineContactLinkForDefendant(citizenIdStr, "parent", oldParentUid);
+        } else if (inParentLineUid !== oldParentUid) {
+          if (oldParentUid) clearLineContactLinkForDefendant(citizenIdStr, "parent", oldParentUid);
+          setLineContactLinkForDefendant(citizenIdStr, "parent", inParentLineUid);
         }
-      } else if (existingDef && existingDef.parent_line_user_id) {
-        defRow.parent_line_user_id = existingDef.parent_line_user_id;
+      } else if (oldParentUid) {
+        defRow.parent_line_user_id = oldParentUid;
       } else {
         defRow.parent_line_user_id = "";
       }
@@ -5310,22 +5318,29 @@ function saveDefendantLineChatUrl(payload, token) {
 /**
  * ล้างข้อมูลการผูกบัญชีใน tb_line_contacts สำหรับเยาวชนหรือผู้ปกครอง
  */
-function clearLineContactLinkForDefendant(citizenIdStr, role) {
-  if (!citizenIdStr) return;
+function clearLineContactLinkForDefendant(citizenIdStr, role, oldUid) {
+  if (!citizenIdStr && !oldUid) return;
   try {
     getOrCreateSheet("tb_line_contacts", ["line_user_id", "display_name", "last_message", "linked_citizen_id", "linked_role", "updated_at"]);
     var contacts = getSheetData("tb_line_contacts");
     var targetRoleLabel = (role === "parent" || role === "ผู้ปกครอง") ? "ผู้ปกครอง" : "เยาวชน";
+    var cleanedCid = citizenIdStr ? cleanCitizenId(citizenIdStr) : "";
+    var cleanedOldUid = oldUid ? String(oldUid).trim() : "";
+    
     for (var i = 0; i < contacts.length; i++) {
       var ct = contacts[i];
-      if (cleanCitizenId(ct.linked_citizen_id) === citizenIdStr) {
-        var ctRole = (ct.linked_role || "").toString().trim();
-        if (ctRole === targetRoleLabel || !ctRole) {
-          updateRowInSheet("tb_line_contacts", ct.rowNum, {
-            linked_citizen_id: "",
-            linked_role: ""
-          });
-        }
+      var ctCid = cleanCitizenId(ct.linked_citizen_id);
+      var ctRole = (ct.linked_role || "").toString().trim();
+      var ctUid = (ct.line_user_id || "").toString().trim();
+      
+      var isTargetCid = cleanedCid && (ctCid === cleanedCid) && (ctRole === targetRoleLabel || !ctRole);
+      var isTargetUid = cleanedOldUid && (ctUid === cleanedOldUid);
+      
+      if (isTargetCid || isTargetUid) {
+        updateRowInSheet("tb_line_contacts", ct.rowNum, {
+          linked_citizen_id: "",
+          linked_role: ""
+        });
       }
     }
     clearSheetCache("tb_line_contacts");
@@ -5335,13 +5350,44 @@ function clearLineContactLinkForDefendant(citizenIdStr, role) {
 }
 
 /**
+ * เชื่อมโยงบัญชีใน tb_line_contacts สำหรับเยาวชนหรือผู้ปกครอง เมื่อมีการระบุ line_user_id
+ */
+function setLineContactLinkForDefendant(citizenIdStr, role, newUid) {
+  if (!newUid || !citizenIdStr) return;
+  try {
+    var cleanedCid = cleanCitizenId(citizenIdStr);
+    var cleanedUid = String(newUid).trim();
+    if (!cleanedCid || !cleanedUid) return;
+    
+    getOrCreateSheet("tb_line_contacts", ["line_user_id", "display_name", "last_message", "linked_citizen_id", "linked_role", "updated_at"]);
+    var contacts = getSheetData("tb_line_contacts");
+    var targetRoleLabel = (role === "parent" || role === "ผู้ปกครอง") ? "ผู้ปกครอง" : "เยาวชน";
+    
+    for (var i = 0; i < contacts.length; i++) {
+      var ct = contacts[i];
+      if ((ct.line_user_id || "").toString().trim() === cleanedUid) {
+        updateRowInSheet("tb_line_contacts", ct.rowNum, {
+          linked_citizen_id: cleanedCid,
+          linked_role: targetRoleLabel,
+          updated_at: new Date().toISOString()
+        });
+        break;
+      }
+    }
+    clearSheetCache("tb_line_contacts");
+  } catch (err) {
+    Logger.log("setLineContactLinkForDefendant error: " + err.toString());
+  }
+}
+
+/**
  * ยกเลิกการผูกบัญชี LINE ของเด็กและเยาวชน หรือผู้ปกครอง (สั่งการจากหน้าเว็บ)
  */
 function unlinkDefendantLine(payload, token) {
   var userSession = verifySessionToken(token);
   if (!userSession) return { success: false, message: "สิทธิ์ล็อกอินหมดอายุ" };
-  if (userSession.role !== "admin" && userSession.role !== "psychologist") {
-    return { success: false, message: "เฉพาะผู้ดูแลระบบและนักจิตวิทยาเท่านั้นที่มีสิทธิ์ยกเลิกการผูกบัญชี LINE" };
+  if (userSession.role === "user") {
+    return { success: false, message: "ไม่มีสิทธิ์ยกเลิกการผูกบัญชี LINE" };
   }
   
   try {
@@ -5424,8 +5470,8 @@ function unlinkDefendantLine(payload, token) {
 function unlinkLineContact(payload, token) {
   var userSession = verifySessionToken(token);
   if (!userSession) return { success: false, message: "สิทธิ์ล็อกอินหมดอายุ" };
-  if (userSession.role !== "admin" && userSession.role !== "psychologist") {
-    return { success: false, message: "เฉพาะผู้ดูแลระบบและนักจิตวิทยาเท่านั้นที่มีสิทธิ์ยกเลิกการผูกบัญชี LINE" };
+  if (userSession.role === "user") {
+    return { success: false, message: "ไม่มีสิทธิ์ยกเลิกการผูกบัญชี LINE" };
   }
   
   try {

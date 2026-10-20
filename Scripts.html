@@ -2814,10 +2814,16 @@
                       currentDef.value.parent_line_user_id = '';
                       currentDef.value.parent_line_id = '';
                       currentDef.value.parent_line_chat_url = '';
+                      defForm.parent_line_user_id = '';
+                      defForm.parent_line_id = '';
+                      defForm.parent_line_chat_url = '';
                     } else {
                       currentDef.value.line_user_id = '';
                       currentDef.value.line_id = '';
                       currentDef.value.line_chat_url = '';
+                      defForm.line_user_id = '';
+                      defForm.line_id = '';
+                      defForm.line_chat_url = '';
                     }
                     
                     const cid = currentDef.value.citizen_id.replace(/\D/g, '');
@@ -5640,6 +5646,7 @@
           linePreviewModalActive, linePreviewItem, lineLinkModalActive, lineLinkForm,
           loadLineOaModule, saveLineOaConfigSettings, openLinePreviewSendModal, confirmSendLineReminder,
           copyMessageAndOpenLineOa, triggerAutoLineCheckNow, promptManualLinkContact, submitManualLinkContact,
+          confirmUnlinkDefendantLine, clearDefFormLine, confirmUnlinkContact, loadUsersList,
           showBackToTop, scrollToTop,
           session, currentView, authView, loading, errorMsg, cacheTime, isOffline, authAlert, adminProfileImage, isEditingProfile, cancelEditingProfile,
           searchId, searchDone, currentDef, linkedCases, newDefFormActive, usersList, counselorsList,

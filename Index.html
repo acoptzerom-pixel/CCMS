@@ -14,6 +14,8 @@
   <?!= include('Styles'); ?>
   <!-- ApexCharts CDN -->
   <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  <!-- SweetAlert2 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body class="dark-mode" id="app-body">
 
@@ -921,7 +923,7 @@
                                 title="คลิกเพื่อเปิดห้องสนทนา 1-ต่อ-1 กับเยาวชนผ่าน LINE OA (@012cryec)">
                             <i class="fa-solid fa-comments"></i> ผูก LINE OA แล้ว (คลิกแชท 1:1)
                           </span>
-                          <button v-if="currentDef.line_user_id && currentDef.line_user_id.trim() && (session.role === 'admin' || session.role === 'psychologist')"
+                          <button v-if="currentDef.line_user_id && currentDef.line_user_id.trim() && session.role !== 'user'"
                                   @click.stop="confirmUnlinkDefendantLine('youth')"
                                   class="btn btn-secondary"
                                   style="padding: 1px 8px; font-size: 0.68rem; color: #ef4444; border-color: rgba(239, 68, 68, 0.35); border-radius: 99px; font-weight: 600; cursor: pointer;"
@@ -999,7 +1001,7 @@
                                 title="คลิกเพื่อเปิดห้องสนทนา 1-ต่อ-1 กับผู้ปกครองผ่าน LINE OA (@012cryec)">
                             <i class="fa-solid fa-comments"></i> ผูก LINE OA แล้ว (คลิกแชท 1:1)
                           </span>
-                          <button v-if="currentDef.parent_line_user_id && currentDef.parent_line_user_id.trim() && (session.role === 'admin' || session.role === 'psychologist')"
+                          <button v-if="currentDef.parent_line_user_id && currentDef.parent_line_user_id.trim() && session.role !== 'user'"
                                   @click.stop="confirmUnlinkDefendantLine('parent')"
                                   class="btn btn-secondary"
                                   style="padding: 1px 8px; font-size: 0.68rem; color: #ef4444; border-color: rgba(239, 68, 68, 0.35); border-radius: 99px; font-weight: 600; cursor: pointer;"
@@ -3235,7 +3237,7 @@
                         <button class="btn btn-primary" style="background: #06C755; border-color: #06C755; padding: 5px 10px; font-size: 0.78rem;" @click="promptManualLinkContact(ct)">
                           <i class="fa-solid fa-link"></i> ผูกกับเยาวชน/ผปค.
                         </button>
-                        <button v-if="ct.linked_citizen_id && (session.role === 'admin' || session.role === 'psychologist')"
+                        <button v-if="ct.linked_citizen_id && session.role !== 'user'"
                                 class="btn btn-secondary"
                                 style="color: #ef4444; border-color: rgba(239, 68, 68, 0.35); padding: 5px 10px; font-size: 0.78rem;"
                                 @click="confirmUnlinkContact(ct)"
@@ -3530,16 +3532,33 @@
             </div>
 
             <div class="form-group">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                <label class="form-label" style="margin-bottom: 0;">LINE User ID (เด็ก/เยาวชน)</label>
+                <button v-if="defForm.line_user_id"
+                        type="button"
+                        class="btn btn-secondary"
+                        style="font-size: 0.72rem; padding: 1px 8px; color: #ef4444; border-color: rgba(239, 68, 68, 0.35); cursor: pointer;"
+                        @click="defForm.line_user_id = ''; defForm.unlink_youth_line = true;"
+                        title="ลบเฉพาะ LINE User ID ของเยาวชน">
+                  <i class="fa-solid fa-trash"></i> ลบ LINE User ID
+                </button>
+              </div>
+              <input type="text" class="form-control" v-model="defForm.line_user_id" placeholder="เช่น U0123456789abcdef0123456789abcdef (เว้นว่างหรือลบออกเพื่อยกเลิกการผูก)">
+              <small style="color: var(--text-muted); font-size: 0.75rem; display: block; margin-top: 4px;">
+                * รหัสประจำตัวในระบบ LINE (ขึ้นต้นด้วย U ความยาว 33 ตัวอักษร) ใช้สำหรับส่งข้อความแจ้งเตือนอัตโนมัติ (สามารถแก้ไข ลบ หรือคัดลอกมาวางได้)
+              </small>
+            </div>
+
+            <div class="form-group">
               <label class="form-label">ลิงก์ห้องแชท LINE OA (เด็ก/เยาวชน)</label>
               <input type="text" class="form-control" v-model="defForm.line_chat_url" placeholder="คัดลอกลิงก์จากแถบที่อยู่ของหน้าแชท chat.line.biz มาวาง">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; flex-wrap: wrap; gap: 6px;">
-                <small style="color: var(--text-muted); font-size: 0.75rem;">LINE User ID สำหรับส่งแจ้งเตือน: {{ defForm.line_user_id || 'ยังไม่ผูก (ผูกอัตโนมัติเมื่อเยาวชนพิมพ์เลขบัตรใน LINE OA)' }}</small>
+              <div style="display: flex; justify-content: flex-end; align-items: center; margin-top: 4px;">
                 <button v-if="defForm.line_user_id || defForm.line_id || defForm.line_chat_url"
                         type="button"
                         class="btn btn-secondary"
                         style="font-size: 0.72rem; padding: 2px 8px; color: #ef4444; border-color: rgba(239, 68, 68, 0.35); cursor: pointer;"
                         @click="clearDefFormLine('youth')">
-                  <i class="fa-solid fa-link-slash"></i> ล้างข้อมูล/ยกเลิกผูก LINE เยาวชน
+                  <i class="fa-solid fa-link-slash"></i> ล้างข้อมูล LINE ทั้งหมดของเยาวชน
                 </button>
               </div>
             </div>
@@ -3647,16 +3666,33 @@
               </div>
 
               <div class="form-group">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                  <label class="form-label" style="margin-bottom: 0;">LINE User ID (ผู้ปกครอง)</label>
+                  <button v-if="defForm.parent_line_user_id"
+                          type="button"
+                          class="btn btn-secondary"
+                          style="font-size: 0.72rem; padding: 1px 8px; color: #ef4444; border-color: rgba(239, 68, 68, 0.35); cursor: pointer;"
+                          @click="defForm.parent_line_user_id = ''; defForm.unlink_parent_line = true;"
+                          title="ลบเฉพาะ LINE User ID ของผู้ปกครอง">
+                    <i class="fa-solid fa-trash"></i> ลบ LINE User ID
+                  </button>
+                </div>
+                <input type="text" class="form-control" v-model="defForm.parent_line_user_id" placeholder="เช่น U0123456789abcdef0123456789abcdef (เว้นว่างหรือลบออกเพื่อยกเลิกการผูก)">
+                <small style="color: var(--text-muted); font-size: 0.75rem; display: block; margin-top: 4px;">
+                  * รหัสประจำตัวในระบบ LINE (ขึ้นต้นด้วย U ความยาว 33 ตัวอักษร) ใช้สำหรับส่งข้อความแจ้งเตือนอัตโนมัติ (สามารถแก้ไข ลบ หรือคัดลอกมาวางได้)
+                </small>
+              </div>
+
+              <div class="form-group">
                 <label class="form-label">ลิงก์ห้องแชท LINE OA (ผู้ปกครอง)</label>
                 <input type="text" class="form-control" v-model="defForm.parent_line_chat_url" placeholder="คัดลอกลิงก์จากแถบที่อยู่ของหน้าแชท chat.line.biz มาวาง">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; flex-wrap: wrap; gap: 6px;">
-                  <small style="color: var(--text-muted); font-size: 0.75rem;">LINE User ID สำหรับส่งแจ้งเตือน: {{ defForm.parent_line_user_id || 'ยังไม่ผูก' }}</small>
+                <div style="display: flex; justify-content: flex-end; align-items: center; margin-top: 4px;">
                   <button v-if="defForm.parent_line_user_id || defForm.parent_line_id || defForm.parent_line_chat_url"
                           type="button"
                           class="btn btn-secondary"
                           style="font-size: 0.72rem; padding: 2px 8px; color: #ef4444; border-color: rgba(239, 68, 68, 0.35); cursor: pointer;"
                           @click="clearDefFormLine('parent')">
-                    <i class="fa-solid fa-link-slash"></i> ล้างข้อมูล/ยกเลิกผูก LINE ผู้ปกครอง
+                    <i class="fa-solid fa-link-slash"></i> ล้างข้อมูล LINE ทั้งหมดของผู้ปกครอง
                   </button>
                 </div>
               </div>
