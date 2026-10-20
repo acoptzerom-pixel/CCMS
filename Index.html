@@ -921,6 +921,13 @@
                                 title="คลิกเพื่อเปิดห้องสนทนา 1-ต่อ-1 กับเยาวชนผ่าน LINE OA (@012cryec)">
                             <i class="fa-solid fa-comments"></i> ผูก LINE OA แล้ว (คลิกแชท 1:1)
                           </span>
+                          <button v-if="currentDef.line_user_id && currentDef.line_user_id.trim() && (session.role === 'admin' || session.role === 'psychologist')"
+                                  @click.stop="confirmUnlinkDefendantLine('youth')"
+                                  class="btn btn-secondary"
+                                  style="padding: 1px 8px; font-size: 0.68rem; color: #ef4444; border-color: rgba(239, 68, 68, 0.35); border-radius: 99px; font-weight: 600; cursor: pointer;"
+                                  title="ยกเลิกการผูกบัญชี LINE ของเยาวชนรายนี้">
+                            <i class="fa-solid fa-link-slash"></i> ยกเลิกผูก
+                          </button>
                         </div>
                       </template>
                       <template v-else>
@@ -992,6 +999,13 @@
                                 title="คลิกเพื่อเปิดห้องสนทนา 1-ต่อ-1 กับผู้ปกครองผ่าน LINE OA (@012cryec)">
                             <i class="fa-solid fa-comments"></i> ผูก LINE OA แล้ว (คลิกแชท 1:1)
                           </span>
+                          <button v-if="currentDef.parent_line_user_id && currentDef.parent_line_user_id.trim() && (session.role === 'admin' || session.role === 'psychologist')"
+                                  @click.stop="confirmUnlinkDefendantLine('parent')"
+                                  class="btn btn-secondary"
+                                  style="padding: 1px 8px; font-size: 0.68rem; color: #ef4444; border-color: rgba(239, 68, 68, 0.35); border-radius: 99px; font-weight: 600; cursor: pointer;"
+                                  title="ยกเลิกการผูกบัญชี LINE ของผู้ปกครอง">
+                            <i class="fa-solid fa-link-slash"></i> ยกเลิกผูก
+                          </button>
                         </div>
                       </template>
                       <template v-else>
@@ -3214,12 +3228,19 @@
                         <span v-else style="color: var(--text-muted);">ยังไม่ได้ผูก</span>
                       </td>
                       <td>{{ ct.linked_role || '-' }}</td>
-                      <td style="text-align: center; display: flex; gap: 6px; justify-content: center;">
+                      <td style="text-align: center; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;">
                         <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.78rem;" @click="openLineChat(ct.display_name, ct.line_user_id, { citizen_id: ct.linked_citizen_id, target_role: ct.linked_role || 'เยาวชน' })">
                           <i class="fa-solid fa-comments"></i> เปิดห้องแชท 1:1
                         </button>
                         <button class="btn btn-primary" style="background: #06C755; border-color: #06C755; padding: 5px 10px; font-size: 0.78rem;" @click="promptManualLinkContact(ct)">
                           <i class="fa-solid fa-link"></i> ผูกกับเยาวชน/ผปค.
+                        </button>
+                        <button v-if="ct.linked_citizen_id && (session.role === 'admin' || session.role === 'psychologist')"
+                                class="btn btn-secondary"
+                                style="color: #ef4444; border-color: rgba(239, 68, 68, 0.35); padding: 5px 10px; font-size: 0.78rem;"
+                                @click="confirmUnlinkContact(ct)"
+                                title="ยกเลิกการผูกบัญชีนี้">
+                          <i class="fa-solid fa-link-slash"></i> ยกเลิกผูก
                         </button>
                       </td>
                     </tr>
@@ -3511,7 +3532,16 @@
             <div class="form-group">
               <label class="form-label">ลิงก์ห้องแชท LINE OA (เด็ก/เยาวชน)</label>
               <input type="text" class="form-control" v-model="defForm.line_chat_url" placeholder="คัดลอกลิงก์จากแถบที่อยู่ของหน้าแชท chat.line.biz มาวาง">
-              <small style="color: var(--text-muted); font-size: 0.75rem;">LINE User ID สำหรับส่งแจ้งเตือน: {{ defForm.line_user_id || 'ยังไม่ผูก (ผูกอัตโนมัติเมื่อเยาวชนพิมพ์เลขบัตรใน LINE OA)' }}</small>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; flex-wrap: wrap; gap: 6px;">
+                <small style="color: var(--text-muted); font-size: 0.75rem;">LINE User ID สำหรับส่งแจ้งเตือน: {{ defForm.line_user_id || 'ยังไม่ผูก (ผูกอัตโนมัติเมื่อเยาวชนพิมพ์เลขบัตรใน LINE OA)' }}</small>
+                <button v-if="defForm.line_user_id || defForm.line_id || defForm.line_chat_url"
+                        type="button"
+                        class="btn btn-secondary"
+                        style="font-size: 0.72rem; padding: 2px 8px; color: #ef4444; border-color: rgba(239, 68, 68, 0.35); cursor: pointer;"
+                        @click="clearDefFormLine('youth')">
+                  <i class="fa-solid fa-link-slash"></i> ล้างข้อมูล/ยกเลิกผูก LINE เยาวชน
+                </button>
+              </div>
             </div>
 
             <div class="form-group">
@@ -3619,7 +3649,16 @@
               <div class="form-group">
                 <label class="form-label">ลิงก์ห้องแชท LINE OA (ผู้ปกครอง)</label>
                 <input type="text" class="form-control" v-model="defForm.parent_line_chat_url" placeholder="คัดลอกลิงก์จากแถบที่อยู่ของหน้าแชท chat.line.biz มาวาง">
-                <small style="color: var(--text-muted); font-size: 0.75rem;">LINE User ID สำหรับส่งแจ้งเตือน: {{ defForm.parent_line_user_id || 'ยังไม่ผูก' }}</small>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; flex-wrap: wrap; gap: 6px;">
+                  <small style="color: var(--text-muted); font-size: 0.75rem;">LINE User ID สำหรับส่งแจ้งเตือน: {{ defForm.parent_line_user_id || 'ยังไม่ผูก' }}</small>
+                  <button v-if="defForm.parent_line_user_id || defForm.parent_line_id || defForm.parent_line_chat_url"
+                          type="button"
+                          class="btn btn-secondary"
+                          style="font-size: 0.72rem; padding: 2px 8px; color: #ef4444; border-color: rgba(239, 68, 68, 0.35); cursor: pointer;"
+                          @click="clearDefFormLine('parent')">
+                    <i class="fa-solid fa-link-slash"></i> ล้างข้อมูล/ยกเลิกผูก LINE ผู้ปกครอง
+                  </button>
+                </div>
               </div>
 
               <div class="form-group">

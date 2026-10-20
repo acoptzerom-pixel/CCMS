@@ -976,7 +976,7 @@
           address: '',
           medical_history: '', drug_history: '', interested: '',
           guardian_name: '', relationship: '', phone_number_guardian: '', parent_line_id: '', parent_line_user_id: '', parent_line_chat_url: '', occupation_guardian: '',
-          psy_diagnosis: '', risk_assessment: 'มีความเสี่ยงในการกระทำผิดซ้ำต่ำ', counselor_note: ''
+          psy_diagnosis: '', risk_assessment: 'มีความเสี่ยงในการกระทำผิดซ้ำต่ำ', counselor_note: '', unlink_youth_line: false, unlink_parent_line: false
         });
 
         const caseForm = reactive({
@@ -2717,10 +2717,26 @@
 
         }
 
+        function clearDefFormLine(role) {
+          if (role === 'youth') {
+            defForm.line_id = '';
+            defForm.line_chat_url = '';
+            defForm.line_user_id = '';
+            defForm.unlink_youth_line = true;
+          } else {
+            defForm.parent_line_id = '';
+            defForm.parent_line_chat_url = '';
+            defForm.parent_line_user_id = '';
+            defForm.unlink_parent_line = true;
+          }
+        }
+
         function openEditDefModal() {
           // รีเซ็ตฟอร์มก่อนดึงค่าเยาวชนคนปัจจุบันยัดลงฟอร์มในโมดอล เพื่อไม่ให้ข้อมูลค้างจากรายก่อนหน้า
           resetDefForm(currentDef.value ? currentDef.value.citizen_id : '');
           Object.assign(defForm, currentDef.value);
+          defForm.unlink_youth_line = false;
+          defForm.unlink_parent_line = false;
           // จัดการความถูกต้องของวันที่เพื่อให้แสดงบน Tag input type=date ได้ถูกต้อง
           if (defForm.birth_date) {
             var d = new Date(defForm.birth_date);
@@ -2732,6 +2748,7 @@
         function saveEditDefendant() {
           loading.value = true;
           editDefModalActive.value = false;
+          const hadUnlink = defForm.unlink_youth_line || defForm.unlink_parent_line;
           
           if (typeof google !== 'undefined' && google.script && google.script.run) {
             google.script.run
@@ -2743,7 +2760,7 @@
                   searchDone.value = true;
                   
                   // บันทึกเก็บแคชลง defendantsList ในหน่วยความจำเพื่อความไวในการเปิดถัดไป
-                  const cleanId = res.defendant.citizen_id.replace(/\D/g, "");
+                  const cleanId = res.defendant.citizen_id.replace(/\D/g, '');
                   const idx = defendantsList.value.findIndex(d => d.citizen_id === cleanId);
                   const updatedDef = { ...res.defendant, cases: res.cases };
                   if (idx !== -1) {
@@ -2753,6 +2770,10 @@
                   }
                   updateCacheField('defendants', defendantsList.value);
                   
+                  if (hadUnlink) {
+                    loadLineOaModule(true);
+                  }
+                  
                   alert(res.message);
                 } else {
                   errorMsg.value = res.message;
@@ -2760,19 +2781,107 @@
               })
               .withFailureHandler((err) => {
                 loading.value = false;
-                errorMsg.value = "ขณะนี้แหล่งข้อมูลขัดข้อง โปรดตรวจสอบใหม่อีกครั้งในภายหลัง";
+                errorMsg.value = 'ขณะนี้แหล่งข้อมูลขัดข้อง โปรดตรวจสอบใหม่อีกครั้งในภายหลัง';
               })
               .upsertDefendant(defForm, session.value.token);
           } else {
             loading.value = false;
             Object.assign(currentDef.value, defForm);
-            const cleanId = defForm.citizen_id.replace(/\D/g, "");
+            const cleanId = defForm.citizen_id.replace(/\D/g, '');
             const idx = defendantsList.value.findIndex(d => d.citizen_id === cleanId);
             if (idx !== -1) {
               defendantsList.value[idx] = { ...defForm, cases: linkedCases.value };
             }
             updateCacheField('defendants', defendantsList.value);
-            alert("บันทึกข้อมูลแก้ไขประวัติเยาวชนสำเร็จ");
+            alert('บันทึกข้อมูลแก้ไขประวัติเยาวชนสำเร็จ');
+          }
+        }
+
+        function confirmUnlinkDefendantLine(role) {
+          if (!currentDef.value || !currentDef.value.citizen_id) return;
+          const isParent = (role === 'parent' || role === 'ผู้ปกครอง');
+          const roleLabel = isParent ? 'ผู้ปกครอง' : 'เยาวชน';
+          const defName = ((currentDef.value.title_name || '') + (currentDef.value.first_name || '') + ' ' + (currentDef.value.last_name || '')).trim() || 'เยาวชน';
+
+          const doUnlink = () => {
+            loading.value = true;
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+              google.script.run
+                .withSuccessHandler((res) => {
+                  loading.value = false;
+                  if (res && res.success) {
+                    if (isParent) {
+                      currentDef.value.parent_line_user_id = '';
+                      currentDef.value.parent_line_id = '';
+                      currentDef.value.parent_line_chat_url = '';
+                    } else {
+                      currentDef.value.line_user_id = '';
+                      currentDef.value.line_id = '';
+                      currentDef.value.line_chat_url = '';
+                    }
+                    
+                    const cid = currentDef.value.citizen_id.replace(/\D/g, '');
+                    const idx = defendantsList.value.findIndex(d => (d.citizen_id || '').replace(/\D/g, '') === cid);
+                    if (idx !== -1) {
+                      if (isParent) {
+                        defendantsList.value[idx].parent_line_user_id = '';
+                        defendantsList.value[idx].parent_line_id = '';
+                        defendantsList.value[idx].parent_line_chat_url = '';
+                      } else {
+                        defendantsList.value[idx].line_user_id = '';
+                        defendantsList.value[idx].line_id = '';
+                        defendantsList.value[idx].line_chat_url = '';
+                      }
+                      updateCacheField('defendants', defendantsList.value);
+                    }
+                    
+                    loadLineOaModule(true);
+                    
+                    if (typeof Swal !== 'undefined') {
+                      Swal.fire({
+                        icon: 'success',
+                        title: 'ยกเลิกการผูก LINE สำเร็จ',
+                        text: res.message,
+                        timer: 2000,
+                        showConfirmButton: false
+                      });
+                    } else {
+                      alert(res.message);
+                    }
+                  } else {
+                    alert(res ? res.message : 'เกิดข้อผิดพลาดในการยกเลิกผูกบัญชี');
+                  }
+                })
+                .withFailureHandler((err) => {
+                  loading.value = false;
+                  alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+                })
+                .unlinkDefendantLine({ citizen_id: currentDef.value.citizen_id, target_role: isParent ? 'parent' : 'youth' }, session.value.token);
+            } else {
+              loading.value = false;
+              alert('ยกเลิกการผูกบัญชีสำเร็จ (โหมดจำลอง)');
+            }
+          };
+
+          if (typeof Swal !== 'undefined') {
+            Swal.fire({
+              title: 'ยืนยันยกเลิกการผูก LINE?',
+              text: 'คุณต้องการยกเลิกการเชื่อมโยงบัญชี LINE ของ' + roleLabel + ' (' + defName + ') ใช่หรือไม่?',
+              icon: 'warning',
+              showCancelButton: true,
+              confirmButtonColor: '#ef4444',
+              cancelButtonColor: '#64748b',
+              confirmButtonText: 'ยืนยันยกเลิกผูก',
+              cancelButtonText: 'ยกเลิก'
+            }).then((result) => {
+              if (result.isConfirmed) {
+                doUnlink();
+              }
+            });
+          } else {
+            if (confirm('คุณต้องการยกเลิกการผูกบัญชี LINE ของ' + roleLabel + ' ใช่หรือไม่?')) {
+              doUnlink();
+            }
           }
         }
 
@@ -5362,6 +5471,66 @@
             lineLinkModalActive.value = false;
           }
         }
+        function confirmUnlinkContact(ct) {
+          if (!ct || !ct.line_user_id) return;
+          const name = ct.display_name || ct.line_user_id;
+
+          const doUnlinkContact = () => {
+            loading.value = true;
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+              google.script.run
+                .withSuccessHandler((res) => {
+                  loading.value = false;
+                  if (res && res.success) {
+                    loadLineOaModule(true);
+                    loadDefendantsList(true);
+                    if (typeof Swal !== 'undefined') {
+                      Swal.fire({
+                        icon: 'success',
+                        title: 'ยกเลิกการผูกสำเร็จ',
+                        text: res.message,
+                        timer: 2000,
+                        showConfirmButton: false
+                      });
+                    } else {
+                      alert(res.message);
+                    }
+                  } else {
+                    alert(res ? res.message : 'เกิดข้อผิดพลาด');
+                  }
+                })
+                .withFailureHandler((err) => {
+                  loading.value = false;
+                  alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+                })
+                .unlinkLineContact({ line_user_id: ct.line_user_id }, session.value.token);
+            } else {
+              loading.value = false;
+            }
+          };
+
+          if (typeof Swal !== 'undefined') {
+            Swal.fire({
+              title: 'ยืนยันยกเลิกการผูกบัญชี?',
+              text: 'ต้องการยกเลิกการผูกบัญชี LINE (' + name + ') ออกจากเยาวชน/ผู้ปกครอง ใช่หรือไม่?',
+              icon: 'warning',
+              showCancelButton: true,
+              confirmButtonColor: '#ef4444',
+              cancelButtonColor: '#64748b',
+              confirmButtonText: 'ยืนยันยกเลิก',
+              cancelButtonText: 'ปิด'
+            }).then((result) => {
+              if (result.isConfirmed) {
+                doUnlinkContact();
+              }
+            });
+          } else {
+            if (confirm('ต้องการยกเลิกการผูกบัญชี LINE (' + name + ') ใช่หรือไม่?')) {
+              doUnlinkContact();
+            }
+          }
+        }
+
 
         function openLineChat(rawVal, rawUserId, contextObj) {
           const val = rawVal ? String(rawVal).trim() : '';
