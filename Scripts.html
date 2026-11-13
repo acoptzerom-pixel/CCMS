@@ -41,6 +41,8 @@
             .replace(/'/g, '&#39;');
         }
 
+        const SCRIPT_EDITOR_PROJECT_URL = 'https:' + '\x2F\x2F' + 'script.google.com/home/projects/1uqMKZv-lGcHkPMUbltjOOc6k1l1TqB5VurzzlHDxS_z_UXPhK09pU5IO/edit';
+
         // App State
         const session = ref(null);
         const currentView = ref('dashboard');
@@ -1856,7 +1858,7 @@
         }
 
         function showMailAuthPermissionDialog() {
-          const scriptEditorUrl = 'https://script.google.com/home/projects/1uqMKZv-lGcHkPMUbltjOOc6k1l1TqB5VurzzlHDxS_z_UXPhK09pU5IO/edit';
+          const scriptEditorUrl = SCRIPT_EDITOR_PROJECT_URL;
           if (typeof Swal !== 'undefined') {
             Swal.fire({
               icon: 'warning',
@@ -6754,7 +6756,7 @@
         function handleLineAuthErrorIfNeeded(msg) {
           const text = (msg || '').toString();
           if (text.indexOf('UrlFetchApp.fetch') !== -1 || text.indexOf('script.external_request') !== -1) {
-            const scriptEditorUrl = 'https://script.google.com/home/projects/1uqMKZv-lGcHkPMUbltjOOc6k1l1TqB5VurzzlHDxS_z_UXPhK09pU5IO/edit';
+            const scriptEditorUrl = SCRIPT_EDITOR_PROJECT_URL;
             if (typeof Swal !== 'undefined') {
               Swal.fire({
                 icon: 'warning',
@@ -7098,8 +7100,8 @@
         function getLineOaInboxUrl() {
           const botId = (lineOaPublicConfig.oa_bot_id || lineOaConfigForm.oa_bot_id || '').trim();
           return (/^U[0-9a-fA-F]{32}$/.test(botId) && botId !== 'Uc26f8cd9efde3d463307945a2077ff3f')
-            ? ('https://chat.line.biz/' + botId)
-            : 'https://chat.line.biz/';
+            ? ('https:' + '\x2F\x2F' + 'chat.line.biz/' + botId)
+            : ('https:' + '\x2F\x2F' + 'chat.line.biz/');
         }
 
         function openLineChat(rawVal, rawUserId, contextObj) {
@@ -7122,11 +7124,11 @@
           const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
           if (isMobile && val) {
             let targetUrl = '';
-            if (val.startsWith('http://') || val.startsWith('https://') || val.startsWith('line://')) {
+            if (val.startsWith('http:\x2F\x2F') || val.startsWith('https:\x2F\x2F') || val.startsWith('line:\x2F\x2F')) {
               targetUrl = val;
             } else {
               const cleanId = val.replace(/^[@~]/, '');
-              targetUrl = 'https://line.me/ti/p/~' + encodeURIComponent(cleanId);
+              targetUrl = 'https:' + '\x2F\x2F' + 'line.me/ti/p/~' + encodeURIComponent(cleanId);
             }
             window.open(targetUrl, '_blank', 'noopener,noreferrer');
             return;
@@ -7164,7 +7166,7 @@
                     '2. คัดลอกลิงก์จาก <b>แถบที่อยู่เว็บ (Address bar) ด้านบนสุด</b><br>' +
                     '3. นำมาวางในช่องด้านล่างนี้แล้วกดบันทึก (ครั้งต่อไปคลิกปุ๊บจะเปิดห้องแชทของคนนี้ทันที)</div>',
               input: 'text',
-              inputPlaceholder: 'วางลิงก์ https://chat.line.biz/... ที่นี่',
+              inputPlaceholder: 'วางลิงก์ https:' + '\x2F\x2F' + 'chat.line.biz/... ที่นี่',
               showCancelButton: true,
               confirmButtonColor: '#06C755',
               confirmButtonText: 'บันทึกลิงก์ห้องแชท',
