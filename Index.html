@@ -80,7 +80,7 @@
             <div class="form-group" style="margin-bottom: 30px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <label class="form-label" style="margin-bottom: 0;">รหัสผ่าน</label>
-                <a href="#" style="color: var(--accent); font-size: 0.85rem; text-decoration: none; font-weight: 600;" @click.prevent="authAlert = ''; authView = 'forgot'">ลืมรหัสผ่าน?</a>
+                <a href="#" style="color: var(--accent); font-size: 0.85rem; text-decoration: none; font-weight: 600;" @click.prevent="openForgotPasswordView">ลืมรหัสผ่าน?</a>
               </div>
               <div style="position: relative;">
                 <input :type="showPasswordLogin ? 'text' : 'password'" class="form-control" v-model="loginForm.password" required style="padding-right: 45px;">
@@ -166,11 +166,12 @@
           </div>
         </div>
 
-        <!-- หน้าลืมรหัสผ่าน -->
+        <!-- หน้าลืมรหัสผ่าน (ยืนยันตัวตนด้วยรหัส OTP 6 หลักทางอีเมล) -->
         <div v-if="authView === 'forgot'">
           <h2 class="auth-title" style="margin-bottom: 5px;">ลืมรหัสผ่าน</h2>
-          <div style="text-align: center; color: #94a3b8; font-size: 0.85rem; margin-bottom: 25px; line-height: 1.4;">
-            กรอกอีเมลหรือชื่อผู้ใช้งานที่ลงทะเบียนไว้<br>เพื่อกำหนดรหัสผ่านใหม่ได้ทันที
+          <div style="text-align: center; color: #94a3b8; font-size: 0.84rem; margin-bottom: 20px; line-height: 1.45;">
+            <span v-if="forgotForm.step === 1">กรอกอีเมลหรือชื่อผู้ใช้งานที่ลงทะเบียนไว้<br>เพื่อรับรหัสยืนยันตัวตน (OTP 6 หลัก) ทางอีเมล</span>
+            <span v-else>กรอกรหัส OTP 6 หลักที่ส่งไปยังอีเมล <strong>{{ forgotForm.maskedEmail }}</strong><br>และกำหนดรหัสผ่านใหม่ด้วยตนเอง</span>
           </div>
           
           <div v-if="authAlert" class="banner banner-danger" style="padding: 10px 15px; margin-bottom: 15px; font-size: 0.85rem;">
@@ -178,14 +179,43 @@
             <span>{{ authAlert }}</span>
           </div>
 
-          <form @submit.prevent="handleForgotPassword">
-            <div class="form-group">
+          <!-- ขั้นตอนที่ 1: ขอรหัส OTP ทางอีเมล -->
+          <form v-if="forgotForm.step === 1" @submit.prevent="handleRequestResetOtp">
+            <div class="form-group" style="margin-bottom: 24px;">
               <label class="form-label">อีเมลหรือชื่อผู้ใช้งาน (Email or Username)</label>
-              <input type="text" class="form-control" v-model="forgotForm.usernameOrEmail" required>
+              <input type="text" class="form-control" v-model="forgotForm.usernameOrEmail" required placeholder="กรอกอีเมล หรือ Username ของคุณ">
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; height: 50px;" :disabled="loading">
+              <span v-if="loading" class="loader" style="width: 20px; height: 20px; border-width: 2.5px;"></span>
+              <span v-else>ส่งรหัส OTP 6 หลักทางอีเมล <i class="fa-solid fa-paper-plane"></i></span>
+            </button>
+          </form>
+
+          <!-- ขั้นตอนที่ 2: ยืนยันรหัส OTP 6 หลัก และตั้งรหัสผ่านใหม่ -->
+          <form v-else @submit.prevent="handleForgotPassword">
+            <div class="banner banner-success" style="padding: 10px 14px; margin-bottom: 16px; font-size: 0.8rem; display: flex; flex-direction: column; gap: 4px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;">
+                <span><i class="fa-solid fa-envelope-circle-check"></i> ส่งรหัส OTP ไปที่ <strong>{{ forgotForm.maskedEmail }}</strong> แล้ว (อายุ 10 นาที)</span>
+                <a href="#" style="color: inherit; font-weight: 700; text-decoration: underline; white-space: nowrap;" @click.prevent="forgotForm.step = 1; forgotForm.otpCode = ''; authAlert = '';">เปลี่ยนบัญชี</a>
+              </div>
+              <div style="font-size: 0.74rem; opacity: 0.9;">
+                * หากไม่พบในกล่องจดหมายเข้า โปรดตรวจสอบในโฟลเดอร์ <b>จดหมายขยะ (Spam)</b> หรือ <b>จดหมายทั้งหมด (All Mail)</b>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <label class="form-label" style="margin-bottom: 0;">รหัสยืนยันตัวตน OTP (6 หลัก)</label>
+                <a href="#" style="font-size: 0.78rem; color: var(--accent); text-decoration: none; font-weight: 600;" @click.prevent="handleRequestResetOtp">
+                  <i class="fa-solid fa-rotate-right"></i> ขอรหัส OTP ใหม่
+                </a>
+              </div>
+              <input type="text" class="form-control" v-model="forgotForm.otpCode" required maxlength="6" inputmode="numeric" pattern="[0-9]{6}" placeholder="กรอกตัวเลข 6 หลักจากอีเมล" style="letter-spacing: 6px; font-weight: 700; font-size: 1.15rem; text-align: center;">
             </div>
             
-            <div class="form-group" style="margin-bottom: 30px;">
-              <label class="form-label">รหัสผ่านใหม่</label>
+            <div class="form-group" style="margin-bottom: 14px;">
+              <label class="form-label">กำหนดรหัสผ่านใหม่ด้วยตนเอง</label>
               <div style="position: relative;">
                 <input :type="showPasswordForgot ? 'text' : 'password'" class="form-control" v-model="forgotForm.newPassword" required minlength="8" placeholder="อย่างน้อย 8 ตัวอักษร" style="padding-right: 45px;">
                 <button type="button" 
@@ -201,9 +231,36 @@
               </div>
             </div>
 
+            <div class="form-group" style="margin-bottom: 14px;">
+              <label class="form-label">ยืนยันรหัสผ่านใหม่อีกครั้ง</label>
+              <div style="position: relative;">
+                <input :type="showPasswordForgotConfirm ? 'text' : 'password'" class="form-control" v-model="forgotForm.confirmPassword" required minlength="8" placeholder="กรอกรหัสผ่านใหม่อีกครั้งให้ตรงกัน" style="padding-right: 45px;">
+                <button type="button" 
+                        style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94a3b8; cursor: pointer; padding: 5px; font-size: 1.15rem; display: flex; align-items: center;"
+                        @mousedown="showPasswordForgotConfirm = true"
+                        @mouseup="showPasswordForgotConfirm = false"
+                        @mouseleave="showPasswordForgotConfirm = false"
+                        @touchstart.passive="showPasswordForgotConfirm = true"
+                        @touchend="showPasswordForgotConfirm = false"
+                        @touchcancel="showPasswordForgotConfirm = false">
+                  <i class="fa-solid" :class="showPasswordForgotConfirm ? 'fa-eye' : 'fa-eye-slash'"></i>
+                </button>
+              </div>
+              <div v-if="forgotForm.confirmPassword && forgotForm.newPassword !== forgotForm.confirmPassword" style="font-size: 0.76rem; color: #f87171; margin-top: 5px;">
+                <i class="fa-solid fa-circle-xmark"></i> รหัสผ่านที่ยืนยันยังไม่ตรงกับรหัสผ่านใหม่
+              </div>
+              <div v-else-if="forgotForm.confirmPassword && forgotForm.newPassword.length >= 8 && forgotForm.newPassword === forgotForm.confirmPassword" style="font-size: 0.76rem; color: #10b981; margin-top: 5px;">
+                <i class="fa-solid fa-circle-check"></i> รหัสผ่านใหม่ตรงกันแล้ว
+              </div>
+            </div>
+
+            <div style="font-size: 0.76rem; color: #94a3b8; margin-bottom: 20px; line-height: 1.45;">
+              <i class="fa-solid fa-shield-halved" style="color: #10b981;"></i> รหัสผ่านของคุณจะถูกเข้ารหัสทันที ผู้ดูแลระบบไม่สามารถเข้าถึงหรือทราบรหัสผ่านของคุณได้
+            </div>
+
             <button type="submit" class="btn btn-primary" style="width: 100%; height: 50px;" :disabled="loading">
               <span v-if="loading" class="loader" style="width: 20px; height: 20px; border-width: 2.5px;"></span>
-              <span v-else>ยืนยันการรีเซ็ทรหัสผ่านใหม่ <i class="fa-solid fa-key"></i></span>
+              <span v-else>ยืนยันรหัส OTP และตั้งรหัสผ่านใหม่ <i class="fa-solid fa-key"></i></span>
             </button>
           </form>
           
@@ -301,7 +358,12 @@
               <a href="#" @click.prevent="switchView('counselors')"><i class="fa-solid fa-user-doctor"></i> ข้อมูลผู้ให้คำปรึกษา</a>
             </li>
             <li v-if="session.role === 'admin' || session.role === 'psychologist'" class="nav-item" :class="{ active: currentView === 'line_notify' }">
-              <a href="#" @click.prevent="switchView('line_notify')"><i class="fa-brands fa-line" style="color: #06C755;"></i> แจ้งเตือน LINE OA</a>
+              <a href="#" @click.prevent="switchView('line_notify')" style="justify-content: space-between;">
+                <span style="display: inline-flex; align-items: center; gap: 15px;">
+                  <i class="fa-brands fa-line" style="color: #06C755;"></i> แจ้งเตือน LINE OA
+                </span>
+                <span v-if="lineUnreadCount > 0" class="line-nav-badge">{{ lineUnreadCount > 99 ? '99+' : lineUnreadCount }}</span>
+              </a>
             </li>
             <li v-if="session.role !== 'counselor'" class="nav-item" :class="{ active: currentView === 'monthly_report' }">
               <a href="#" @click.prevent="switchView('monthly_report')"><i class="fa-solid fa-file-invoice"></i> สถิติคดีประจำเดือน</a>
@@ -346,6 +408,7 @@
         </a>
         <a v-if="session.role === 'admin' || session.role === 'psychologist'" href="#" class="bottom-nav-item" :class="{ active: currentView === 'line_notify' }" @click.prevent="switchView('line_notify')">
           <i class="fa-brands fa-line" style="color: #06C755;"></i><span>LINE OA</span>
+          <span v-if="lineUnreadCount > 0" class="line-mobile-badge">{{ lineUnreadCount > 99 ? '99+' : lineUnreadCount }}</span>
         </a>
         <a v-if="session.role === 'admin' || session.role === 'psychologist'" href="#" class="bottom-nav-item" :class="{ active: currentView === 'counselors' }" @click.prevent="switchView('counselors')">
           <i class="fa-solid fa-user-doctor"></i><span>ผู้ให้คำปรึกษา</span>
@@ -1956,7 +2019,7 @@
               </div>
               <div>
                 <h1 class="page-title users-title">การบริหารจัดการสิทธิ์สมาชิกผู้ใช้งาน</h1>
-                <p class="page-title-desc">จำกัดเฉพาะผู้ดูแลระบบ (Admin) ในการอนุมัติการล็อกอินและสิทธิ์ตำแหน่งบทบาทความปลอดภัยของศูนย์</p>
+                <p class="page-title-desc">จำกัดเฉพาะผู้ดูแลระบบ (Admin) ในการอนุมัติสิทธิ์ บทบาท แก้ไขข้อมูล และติดตามการเข้าใช้งานระบบย้อนหลัง 30 วัน</p>
               </div>
             </div>
             
@@ -1970,55 +2033,299 @@
                   <i class="fa-regular fa-calendar-days"></i> {{ currentThaiDate }}
                 </div>
               </div>
-              <button class="btn btn-secondary" style="border-radius: 12px; padding: 10px 18px;" @click="loadUsersList">
-                ดึงค่ารายชื่อใหม่ <i class="fa-solid fa-rotate"></i>
+              <button class="btn btn-secondary" style="border-radius: 12px; padding: 10px 18px;" @click="refreshUsersModule">
+                ดึงข้อมูลล่าสุด <i class="fa-solid fa-rotate"></i>
               </button>
             </div>
           </div>
 
-          <div class="glass-card">
-            <div class="table-responsive">
-              <table>
+          <!-- การ์ดสรุปภาพรวมผู้ใช้งาน (คลิกเพื่อกรองด่วน) -->
+          <div class="users-kpi-grid">
+            <div class="users-kpi-card" :class="{ 'active-filter': userQuickFilter === 'all' }" @click="setUserQuickFilter('all')">
+              <div class="users-kpi-icon" style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);">
+                <i class="fa-solid fa-users"></i>
+              </div>
+              <div>
+                <div class="users-kpi-value">{{ usersStats.total }}</div>
+                <div class="users-kpi-label">สมาชิกทั้งหมด</div>
+                <div class="users-kpi-sub">Admin {{ usersStats.admins }} • วิชาชีพ/ทั่วไป {{ usersStats.total - usersStats.admins }}</div>
+              </div>
+            </div>
+
+            <div class="users-kpi-card" :class="{ 'active-filter': userQuickFilter === 'active' }" @click="setUserQuickFilter('active')">
+              <div class="users-kpi-icon" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%);">
+                <i class="fa-solid fa-user-check"></i>
+              </div>
+              <div>
+                <div class="users-kpi-value">{{ usersStats.active }}</div>
+                <div class="users-kpi-label">อนุมัติเข้าใช้งานแล้ว</div>
+                <div class="users-kpi-sub">ระงับ/รออนุมัติ {{ usersStats.blocked }} บัญชี</div>
+              </div>
+            </div>
+
+            <div class="users-kpi-card" :class="{ 'active-filter': userQuickFilter === 'online' }" @click="setUserQuickFilter('online')">
+              <div class="users-kpi-icon" style="background: linear-gradient(135deg, #059669 0%, #34d399 100%);">
+                <i class="fa-solid fa-signal"></i>
+              </div>
+              <div>
+                <div class="users-kpi-value">{{ usersStats.onlineNow }}</div>
+                <div class="users-kpi-label">ออนไลน์ขณะนี้</div>
+                <div class="users-kpi-sub">เข้าใช้ {{ usersStats.loggedInToday }} วันนี้ • {{ usersStats.loggedIn7Days }} ใน 7 วัน</div>
+              </div>
+            </div>
+
+            <div class="users-kpi-card" :class="{ 'active-filter': userQuickFilter === 'never' }" @click="setUserQuickFilter('never')">
+              <div class="users-kpi-icon" style="background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);">
+                <i class="fa-solid fa-user-clock"></i>
+              </div>
+              <div>
+                <div class="users-kpi-value">{{ usersStats.neverLoggedIn }}</div>
+                <div class="users-kpi-label">ยังไม่เคยล็อกอิน</div>
+                <div class="users-kpi-sub">หรือยังไม่มีประวัติเข้าใช้</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- แท็บสลับมุมมอง -->
+          <div class="tab-menu" style="margin-bottom: 20px;">
+            <button class="tab-btn" :class="{ active: usersTab === 'list' }" @click="switchUsersTab('list')">
+              <i class="fa-solid fa-users-gear"></i> รายชื่อสมาชิกและจัดการสิทธิ์
+              <span class="badge badge-primary" style="margin-left: 6px;">{{ usersList.length }}</span>
+            </button>
+            <button class="tab-btn" :class="{ active: usersTab === 'logs' }" @click="switchUsersTab('logs')">
+              <i class="fa-solid fa-clock-rotate-left"></i> ประวัติการเข้าสู่ระบบ (30 วันล่าสุด)
+              <span v-if="loginLogsList.length > 0" class="badge badge-accent" style="margin-left: 6px;">{{ loginLogsList.length }}</span>
+            </button>
+          </div>
+
+          <!-- แท็บ 1: บริหารจัดการสมาชิก (กริดการ์ดขนาดเดียวกับหน้าข้อมูลเด็กและเยาวชน) -->
+          <div v-show="usersTab === 'list'">
+            <div class="glass-card" style="margin-bottom: 22px;">
+              <div class="users-toolbar" style="margin-bottom: 0; padding-bottom: 0; border-bottom: none;">
+                <div class="users-search-wrap">
+                  <i class="fa-solid fa-magnifying-glass search-ico"></i>
+                  <input type="text" class="users-search-input" v-model="userSearchQuery" placeholder="ค้นหา ชื่อ-สกุล, อีเมล, ตำแหน่ง หรือลำดับ...">
+                  <button v-if="userSearchQuery" type="button" class="users-search-clear" @click="userSearchQuery = ''" title="ล้างคำค้นหา">
+                    <i class="fa-solid fa-circle-xmark"></i>
+                  </button>
+                </div>
+
+                <div class="users-filters-group">
+                  <select class="users-filter-select" v-model="userRoleFilter">
+                    <option value="all">ทุกบทบาท</option>
+                    <option value="admin">Admin (ผู้ดูแลระบบ)</option>
+                    <option value="director">Director (ผอ.ศูนย์)</option>
+                    <option value="psychologist">Psychologist (นักจิตวิทยา)</option>
+                    <option value="counselor">Counselor (ผู้ให้คำปรึกษา)</option>
+                    <option value="user">User (ผู้ใช้งานทั่วไป)</option>
+                  </select>
+
+                  <select class="users-filter-select" v-model="userQuickFilter">
+                    <option value="all">ทุกสถานะ</option>
+                    <option value="online">กำลังออนไลน์ (Online)</option>
+                    <option value="offline">ออฟไลน์ (Offline)</option>
+                    <option value="active">อนุมัติแล้ว (YES)</option>
+                    <option value="blocked">ถูกจำกัดสิทธิ์ (NO)</option>
+                    <option value="today">เข้าใช้งานวันนี้</option>
+                    <option value="recent7d">เข้าใช้ภายใน 7 วัน</option>
+                    <option value="never">ยังไม่เคยเข้าใช้งาน</option>
+                  </select>
+
+                  <select class="users-filter-select" v-model="userSortBy">
+                    <option value="login_desc">เรียง: เข้าใช้งานล่าสุด</option>
+                    <option value="id_asc">เรียง: ลำดับผู้ใช้ (น้อย→มาก)</option>
+                    <option value="name_asc">เรียง: ชื่อ-สกุล (ก→ฮ)</option>
+                  </select>
+
+                  <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; white-space: nowrap;">
+                    แสดง {{ filteredUsersList.length }} / {{ usersList.length }} รายการ
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="filteredUsersList.length === 0" class="glass-card" style="text-align: center; padding: 45px 20px; color: var(--text-muted);">
+              <i class="fa-solid fa-user-slash" style="font-size: 2.4rem; opacity: 0.35; margin-bottom: 10px; display: block;"></i>
+              <p style="font-weight: 600; margin-bottom: 6px;">ไม่พบรายชื่อสมาชิกที่ตรงตามเงื่อนไข</p>
+              <button type="button" class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.82rem; border-radius: 8px; margin-top: 6px;" @click="resetUserFilters">
+                ล้างตัวกรองทั้งหมด
+              </button>
+            </div>
+
+            <div v-else class="card-grid">
+              <div v-for="u in filteredUsersList"
+                   :key="u.rowNum || u.userId"
+                   class="def-card user-def-card"
+                   :class="{ 'is-online': u.isOnline, 'is-blocked': String(u.isActive || '').toLowerCase() !== 'yes' }"
+                   @click="openEditUserModal(u)">
+                <div>
+                  <!-- แถวบน: ลำดับ และสถานะออนไลน์/ออฟไลน์ -->
+                  <div class="user-def-top">
+                    <span class="user-card-rank">#{{ u.userId }}</span>
+                    <span v-if="u.isOnline" class="login-status-pill pill-online" title="ผู้ใช้งานกำลังเปิดใช้งานระบบอยู่">
+                      <span class="presence-dot-live"></span>
+                      ออนไลน์
+                    </span>
+                    <span v-else-if="u.loginAt" class="login-status-pill pill-offline" :title="'ออฟไลน์เมื่อ: ' + formatFullThaiDateTime(u.offlineAt || u.loginAt)">
+                      <i class="fa-solid fa-circle" style="font-size: 0.42rem;"></i>
+                      ออฟไลน์ • {{ formatOfflineDuration(u.offlineAt || u.loginAt) }}
+                    </span>
+                    <span v-else class="login-status-pill pill-never">
+                      ยังไม่เคยเข้าใช้
+                    </span>
+                  </div>
+
+                  <!-- รูปโปรไฟล์ + ชื่อ-สกุลเต็ม + บทบาท & ตำแหน่ง -->
+                  <div class="user-def-profile">
+                    <div class="user-card-avatar">
+                      <img v-if="u.profileImage" :src="u.profileImage" @error="u.profileImage = ''" alt="avatar" class="user-avatar-img">
+                      <div v-else class="user-avatar-fallback" :style="{ background: getUserAvatarColor(u.fullName || u.email) }">
+                        {{ getUserInitials(u.fullName || u.email) }}
+                      </div>
+                      <span class="user-presence-dot" :class="getUserPresenceClass(u)" :title="getUserPresenceTooltip(u)"></span>
+                    </div>
+                    <div class="user-def-name-col">
+                      <div class="user-def-name" :title="u.fullName">{{ u.fullName || '-' }}</div>
+                      <div class="user-def-badges-row">
+                        <span class="user-role-badge">
+                          {{ getRoleShortLabel(u.role) }}
+                        </span>
+                        <span class="user-position-badge" :title="'ตำแหน่ง: ' + (u.position || 'ไม่ระบุ')">
+                          <i class="fa-solid fa-briefcase"></i>
+                          <span>{{ u.position || 'ไม่ระบุ' }}</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- กล่องสถานะสิทธิ์การใช้งาน พร้อมสวิตช์เปิด/ปิดด่วนแบบพรีเมียม -->
+                  <div class="user-def-status-box" :class="{ 'is-active': String(u.isActive || '').toLowerCase() === 'yes', 'is-blocked': String(u.isActive || '').toLowerCase() !== 'yes' }">
+                    <div class="user-def-status-box-label">
+                      <i class="fa-solid fa-shield-halved"></i>
+                      <span>สิทธิ์การใช้งาน</span>
+                    </div>
+                    <button type="button"
+                            class="user-quick-toggle-btn"
+                            :class="{ 'is-active': String(u.isActive || '').toLowerCase() === 'yes', 'is-loading': u._toggleLoading }"
+                            :disabled="u._toggleLoading"
+                            :title="String(u.isActive || '').toLowerCase() === 'yes' ? 'คลิกเพื่อระงับสิทธิ์การใช้งาน' : 'คลิกเพื่ออนุมัติ/เปิดสิทธิ์การใช้งาน'"
+                            @click.stop="toggleUserActiveStatus(u)">
+                      <span class="user-quick-toggle-track">
+                        <span class="user-quick-toggle-thumb">
+                          <i v-if="u._toggleLoading" class="fa-solid fa-circle-notch fa-spin"></i>
+                          <i v-else-if="String(u.isActive || '').toLowerCase() === 'yes'" class="fa-solid fa-check"></i>
+                          <i v-else class="fa-solid fa-xmark"></i>
+                        </span>
+                      </span>
+                      <span class="user-quick-toggle-label">
+                        {{ String(u.isActive || '').toLowerCase() === 'yes' ? 'อนุมัติแล้ว' : 'ปิดสิทธิ์ / รออนุมัติ' }}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- ส่วนท้ายการ์ด: เข้าสู่ระบบล่าสุด (จัดวางให้พอดีไม่ล้น) -->
+                <div class="def-card-cases">
+                  <div class="user-def-footer-head">
+                    <div class="def-card-cases-title" style="margin-bottom: 0;">เข้าสู่ระบบล่าสุด</div>
+                    <span v-if="u.loginCount > 0" class="login-count-chip" title="จำนวนครั้งที่เข้าใช้งานระบบ">{{ u.loginCount }} ครั้ง</span>
+                  </div>
+                  <div v-if="u.loginAt" style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+                    <div class="def-badge" :title="'เข้าสู่ระบบล่าสุด: ' + formatFullThaiDateTime(u.loginAt)">
+                      <i class="fa-regular fa-clock"></i>
+                      <span>{{ formatFullThaiDateTime(u.loginAt) }}</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right" style="font-size: 0.72rem; color: var(--text-muted); opacity: 0.7; flex-shrink: 0;"></i>
+                  </div>
+                  <div v-else style="display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); font-style: italic;">
+                    <span>ยังไม่มีประวัติเข้าใช้</span>
+                    <i class="fa-solid fa-chevron-right" style="font-size: 0.72rem; opacity: 0.7; flex-shrink: 0;"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- แท็บ 2: ประวัติการเข้าสู่ระบบ 30 วันล่าสุด -->
+          <div v-show="usersTab === 'logs'" class="glass-card" style="position: relative;">
+            <div v-if="loginLogsLoading" class="loading-overlay">
+              <span class="loader"></span>
+              <p style="font-weight: 500;">กำลังโหลดประวัติการเข้าสู่ระบบ 30 วันล่าสุด...</p>
+            </div>
+
+            <div class="users-toolbar">
+              <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; flex: 1;">
+                <select class="users-filter-select" v-model="logUserFilter" style="min-width: 220px;">
+                  <option value="all">สมาชิกทุกคน (รวมทั้งหมด)</option>
+                  <option v-for="u in usersList" :key="'opt-' + (u.rowNum || u.userId)" :value="String(u.userId)">
+                    {{ u.fullName }} ({{ u.email }})
+                  </option>
+                </select>
+
+                <select class="users-filter-select" v-model="logTypeFilter">
+                  <option value="all">รูปแบบการเข้าใช้งานทั้งหมด</option>
+                  <option value="password">กรอกรหัสผ่านเข้าสู่ระบบ</option>
+                  <option value="session">เข้าอัตโนมัติผ่าน Session</option>
+                </select>
+
+                <span class="retention-notice-pill">
+                  <i class="fa-solid fa-shield-halved"></i>
+                  เก็บประวัติย้อนหลัง 30 วันอัตโนมัติ • พบ {{ filteredLoginLogs.length }} รายการ
+                </span>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <button v-if="logUserFilter !== 'all' || logTypeFilter !== 'all'" type="button" class="btn btn-secondary" style="padding: 8px 12px; border-radius: 10px; font-size: 0.82rem;" @click="logUserFilter = 'all'; logTypeFilter = 'all'">
+                  แสดงทุกคน <i class="fa-solid fa-filter-circle-xmark"></i>
+                </button>
+                <button type="button" class="btn btn-secondary" style="padding: 8px 14px; border-radius: 10px; font-size: 0.82rem;" @click="loadLoginLogs(true)">
+                  รีเฟรชประวัติ <i class="fa-solid fa-rotate"></i>
+                </button>
+              </div>
+            </div>
+
+            <div v-if="filteredLoginLogs.length === 0" style="text-align: center; padding: 40px 20px; color: var(--text-muted);">
+              <i class="fa-solid fa-clock-rotate-left" style="font-size: 2.3rem; opacity: 0.35; margin-bottom: 10px; display: block;"></i>
+              <p style="font-weight: 600;">ยังไม่มีประวัติการเข้าสู่ระบบในช่วง 30 วันล่าสุดตามเงื่อนไขที่เลือก</p>
+            </div>
+
+            <div v-else class="table-responsive" style="max-height: 560px; overflow-y: auto;">
+              <table class="users-table">
                 <thead>
                   <tr>
-                    <th>ลำดับผู้ใช้</th>
-                    <th>ชื่อ-สกุลจริง</th>
-                    <th>อีเมลเข้าใช้งาน</th>
-                    <th>ตำแหน่งทางวิชาชีพ</th>
-                    <th>บทบาทการเข้าถึงระบบ</th>
-                    <th>อนุมัติล็อกอินเข้างาน</th>
-                    <th>จัดการสิทธิ์</th>
+                    <th>วัน-เวลาที่เข้าใช้งาน</th>
+                    <th>สมาชิกผู้ใช้งาน</th>
+                    <th>บทบาท</th>
+                    <th>รูปแบบการเข้าสู่ระบบ</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="u in usersList" :key="u.userId">
-                    <td>
-                      <input type="text" class="form-control text-center" v-model="u.userId" style="width: 75px; padding: 6px 10px; font-size: 0.85rem; border-radius: 8px; font-weight: bold; text-align: center; border: 1px solid #cbd5e1;">
-                    </td>
-                    <td><strong style="color: var(--text-main);">{{ u.fullName }}</strong></td>
-                    <td>{{ u.email }}</td>
-                    <td>{{ u.position }}</td>
-                    <td>
-                      <!-- Dropdown บทบาท -->
-                      <select class="form-control" v-model="u.role" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 8px;">
-                        <option value="user">User (ผู้ใช้งานทั่วไป)</option>
-                        <option value="counselor">Counselor (ผู้ให้คำปรึกษา)</option>
-                        <option value="director">Director (ผอ.ศูนย์)</option>
-                        <option value="psychologist">Psychologist (นักจิตวิทยา)</option>
-                        <option value="admin">Admin (ผู้ดูแลระบบสูงสุด)</option>
-                      </select>
+                  <tr v-for="lg in filteredLoginLogs" :key="lg.logId">
+                    <td style="white-space: nowrap;">
+                      <div style="font-weight: 700; color: var(--text-main); font-size: 0.86rem;">
+                        <i class="fa-regular fa-clock" style="color: var(--accent); margin-right: 4px;"></i>
+                        {{ formatFullThaiDateTime(lg.loginAt) }}
+                      </div>
+                      <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 2px;">
+                        {{ formatRelativeThaiTime(lg.loginAt) }}
+                      </div>
                     </td>
                     <td>
-                      <!-- Dropdown อนุมัติสิทธิ์การล็อกอิน -->
-                      <select class="form-control" v-model="u.isActive" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 8px;" :style="{ color: u.isActive === 'yes' ? 'var(--success)' : 'var(--danger)', fontWeight: 'bold' }">
-                        <option value="yes">YES (อนุมัติสิทธิ์แล้ว)</option>
-                        <option value="no">NO (บล็อก/จำกัดการเข้าใช้งาน)</option>
-                      </select>
+                      <div style="font-weight: 700; color: var(--text-main);">{{ lg.fullName || '-' }}</div>
+                      <div style="font-size: 0.77rem; color: var(--text-muted);">{{ lg.email || '-' }} (ลำดับ #{{ lg.userId }})</div>
                     </td>
                     <td>
-                      <button class="btn btn-primary" style="padding: 6px 12px; border-radius: 8px; font-size: 0.8rem;" @click="handleUpdateUserByAdmin(u)">
-                        บันทึกค่า <i class="fa-solid fa-floppy-disk"></i>
-                      </button>
+                      <span class="badge" :class="getRoleBadgeClass(lg.role)">
+                        {{ getRoleLabel(lg.role) }}
+                      </span>
+                    </td>
+                    <td style="white-space: nowrap;">
+                      <span v-if="lg.loginType === 'password'" class="login-status-pill pill-recent">
+                        <i class="fa-solid fa-key"></i> กรอกรหัสผ่านเข้าสู่ระบบ
+                      </span>
+                      <span v-else class="login-status-pill pill-today">
+                        <i class="fa-solid fa-bolt"></i> เข้าอัตโนมัติ (Session)
+                      </span>
                     </td>
                   </tr>
                 </tbody>
@@ -2865,23 +3172,133 @@
             </div>
           </div>
 
-          <!-- แถบเมนูย่อย 4 แท็บ -->
-          <div class="tab-menu" style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
-            <button class="tab-btn" :class="{ active: lineNotifyTab === 'upcoming' }" @click="lineNotifyTab = 'upcoming'">
+          <!-- แถบเมนูย่อย 5 แท็บ + ปุ่มเปิด/ปิดเสียงแจ้งเตือน -->
+          <div class="tab-menu" style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+            <button class="tab-btn" :class="{ active: lineNotifyTab === 'inbox' }" @click="onSelectLineNotifyTab('inbox')">
+              <i class="fa-solid fa-inbox"></i> ข้อความเข้าใหม่
+              <span v-if="lineUnreadCount > 0" class="line-tab-badge">{{ lineUnreadCount > 99 ? '99+' : lineUnreadCount }}</span>
+            </button>
+            <button class="tab-btn" :class="{ active: lineNotifyTab === 'upcoming' }" @click="onSelectLineNotifyTab('upcoming')">
               <i class="fa-solid fa-calendar-check"></i> นัดหมายและกิจกรรมที่กำลังจะถึง ({{ filteredLineUpcomingList.length }})
             </button>
-            <button class="tab-btn" :class="{ active: lineNotifyTab === 'templates' }" @click="lineNotifyTab = 'templates'">
+            <button class="tab-btn" :class="{ active: lineNotifyTab === 'templates' }" @click="onSelectLineNotifyTab('templates')">
               <i class="fa-solid fa-pen-to-square"></i> ตั้งค่าข้อความอัตโนมัติ
             </button>
-            <button class="tab-btn" :class="{ active: lineNotifyTab === 'connection' }" @click="lineNotifyTab = 'connection'">
+            <button class="tab-btn" :class="{ active: lineNotifyTab === 'connection' }" @click="onSelectLineNotifyTab('connection')">
               <i class="fa-solid fa-link"></i> ตั้งค่าเชื่อมต่อ LINE OA & ผูกบัญชี ({{ lineOaContacts.length }})
             </button>
-            <button class="tab-btn" :class="{ active: lineNotifyTab === 'logs' }" @click="lineNotifyTab = 'logs'">
+            <button class="tab-btn" :class="{ active: lineNotifyTab === 'logs' }" @click="onSelectLineNotifyTab('logs')">
               <i class="fa-solid fa-clock-rotate-left"></i> ประวัติการส่งข้อความ ({{ lineOaLogs.length }})
+            </button>
+            <button type="button" class="line-sound-toggle" :class="{ 'is-on': lineSoundEnabled }" @click="toggleLineSound"
+                    :title="lineSoundEnabled ? 'คลิกเพื่อปิดเสียงแจ้งเตือนเมื่อมีข้อความใหม่' : 'คลิกเพื่อเปิดเสียงแจ้งเตือน (พร้อมทดสอบเสียง)'">
+              <i :class="lineSoundEnabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark'"></i>
+              <span>{{ lineSoundEnabled ? 'เสียงแจ้งเตือน: เปิด' : 'เสียงแจ้งเตือน: ปิด' }}</span>
             </button>
           </div>
 
-          <!-- แท็บที่ 1: รายการนัดหมายและกิจกรรมที่กำลังจะถึง -->
+          <!-- แท็บที่ 1: กล่องข้อความเข้าใหม่ (เฉพาะข้อความล่าสุดที่ยังไม่ได้อ่าน ไม่เก็บประวัติแชท) -->
+          <div v-if="lineNotifyTab === 'inbox'" class="glass-card" style="padding: 20px;">
+            <div class="line-inbox-toolbar">
+              <div>
+                <h3 style="font-family: var(--font-display); font-weight: 700; margin: 0 0 4px 0; display: flex; align-items: center; gap: 8px;">
+                  <i class="fa-brands fa-line" style="color: #06C755;"></i>
+                  <span>ข้อความเข้าล่าสุดที่ยังไม่ได้อ่าน ({{ lineUnreadCount }})</span>
+                </h3>
+                <div style="font-size: 0.82rem; color: var(--text-muted);">
+                  แสดงเฉพาะแชทที่มีข้อความติดต่อเข้ามาใหม่ล่าสุด — คลิกเปิด LINE OA เพื่อไปไล่อ่านและตอบทุกห้องได้ในคราวเดียว
+                </div>
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                <button v-if="lineUnreadCount > 0" type="button" class="line-btn-open-all" @click="openAllChatsInLineOaAndClear">
+                  <i class="fa-brands fa-line"></i> เปิด LINE OA + ล้างแจ้งเตือน ({{ lineUnreadCount }})
+                </button>
+                <button type="button" class="btn-outline" @click="loadLineUnreadInbox(false, true)" style="font-size: 0.84rem; padding: 7px 14px;">
+                  <i class="fa-solid fa-rotate" :class="{ 'fa-spin': lineUnreadLoading }"></i> เช็คข้อความใหม่
+                </button>
+              </div>
+            </div>
+
+            <div v-if="lineLastClearedInfo && lineLastClearedInfo.byName" class="line-last-cleared-pill">
+              <i class="fa-solid fa-circle-check" style="color: #10b981;"></i>
+              <span>
+                {{ lineLastClearedInfo.actionType === 'open_oa_all' ? 'เปิดเช็กแชทใน LINE OA ล่าสุดโดย' : 'เคลียร์สถานะอ่านแล้วล่าสุดโดย' }}
+                <strong>{{ lineLastClearedInfo.byName }}</strong>
+              </span>
+              <span style="color: var(--text-muted);">• {{ formatRelativeThaiTime(lineLastClearedInfo.atIso) }} ({{ formatCompactThaiDateTime(lineLastClearedInfo.atIso) }})</span>
+            </div>
+
+            <div v-if="lineUnreadLoading && lineUnreadList.length === 0" style="text-align: center; padding: 36px 20px; color: var(--text-muted);">
+              <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 1.6rem; color: #06C755; margin-bottom: 10px;"></i>
+              <div>กำลังตรวจสอบข้อความเข้าล่าสุด...</div>
+            </div>
+
+            <div v-else-if="lineUnreadList.length === 0" style="text-align: center; padding: 44px 20px; color: var(--text-muted);">
+              <div style="width: 60px; height: 60px; margin: 0 auto 14px; border-radius: 50%; background: rgba(6, 199, 85, 0.1); display: flex; align-items: center; justify-content: center; color: #06C755; font-size: 1.8rem;">
+                <i class="fa-solid fa-check-circle"></i>
+              </div>
+              <div style="font-weight: 700; font-size: 1.05rem; color: var(--text-main); margin-bottom: 6px;">ไม่มีข้อความค้างอ่านในขณะนี้</div>
+              <div style="font-size: 0.86rem; margin-bottom: 16px;">เมื่อมีเด็ก/เยาวชน หรือผู้ปกครองส่งข้อความ รูปภาพ หรือสติกเกอร์เข้ามาใน LINE OA ระบบจะแจ้งเตือนที่นี่ทันที</div>
+              <button type="button" class="line-btn-open" style="max-width: 220px; margin: 0 auto;" @click="openAllChatsInLineOaAndClear">
+                <i class="fa-brands fa-line"></i> เปิดหน้าแชท LINE OA
+              </button>
+            </div>
+
+            <div v-else class="line-inbox-grid">
+              <div v-for="ct in lineUnreadList" :key="ct.line_user_id" class="line-inbox-card">
+                <div style="display: flex; align-items: flex-start; gap: 11px;">
+                  <div class="line-inbox-avatar-wrap">
+                    <span>{{ (ct.display_name || 'L').trim().charAt(0).toUpperCase() }}</span>
+                    <img v-if="ct.picture_url" :src="ct.picture_url" :alt="ct.display_name" @error="$event.target.style.display='none'">
+                  </div>
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;">
+                      <div style="font-weight: 700; font-size: 0.96rem; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        {{ ct.display_name || 'ผู้ใช้ LINE' }}
+                      </div>
+                      <span :style="'flex-shrink: 0; font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; color: ' + getLineMessageTypeMeta(ct.last_message_type).color + '; background: ' + getLineMessageTypeMeta(ct.last_message_type).bg">
+                        <i :class="getLineMessageTypeMeta(ct.last_message_type).icon"></i> {{ getLineMessageTypeMeta(ct.last_message_type).label }}
+                      </span>
+                    </div>
+                    <div style="font-size: 0.76rem; color: var(--text-muted); margin-top: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                      <span style="color: #06C755; font-weight: 600;">{{ formatRelativeThaiTime(ct.last_incoming_at) || 'เมื่อสักครู่' }}</span>
+                      <span>•</span>
+                      <span>{{ formatCompactThaiDateTime(ct.last_incoming_at) }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <span v-if="ct.linked_citizen_id"
+                        @click="openInCaseManager(ct.linked_citizen_id, ct.linked_defendant_name, '')"
+                        style="display: inline-flex; align-items: center; gap: 5px; font-size: 0.78rem; font-weight: 600; padding: 3px 9px; border-radius: 8px; background: rgba(2, 132, 199, 0.1); color: #0284c7; cursor: pointer;"
+                        title="คลิกเพื่อเปิดประวัติเยาวชนในระบบ">
+                    <i class="fa-solid fa-user-check"></i>
+                    <span>{{ ct.linked_role || 'ผู้ติดต่อ' }}: {{ ct.linked_defendant_name || ct.linked_citizen_id }}</span>
+                  </span>
+                  <span v-else
+                        style="display: inline-flex; align-items: center; gap: 5px; font-size: 0.76rem; font-weight: 500; padding: 3px 9px; border-radius: 8px; background: rgba(245, 158, 11, 0.12); color: #d97706;">
+                    <i class="fa-solid fa-circle-question"></i> ยังไม่ผูกประวัติเยาวชน
+                  </span>
+                </div>
+
+                <div class="line-inbox-msg-box" :title="ct.last_message">
+                  {{ ct.last_message || '[มีข้อความใหม่เข้ามา]' }}
+                </div>
+
+                <div class="line-inbox-actions">
+                  <button type="button" class="line-btn-open" @click="openLineChatAndMarkRead(ct)">
+                    <i class="fa-brands fa-line"></i> เปิดแชทใน LINE OA
+                  </button>
+                  <button type="button" class="line-btn-read" @click="markLineChatAsRead(ct)" title="รับทราบและล้างการแจ้งเตือนนี้">
+                    <i class="fa-solid fa-check"></i> อ่านแล้ว
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- แท็บที่ 2: รายการนัดหมายและกิจกรรมที่กำลังจะถึง -->
           <div v-if="lineNotifyTab === 'upcoming'" class="glass-card">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--card-border);">
               <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
@@ -3251,6 +3668,35 @@
                   </button>
                 </div>
               </form>
+            </div>
+
+            <!-- ตั้งค่าการส่งแจ้งเตือนอัตโนมัติรายวัน (Time Trigger บน Google Cloud) -->
+            <div class="glass-card" style="margin-bottom: 25px;">
+              <h3 style="font-family: var(--font-display); font-weight: 700; margin-top: 0; margin-bottom: 12px; border-bottom: 1px solid var(--card-border); padding-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <span><i class="fa-solid fa-clock" style="color: #0284c7;"></i> ตั้งเวลาส่งแจ้งเตือนอัตโนมัติรายวัน (Google Cloud Trigger 07:00 - 08:00 น.)</span>
+                <span class="badge" style="background: rgba(2, 132, 199, 0.12); color: #0284c7; font-weight: 600; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem;">
+                  <i class="fa-solid fa-bolt"></i> ทำงานเบื้องหลังอัตโนมัติ 100%
+                </span>
+              </h3>
+              
+              <div style="background: rgba(2, 132, 199, 0.05); border-left: 4px solid #0284c7; border-radius: 10px; padding: 14px 18px; margin-bottom: 18px; font-size: 0.88rem; line-height: 1.6; color: var(--text-main);">
+                <div>1. <strong>รอบเวลาส่งอัตโนมัติ:</strong> Google Apps Script จะส่งข้อความแจ้งเตือนวันนัดหมาย/กิจกรรมทุกเช้าระหว่างเวลา <strong>07.00 - 08.00 น.</strong> โดยอัตโนมัติวันละ 1 ครั้ง แม้ไม่มีเจ้าหน้าที่เปิดหน้าเว็บเลยก็ตาม</div>
+                <div>2. <strong>การส่งซ่อมเสริมอัตโนมัติ:</strong> หากระบบคลาวด์ยังไม่ได้รันรอบเช้า ทันทีที่เจ้าหน้าที่เปิดเข้าสู่ระบบในช่วงเวลากลางวัน (<strong>06.00 - 18.00 น.</strong>) ระบบจะตรวจสอบและส่งข้อความของวันนี้ให้อัตโนมัติทันที</div>
+                <div>3. <strong>เงื่อนไขความปลอดภัย:</strong> ในแต่ละวันจะส่งอัตโนมัติ <strong>เพียง 1 ครั้งต่อคนต่อรายการ</strong> (ไม่ส่งซ้ำซ้อน และไม่ส่งรบกวนเวลากลางคืน)</div>
+              </div>
+
+              <div style="display: flex; gap: 12px; align-items: center; justify-content: flex-end; flex-wrap: wrap;">
+                <button type="button" class="btn btn-secondary" style="border-radius: 10px; padding: 9px 18px; font-size: 0.88rem;" @click="triggerAutoLineCheckNow">
+                  <i class="fa-solid fa-rotate"></i> ตรวจสอบและทดสอบส่งรอบวันนี้ทันที
+                </button>
+                <button v-if="session.role === 'admin' || session.role === 'psychologist'" 
+                        type="button" 
+                        class="btn btn-primary" 
+                        style="background: #0284c7; border-color: #0284c7; border-radius: 10px; padding: 9px 20px; font-weight: 700; font-size: 0.88rem;" 
+                        @click="installAutoTrigger">
+                  <i class="fa-solid fa-cloud-arrow-up"></i> ติดตั้ง/รีเซ็ต Trigger อัตโนมัติใน Google Cloud
+                </button>
+              </div>
             </div>
 
             <!-- ตารางรายชื่อผู้ที่เพิ่มเพื่อนหรือทักแชทเข้ามาใน LINE OA ล่าสุด -->
@@ -3892,6 +4338,114 @@
             <button type="button" class="btn btn-secondary" @click="closeAddCounselorModal">ยกเลิก</button>
             <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #d97706 0%, #b45309 100%); border: none;">
               บันทึกข้อมูลผู้ให้คำปรึกษา <i class="fa-solid fa-circle-check"></i>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL หน้าต่างรายละเอียดและแก้ไขข้อมูลสมาชิกผู้ใช้งานโดยแอดมิน (EDIT USER MODAL) -->
+    <div v-if="editUserModalActive" class="modal-overlay animate-in" style="z-index: 1200;">
+      <div class="glass-card modal-card animate-in shadow" style="max-width: 620px; width: 94%; max-height: 92vh; overflow-y: auto;">
+        <button class="modal-close-btn" type="button" @click="closeEditUserModal"><i class="fa-solid fa-xmark"></i></button>
+
+        <h3 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 16px; border-bottom: 1px solid var(--card-border); padding-bottom: 12px; display: flex; align-items: center; gap: 10px;">
+          <i class="fa-solid fa-user-pen" style="color: #4f46e5;"></i> รายละเอียดและแก้ไขสิทธิ์สมาชิก
+        </h3>
+
+        <!-- ข้อมูลโปรไฟล์ + สถานะออนไลน์/ออฟไลน์ + ปุ่มดูประวัติ -->
+        <div class="user-modal-profile-banner">
+          <div style="display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1;">
+            <div class="user-card-avatar" style="width: 54px; height: 54px;">
+              <img v-if="editUserForm.profileImage" :src="editUserForm.profileImage" @error="editUserForm.profileImage = ''" alt="avatar" class="user-avatar-img" style="width: 54px; height: 54px;">
+              <div v-else class="user-avatar-fallback" style="width: 54px; height: 54px; font-size: 1.15rem;" :style="{ background: getUserAvatarColor(editUserForm.fullName || editUserForm.email) }">
+                {{ getUserInitials(editUserForm.fullName || editUserForm.email) }}
+              </div>
+              <span class="user-presence-dot" :class="getUserPresenceClass(editUserForm)"></span>
+            </div>
+            <div style="min-width: 0;">
+              <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+                <span style="font-weight: 700; font-size: 1rem; color: var(--text-main);">{{ editUserForm.fullName || '-' }}</span>
+                <span v-if="editUserForm.isOnline" class="login-status-pill pill-online">
+                  <span class="presence-dot-live"></span> ออนไลน์
+                </span>
+                <span v-else-if="editUserForm.loginAt" class="login-status-pill pill-offline">
+                  <i class="fa-solid fa-circle" style="font-size: 0.45rem;"></i> ออฟไลน์ • {{ formatOfflineDuration(editUserForm.offlineAt || editUserForm.loginAt) }}
+                </span>
+                <span v-else class="login-status-pill pill-never">ยังไม่เคยเข้าสู่ระบบ</span>
+              </div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 3px; word-break: break-all;">
+                <i class="fa-regular fa-envelope"></i> {{ editUserForm.email }}
+              </div>
+              <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 3px; display: flex; flex-wrap: wrap; gap: 8px;">
+                <span v-if="editUserForm.loginAt">
+                  <i class="fa-regular fa-clock"></i> เข้าล่าสุด: {{ formatFullThaiDateTime(editUserForm.loginAt) }} ({{ editUserForm.loginCount || 0 }} ครั้ง)
+                </span>
+                <span v-if="editUserForm.createdAt">• สมัคร: {{ formatShortThaiDate(editUserForm.createdAt) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <button type="button" class="btn btn-secondary" style="padding: 7px 12px; border-radius: 10px; font-size: 0.78rem; white-space: nowrap;" @click="viewUserLoginHistory(editUserForm); closeEditUserModal();">
+            <i class="fa-solid fa-clock-rotate-left"></i> ดูประวัติล็อกอิน (30 วัน)
+          </button>
+        </div>
+
+        <form @submit.prevent="saveEditUserModal">
+          <!-- ส่วนกำหนดบทบาทและสิทธิ์การเข้าถึง (เน้นชัดเจน) -->
+          <div class="user-modal-access-box">
+            <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-main); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+              <i class="fa-solid fa-shield-halved" style="color: #4f46e5;"></i> บทบาทและสิทธิ์การเข้าใช้งานระบบ
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">บทบาทการเข้าถึงระบบ</label>
+                <select class="form-control" v-model="editUserForm.role">
+                  <option value="user">User (ผู้ใช้งานทั่วไป)</option>
+                  <option value="counselor">Counselor (ผู้ให้คำปรึกษา)</option>
+                  <option value="director">Director (ผอ.ศูนย์)</option>
+                  <option value="psychologist">Psychologist (นักจิตวิทยา)</option>
+                  <option value="admin">Admin (ผู้ดูแลระบบสูงสุด)</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">สถานะอนุมัติเข้าใช้งาน</label>
+                <select class="form-control" v-model="editUserForm.isActive" :style="{ color: editUserForm.isActive === 'yes' ? '#10b981' : '#ef4444', fontWeight: 'bold' }">
+                  <option value="yes">YES • อนุมัติสิทธิ์แล้ว</option>
+                  <option value="no">NO • จำกัดการเข้าใช้งาน</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- ข้อมูลส่วนตัวและตำแหน่ง -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 16px;">
+            <div class="form-group">
+              <label class="form-label">ลำดับผู้ใช้</label>
+              <input type="text" class="form-control" v-model="editUserForm.userId" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">ชื่อผู้ใช้งาน (Username)</label>
+              <input type="text" class="form-control" v-model="editUserForm.username" placeholder="ระบุชื่อผู้ใช้งาน">
+            </div>
+            <div class="form-group" style="grid-column: 1 / -1;">
+              <label class="form-label">ชื่อ - สกุลจริง</label>
+              <input type="text" class="form-control" v-model="editUserForm.fullName" placeholder="ระบุชื่อ-สกุลจริง" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">ตำแหน่งทางวิชาชีพ</label>
+              <input type="text" class="form-control" v-model="editUserForm.position" placeholder="เช่น ผู้พิพากษาสมทบ, นักจิตวิทยา">
+            </div>
+            <div class="form-group">
+              <label class="form-label">เบอร์โทรศัพท์ติดต่อ</label>
+              <input type="text" class="form-control" v-model="editUserForm.phone" placeholder="ระบุเบอร์โทรศัพท์ (ถ้ามี)">
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; border-top: 1px solid var(--card-border); padding-top: 16px;">
+            <button type="button" class="btn btn-secondary" @click="closeEditUserModal">ยกเลิก</button>
+            <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); border: none;">
+              บันทึกข้อมูลและสิทธิ์สมาชิก <i class="fa-solid fa-circle-check"></i>
             </button>
           </div>
         </form>

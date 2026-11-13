@@ -32,6 +32,15 @@
           return dateStr;
         }
 
+        function escapeHtml(rawStr) {
+          return String(rawStr === undefined || rawStr === null ? '' : rawStr)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+        }
+
         // App State
         const session = ref(null);
         const currentView = ref('dashboard');
@@ -120,6 +129,36 @@
         const linkedCases = ref([]);
         const newDefFormActive = ref(false);
         const usersList = ref([]);
+        const usersTab = ref('list');
+        const userSearchQuery = ref('');
+        const userRoleFilter = ref('all');
+        const userQuickFilter = ref('all');
+        const userSortBy = ref('login_desc');
+        const loginLogsList = ref([]);
+        const loginLogsLoading = ref(false);
+        const logUserFilter = ref('all');
+        const logTypeFilter = ref('all');
+        const editUserModalActive = ref(false);
+        const nowTickMs = ref(Date.now());
+        const webAppUrl = ref(localStorage.getItem('ccms_webapp_url') || '');
+        const clientTabId = 'tab_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        const editUserForm = reactive({
+          rowNum: '',
+          userId: '',
+          username: '',
+          email: '',
+          fullName: '',
+          position: '',
+          phone: '',
+          role: 'user',
+          isActive: 'yes',
+          isOnline: false,
+          offlineAt: '',
+          profileImage: '',
+          loginAt: '',
+          loginCount: 0,
+          createdAt: ''
+        });
         const counselorsList = ref([]);
         
         // Counselor controls
@@ -961,11 +1000,12 @@
         // Local Form States
         const loginForm = reactive({ usernameOrEmail: '', password: '' });
         const registerForm = reactive({ full_name: '', email: '', username: '', position: '', password: '' });
-        const forgotForm = reactive({ usernameOrEmail: '', newPassword: '' });
+        const forgotForm = reactive({ usernameOrEmail: '', otpCode: '', newPassword: '', confirmPassword: '', step: 1, maskedEmail: '' });
         
         const showPasswordLogin = ref(false);
         const showPasswordRegister = ref(false);
         const showPasswordForgot = ref(false);
+        const showPasswordForgotConfirm = ref(false);
         
         const defForm = reactive({
           citizen_id: '', title_name: 'นาย', first_name: '', last_name: '', nick_name: '',
@@ -990,17 +1030,212 @@
         });
 
         // ------------------ LINE OA NOTIFICATION MODULE STATES ------------------
-        const lineNotifyTab = ref('upcoming');
+        const lineNotifyTab = ref('inbox');
         const lineUpcomingDaysRange = ref(30);
         const lineUpcomingTypeFilter = ref('all');
         const lineOaUpcomingList = ref([]);
         const lineOaLogs = ref([]);
         const lineOaContacts = ref([]);
         const lineOaLoading = ref(false);
+        const lineUnreadList = ref([]);
+        const lineUnreadCount = ref(0);
+        const lineUnreadLoading = ref(false);
+        const lineLastClearedInfo = ref(null);
+        const lineKnownLatestMs = ref(0);
+        const lineUnreadBaselineReady = ref(false);
+        const lineOaModuleLoaded = ref(false);
+        const lineSoundEnabled = ref(localStorage.getItem('ccms_line_sound_enabled') !== 'false');
+        let lineAudioCtx = null;
+        let lineBaseDocTitle = '';
         const lineOaPublicConfig = reactive({
           oa_basic_id: '@012cryec',
           oa_bot_id: ''
         });
+
+        function canViewLineOaInbox() {
+          return !!(session.value && (session.value.role === 'admin' || session.value.role === 'psychologist'));
+        }
+
+        function updateLineTitleBadge(count) {
+          try {
+            if (!lineBaseDocTitle) {
+              lineBaseDocTitle = document.title.replace(/^\(\d+\+?\)\s*/, '');
+            }
+            document.title = count > 0
+              ? ('(' + (count > 99 ? '99+' : count) + ') ' + lineBaseDocTitle)
+              : lineBaseDocTitle;
+          } catch (e) {}
+        }
+
+        function saveLineLocalCache() {
+          try {
+            if (!canViewLineOaInbox()) return;
+            const safeCachedConfig = { ...lineOaConfigForm };
+            delete safeCachedConfig.channel_access_token;
+            delete safeCachedConfig.channel_secret;
+            localStorage.setItem('ccms_line_cache_v1', JSON.stringify({
+              unread: {
+                count: lineUnreadCount.value,
+                latestMs: lineKnownLatestMs.value,
+                items: lineUnreadList.value,
+                lastCleared: lineLastClearedInfo.value
+              },
+              module: lineOaModuleLoaded.value ? {
+                config: safeCachedConfig,
+                upcomingList: lineOaUpcomingList.value,
+                logs: lineOaLogs.value,
+                contacts: lineOaContacts.value
+              } : null
+            }));
+          } catch (e) {}
+        }
+
+        function hydrateLineLocalCache() {
+          try {
+            const raw = localStorage.getItem('ccms_line_cache_v1');
+            if (!raw) return;
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed.unread && Array.isArray(parsed.unread.items)) {
+              lineUnreadList.value = parsed.unread.items;
+              lineUnreadCount.value = Number(parsed.unread.count || parsed.unread.items.length || 0);
+              lineKnownLatestMs.value = Number(parsed.unread.latestMs || 0);
+              lineLastClearedInfo.value = parsed.unread.lastCleared || null;
+              updateLineTitleBadge(lineUnreadCount.value);
+            }
+            if (parsed && parsed.module) {
+              if (parsed.module.config) {
+                const cfgCopy = { ...parsed.module.config };
+                delete cfgCopy.channel_access_token;
+                delete cfgCopy.channel_secret;
+                Object.assign(lineOaConfigForm, cfgCopy);
+                lineOaPublicConfig.oa_basic_id = parsed.module.config.oa_basic_id || '@012cryec';
+                lineOaPublicConfig.oa_bot_id = parsed.module.config.oa_bot_id || '';
+              }
+              lineOaUpcomingList.value = parsed.module.upcomingList || [];
+              lineOaLogs.value = parsed.module.logs || [];
+              lineOaContacts.value = parsed.module.contacts || [];
+              lineOaModuleLoaded.value = true;
+            }
+          } catch (e) {}
+        }
+        hydrateLineLocalCache();
+
+        function resetLineOaClientState() {
+          lineUnreadList.value = [];
+          lineUnreadCount.value = 0;
+          lineLastClearedInfo.value = null;
+          lineKnownLatestMs.value = 0;
+          lineUnreadBaselineReady.value = false;
+          lineOaModuleLoaded.value = false;
+          lineOaUpcomingList.value = [];
+          lineOaLogs.value = [];
+          lineOaContacts.value = [];
+          lineOaConfigForm.channel_access_token = '';
+          lineOaConfigForm.channel_secret = '';
+          updateLineTitleBadge(0);
+          try {
+            localStorage.removeItem('ccms_line_cache_v1');
+          } catch (e) {}
+        }
+
+        function unlockLineAudioContext() {
+          try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return null;
+            if (!lineAudioCtx) {
+              lineAudioCtx = new AudioCtx();
+            }
+            if (lineAudioCtx.state === 'suspended') {
+              lineAudioCtx.resume().catch(() => {});
+            }
+            return lineAudioCtx;
+          } catch (e) {
+            return null;
+          }
+        }
+
+        if (typeof window !== 'undefined' && !window.__ccmsLineAudioUnlockBound) {
+          window.__ccmsLineAudioUnlockBound = true;
+          const onceUnlock = () => unlockLineAudioContext();
+          window.addEventListener('pointerdown', onceUnlock, { passive: true, once: true });
+          window.addEventListener('keydown', onceUnlock, { passive: true, once: true });
+        }
+
+        function playLineAlertChime(forcePlay = false) {
+          if (!forcePlay && !lineSoundEnabled.value) return;
+          try {
+            const ctx = unlockLineAudioContext();
+            if (!ctx) return;
+            const doPlay = () => {
+              const now = ctx.currentTime;
+              const notes = [
+                { freq: 587.33, start: 0, dur: 0.16, peak: 0.14 },
+                { freq: 880.00, start: 0.12, dur: 0.28, peak: 0.16 }
+              ];
+              notes.forEach(n => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(n.freq, now + n.start);
+                gain.gain.setValueAtTime(0.0001, now + n.start);
+                gain.gain.exponentialRampToValueAtTime(n.peak, now + n.start + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + n.start + n.dur);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now + n.start);
+                osc.stop(now + n.start + n.dur + 0.02);
+              });
+            };
+            if (ctx.state === 'suspended') {
+              ctx.resume().then(doPlay).catch(() => {});
+            } else {
+              doPlay();
+            }
+          } catch (e) {}
+        }
+
+        function toggleLineSound() {
+          lineSoundEnabled.value = !lineSoundEnabled.value;
+          try {
+            localStorage.setItem('ccms_line_sound_enabled', lineSoundEnabled.value ? 'true' : 'false');
+          } catch (e) {}
+          if (lineSoundEnabled.value) {
+            playLineAlertChime(true);
+          }
+        }
+
+        function syncLineUnreadSummary(summary, options = {}) {
+          if (!canViewLineOaInbox()) {
+            lineUnreadList.value = [];
+            lineUnreadCount.value = 0;
+            updateLineTitleBadge(0);
+            return;
+          }
+          if (!summary || typeof summary !== 'object') return;
+          const newCount = Number(summary.count || 0);
+          const newLatestMs = Number(summary.latestMs || 0);
+          const newItems = Array.isArray(summary.items) ? summary.items : [];
+
+          const isReady = lineUnreadBaselineReady.value === true;
+          const suppress = !!(options && options.suppressSound);
+          const hasNewIncoming = (newLatestMs > 0 && newLatestMs > lineKnownLatestMs.value) || (newCount > lineUnreadCount.value);
+          if (isReady && !suppress && hasNewIncoming && lineSoundEnabled.value) {
+            playLineAlertChime(false);
+          }
+          if (newLatestMs > lineKnownLatestMs.value) {
+            lineKnownLatestMs.value = newLatestMs;
+          }
+          if (Object.prototype.hasOwnProperty.call(summary, 'lastCleared')) {
+            lineLastClearedInfo.value = summary.lastCleared || null;
+          }
+          lineUnreadCount.value = newCount;
+          lineUnreadList.value = newItems;
+          if (!(options && options.keepBaselineUnset)) {
+            lineUnreadBaselineReady.value = true;
+          }
+          updateLineTitleBadge(newCount);
+          saveLineLocalCache();
+        }
         const lineOaConfigForm = reactive({
           oa_basic_id: '@012cryec',
           oa_bot_id: '',
@@ -1045,6 +1280,107 @@
         let pieChart = null;
         let trendLineChart = null;
 
+        // ------------------ ONLINE / OFFLINE PRESENCE & AUTO-IDLE LOGOUT ------------------
+        let presenceHeartbeatTimer = null;
+        let lastHeartbeatSentMs = 0;
+        let lastUnloadBeaconMs = 0;
+        let lastUserActivityMs = Date.now();
+        const AUTO_IDLE_LOGOUT_MS = 60 * 60 * 1000; // 60 นาที
+
+        function recordUserInteraction() {
+          const now = Date.now();
+          if (now - lastUserActivityMs > 5000) {
+            lastUserActivityMs = now;
+          }
+        }
+
+        function checkAutoIdleLogout() {
+          if (!session.value || !session.value.token) return false;
+          if ((Date.now() - lastUserActivityMs) > AUTO_IDLE_LOGOUT_MS) {
+            handleLogout();
+            authAlert.value = 'ออกจากระบบอัตโนมัติเนื่องจากไม่มีการใช้งานติดต่อกันเกิน 60 นาที เพื่อความปลอดภัยของข้อมูล';
+            return true;
+          }
+          return false;
+        }
+
+        function pingPresenceHeartbeat(force = false) {
+          if (!session.value || !session.value.token) return;
+          if (checkAutoIdleLogout()) return;
+          const nowMs = Date.now();
+          if (!force && (nowMs - lastHeartbeatSentMs) < 25000) return;
+          lastHeartbeatSentMs = nowMs;
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            try {
+              google.script.run
+                .withFailureHandler(() => {})
+                .withSuccessHandler((pRes) => {
+                  if (pRes && pRes.code === 'UNAUTHORIZED') {
+                    handleLogout();
+                    authAlert.value = 'เซสชันของคุณหมดอายุหรือถูกระงับสิทธิ์การเข้าใช้งาน โปรดเข้าสู่ระบบใหม่อีกครั้ง';
+                    return;
+                  }
+                  if (pRes && pRes.success) {
+                    if (pRes.currentRole && session.value && session.value.role !== pRes.currentRole) {
+                      session.value.role = pRes.currentRole;
+                      try {
+                        const savedUser = JSON.parse(localStorage.getItem('ccms_user_profile') || '{}');
+                        savedUser.role = pRes.currentRole;
+                        localStorage.setItem('ccms_user_profile', JSON.stringify(savedUser));
+                      } catch (e) {}
+                    }
+                    if (pRes.lineUnread && canViewLineOaInbox()) {
+                      syncLineUnreadSummary(pRes.lineUnread);
+                    }
+                  }
+                })
+                .pingUserPresence(session.value.token, clientTabId);
+            } catch (e) {}
+          }
+        }
+
+        function sendPresenceBeaconOffline(tokenOverride = null, forceOffline = false) {
+          const tok = tokenOverride || (session.value && session.value.token ? session.value.token : null);
+          const targetUrl = webAppUrl.value || localStorage.getItem('ccms_webapp_url') || '';
+          if (!tok || !targetUrl || typeof navigator === 'undefined' || typeof navigator.sendBeacon !== 'function') return;
+          const nowMs = Date.now();
+          // กัน pagehide + beforeunload ยิงซ้ำภายใน 1.5 วินาที
+          if (!forceOffline && (nowMs - lastUnloadBeaconMs) < 1500) return;
+          lastUnloadBeaconMs = nowMs;
+          try {
+            const payload = JSON.stringify({
+              ccmsAction: 'presence_offline',
+              token: tok,
+              tabId: clientTabId,
+              force: !!forceOffline
+            });
+            const blob = new Blob([payload], { type: 'text/plain;charset=UTF-8' });
+            navigator.sendBeacon(targetUrl, blob);
+          } catch (e) {}
+        }
+
+        function startPresenceTracking() {
+          stopPresenceTracking();
+          lastHeartbeatSentMs = Date.now();
+          lastUserActivityMs = Date.now();
+          presenceHeartbeatTimer = setInterval(() => {
+            if (!session.value || !session.value.token) return;
+            if (checkAutoIdleLogout()) return;
+            pingPresenceHeartbeat(true);
+            if (currentView.value === 'users' && usersTab.value === 'list' &&
+                session.value.role === 'admin' && document.visibilityState === 'visible') {
+              loadUsersList(true);
+            }
+          }, 45000);
+        }
+
+        function stopPresenceTracking() {
+          if (presenceHeartbeatTimer) {
+            clearInterval(presenceHeartbeatTimer);
+            presenceHeartbeatTimer = null;
+          }
+        }
+
         // Wake up handler to refresh app state on mobile tab active
         let lastFocusTime = Date.now();
         function handleWakeUpRefresh() {
@@ -1052,7 +1388,12 @@
           if (now - lastFocusTime > 5000) {
             lastFocusTime = now;
             if (session.value && session.value.token) {
+              if (checkAutoIdleLogout()) return;
+              pingPresenceHeartbeat(false);
               loadInitialAppState(false);
+              if (currentView.value === 'users' && usersTab.value === 'list' && session.value.role === 'admin') {
+                loadUsersList(true);
+              }
             }
           }
         }
@@ -1060,6 +1401,9 @@
         // Startup Hooks
         onMounted(() => {
           checkSavedSession();
+          ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'].forEach((evName) => {
+            window.addEventListener(evName, recordUserInteraction, { passive: true });
+          });
           
           // Case Info Autocomplete Click Outside Handler
           document.addEventListener('click', (e) => {
@@ -1180,13 +1524,20 @@
           window.addEventListener('resize', updateReportZoom);
           updateReportZoom();
 
-          // wake up listeners (iOS Safari suspended tab resumption handler)
+          // wake up listeners & real-time online/offline presence tracking
           window.addEventListener('focus', handleWakeUpRefresh);
           document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
               handleWakeUpRefresh();
             }
           });
+          window.addEventListener('pagehide', () => {
+            sendPresenceBeaconOffline(null, false);
+          });
+          window.addEventListener('beforeunload', () => {
+            sendPresenceBeaconOffline(null, false);
+          });
+          startPresenceTracking();
 
           // ลงทะเบียน Touch Events สำหรับการจีบนิ้วย่อขยายหน้าจอแดชบอร์ดหลักที่ระดับ window
           window.addEventListener('touchstart', handleDashTouchStart, { passive: true });
@@ -1251,6 +1602,11 @@
                     isOffline.value = false;
                     
                     applyAppState(res);
+                    if (res.lineUnread && canViewLineOaInbox()) {
+                      syncLineUnreadSummary(res.lineUnread, { suppressSound: true });
+                    } else if (!canViewLineOaInbox()) {
+                      resetLineOaClientState();
+                    }
                     if (currentView.value === 'case_info' && caseInfoData.cases.length === 0) {
                       loadCaseInfoModule(true); // โหลดข้อมูลคดีเฉพาะครั้งแรก เพื่อป้องกันการรีเฟรชรบกวนหน้าจอที่ผู้ใช้กำลังดูอยู่
                     }
@@ -1265,7 +1621,7 @@
                   errorMsg.value = "เกิดข้อผิดพลาดในการโหลดข้อมูลเริ่มต้นจากระบบคลาวด์";
                   isOffline.value = true;
                 })
-                .getInitialAppState(cleanStart, cleanEnd, session.value.token);
+                .getInitialAppState(cleanStart, cleanEnd, session.value.token, clientTabId);
               return true;
             }
             return false;
@@ -1346,6 +1702,10 @@
         }
 
         function applyAppState(res) {
+          if (res.webAppUrl) {
+            webAppUrl.value = res.webAppUrl;
+            localStorage.setItem('ccms_webapp_url', res.webAppUrl);
+          }
           if (res.dashboard) {
             updateDashboardUI(res.dashboard);
           }
@@ -1439,6 +1799,11 @@
                 if (res.success) {
                   session.value = res.user;
                   session.value.token = res.token;
+                  if (res.webAppUrl) {
+                    webAppUrl.value = res.webAppUrl;
+                    localStorage.setItem('ccms_webapp_url', res.webAppUrl);
+                  }
+                  startPresenceTracking();
                   
                   localStorage.setItem('ccms_session_token', JSON.stringify(res.token));
                   localStorage.setItem('ccms_user_profile', JSON.stringify(res.user));
@@ -1456,14 +1821,104 @@
                 loading.value = false;
                 authAlert.value = "ขณะนี้แหล่งข้อมูลขัดข้อง โปรดตรวจสอบใหม่อีกครั้งในภายหลัง";
               })
-              .loginUser(loginForm.usernameOrEmail, loginForm.password);
+              .loginUser(loginForm.usernameOrEmail, loginForm.password, clientTabId);
           } else {
             // Mock โหมดทดสอบสำหรับออฟไลน์ (Offline Fallback Simulator)
             simulateOfflineLogin();
           }
         }
 
+        function openForgotPasswordView() {
+          authAlert.value = '';
+          forgotForm.step = 1;
+          forgotForm.otpCode = '';
+          forgotForm.newPassword = '';
+          forgotForm.confirmPassword = '';
+          forgotForm.maskedEmail = '';
+          if (loginForm.usernameOrEmail && !forgotForm.usernameOrEmail) {
+            forgotForm.usernameOrEmail = loginForm.usernameOrEmail;
+          }
+          authView.value = 'forgot';
+        }
+
+        function showMailAuthPermissionDialog() {
+          const scriptEditorUrl = 'https://script.google.com/home/projects/1uqMKZv-lGcHkPMUbltjOOc6k1l1TqB5VurzzlHDxS_z_UXPhK09pU5IO/edit';
+          if (typeof Swal !== 'undefined') {
+            Swal.fire({
+              icon: 'warning',
+              title: 'ต้องกดอนุญาตสิทธิ์ส่งอีเมล (MailApp) 1 ครั้ง',
+              html: '<div style="text-align:left;font-size:0.88rem;line-height:1.65;">' +
+                    'เนื่องจากระบบเพิ่มความสามารถส่งรหัส OTP 6 หลักทางอีเมลฟรี ให้เจ้าของระบบกดอนุญาตสิทธิ์ใน Google Apps Script <b>เพียง 1 ครั้ง</b>:<br><br>' +
+                    '1. คลิกปุ่ม <b>"เปิดหน้า Google Apps Script"</b> ด้านล่าง<br>' +
+                    '2. เลือกฟังก์ชัน <code>authorizeLineOaPermissions</code> ที่แถบด้านบน แล้วคลิก <b>"▷ เรียกใช้ (Run)"</b><br>' +
+                    '3. คลิก <b>ตรวจสอบสิทธิ์ (Review permissions)</b> &rarr; เลือกบัญชี Google &rarr; <b>ขั้นสูง</b> &rarr; <b>อนุญาต (Allow)</b></div>',
+              showCancelButton: true,
+              confirmButtonColor: '#4f46e5',
+              confirmButtonText: 'เปิดหน้า Google Apps Script',
+              cancelButtonText: 'ปิด'
+            }).then((r) => {
+              if (r.isConfirmed) window.open(scriptEditorUrl, '_blank', 'noopener,noreferrer');
+            });
+          }
+        }
+
+        function handleRequestResetOtp() {
+          if (!forgotForm.usernameOrEmail || !forgotForm.usernameOrEmail.trim()) {
+            authAlert.value = 'กรุณากรอกอีเมลหรือชื่อผู้ใช้งาน';
+            return;
+          }
+          loading.value = true;
+          authAlert.value = '';
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res && res.success) {
+                  forgotForm.step = 2;
+                  forgotForm.maskedEmail = res.maskedEmail || 'อีเมลที่ลงทะเบียนไว้';
+                  forgotForm.otpCode = '';
+                } else {
+                  if (res && res.needsMailAuth) {
+                    showMailAuthPermissionDialog();
+                  }
+                  authAlert.value = (res && res.message) ? res.message : 'ไม่สามารถส่งรหัส OTP ได้';
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                const errStr = err ? (err.message || err.toString()) : '';
+                if (/Authorization|permission|script\.send_mail|MailApp|สิทธิ์/i.test(errStr)) {
+                  showMailAuthPermissionDialog();
+                  authAlert.value = 'ระบบยังไม่ได้รับอนุญาตสิทธิ์ส่งอีเมล (MailApp) ใน Google Apps Script โปรดให้แอดมินกดยืนยันสิทธิ์ 1 ครั้งก่อนใช้งาน';
+                } else {
+                  authAlert.value = errStr
+                    ? ('ไม่สามารถเชื่อมต่อส่งรหัส OTP ได้: ' + errStr)
+                    : 'ขณะนี้แหล่งข้อมูลขัดข้อง โปรดตรวจสอบใหม่อีกครั้งในภายหลัง';
+                }
+              })
+              .requestPasswordResetOtp(forgotForm.usernameOrEmail.trim());
+          } else {
+            setTimeout(() => {
+              loading.value = false;
+              forgotForm.step = 2;
+              forgotForm.maskedEmail = 'te***@example.com';
+            }, 500);
+          }
+        }
+
         function handleForgotPassword() {
+          if (forgotForm.step !== 2) {
+            handleRequestResetOtp();
+            return;
+          }
+          if (!forgotForm.newPassword || forgotForm.newPassword.length < 8) {
+            authAlert.value = 'รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 8 ตัวอักษร';
+            return;
+          }
+          if (forgotForm.newPassword !== forgotForm.confirmPassword) {
+            authAlert.value = 'รหัสผ่านใหม่และการยืนยันรหัสผ่านไม่ตรงกัน โปรดตรวจสอบอีกครั้ง';
+            return;
+          }
           loading.value = true;
           authAlert.value = '';
           
@@ -1471,25 +1926,29 @@
             google.script.run
               .withSuccessHandler((res) => {
                 loading.value = false;
-                if (res.success) {
+                if (res && res.success) {
                   authView.value = 'login';
                   Swal.fire({
                     icon: 'success',
-                    title: 'รีเซ็ทรหัสผ่านสำเร็จ',
+                    title: 'ตั้งรหัสผ่านใหม่สำเร็จ',
                     text: res.message,
                     confirmButtonColor: '#7c3aed'
                   });
                   forgotForm.usernameOrEmail = '';
+                  forgotForm.otpCode = '';
                   forgotForm.newPassword = '';
+                  forgotForm.confirmPassword = '';
+                  forgotForm.step = 1;
+                  forgotForm.maskedEmail = '';
                 } else {
-                  authAlert.value = res.message;
+                  authAlert.value = (res && res.message) ? res.message : 'ไม่สามารถตั้งรหัสผ่านใหม่ได้';
                 }
               })
-              .withFailureHandler((err) => {
+              .withFailureHandler(() => {
                 loading.value = false;
                 authAlert.value = "ขณะนี้แหล่งข้อมูลขัดข้อง โปรดตรวจสอบใหม่อีกครั้งในภายหลัง";
               })
-              .resetUserPassword(forgotForm.usernameOrEmail, forgotForm.newPassword);
+              .verifyOtpAndResetPassword(forgotForm.usernameOrEmail, forgotForm.otpCode, forgotForm.newPassword);
           } else {
             // Mock โหมดทดสอบสำหรับออฟไลน์
             setTimeout(() => {
@@ -1502,7 +1961,11 @@
                 confirmButtonColor: '#7c3aed'
               });
               forgotForm.usernameOrEmail = '';
+              forgotForm.otpCode = '';
               forgotForm.newPassword = '';
+              forgotForm.confirmPassword = '';
+              forgotForm.step = 1;
+              forgotForm.maskedEmail = '';
             }, 1000);
           }
         }
@@ -1517,7 +1980,16 @@
                 loading.value = false;
                 if (res.success) {
                   authView.value = 'login';
-                  alert(res.message);
+                  if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                      icon: 'success',
+                      title: 'ลงทะเบียนสำเร็จ (รออนุมัติ)',
+                      text: res.message,
+                      confirmButtonColor: '#7c3aed'
+                    });
+                  } else {
+                    alert(res.message);
+                  }
                   registerForm.full_name = '';
                   registerForm.email = '';
                   registerForm.username = '';
@@ -1527,7 +1999,7 @@
                   authAlert.value = res.message;
                 }
               })
-              .withFailureHandler((err) => {
+              .withFailureHandler(() => {
                 loading.value = false;
                 authAlert.value = "ขณะนี้แหล่งข้อมูลขัดข้อง โปรดตรวจสอบใหม่อีกครั้งในภายหลัง";
               })
@@ -1539,11 +2011,39 @@
         }
 
         function handleLogout() {
+          const tokenToLogout = session.value && session.value.token ? session.value.token : null;
+          if (tokenToLogout) {
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+              try {
+                google.script.run
+                  .withFailureHandler(() => {})
+                  .logoutUser(tokenToLogout);
+              } catch (e) {}
+            } else {
+              sendPresenceBeaconOffline(tokenToLogout, true);
+            }
+          }
+          stopPresenceTracking();
+          resetLineOaClientState();
           session.value = null;
+          defendantsList.value = [];
+          currentDef.value = null;
+          linkedCases.value = [];
+          caseInfoData.cases = [];
+          caseInfoData.appointments = [];
+          caseInfoData.conditions = [];
+          caseInfoData.activities = [];
+          appointments.value = [];
+          dashboardAllAppointments.value = [];
+          usersList.value = [];
+          loginLogsList.value = [];
+          counselorsList.value = [];
           localStorage.removeItem('ccms_session_token');
           localStorage.removeItem('ccms_user_profile');
           localStorage.removeItem('ccms_app_state');
           localStorage.removeItem('ccms_cache_dashboard');
+          localStorage.removeItem('ccms_cache_time');
+          localStorage.removeItem('ccms_line_cache_v1');
           currentView.value = 'dashboard';
           searchDone.value = false;
           searchId.value = '';
@@ -2234,7 +2734,9 @@
             }
           } else if (viewName === 'users') {
             if (usersList.value.length === 0) {
-              loadUsersList();
+              loadUsersList(false);
+            } else {
+              loadUsersList(true);
             }
           } else if (viewName === 'counselors') {
             if (counselorsList.value.length === 0) {
@@ -2256,10 +2758,15 @@
           } else if (viewName === 'monthly_report') {
             loadMonthlyReport();
           } else if (viewName === 'line_notify') {
-            if (lineOaUpcomingList.value.length === 0 && lineOaContacts.value.length === 0) {
+            if (lineUnreadCount.value > 0 && lineNotifyTab.value !== 'inbox') {
+              lineNotifyTab.value = 'inbox';
+            }
+            if (lineNotifyTab.value === 'inbox') {
+              loadLineUnreadInbox(true, false);
+            } else if (!lineOaModuleLoaded.value || (lineOaUpcomingList.value.length === 0 && lineOaContacts.value.length === 0)) {
               loadLineOaModule();
             } else {
-              loadLineOaModule(true); // ดึงข้อมูลล่าสุดเบื้องหลังเงียบๆ (Stale-While-Revalidate) เหมือนฟังก์ชันเด็กและเยาวชน
+              loadLineOaModule(true);
             }
           }
         }
@@ -2593,6 +3100,17 @@
           if (r === 'director') return 'ผู้อำนวยการ (Director)';
           if (r === 'counselor' || r === 'teacher') return 'ผู้ให้คำปรึกษา (Counselor)';
           if (r === 'user') return 'ผู้ใช้งานทั่วไป (User)';
+          return role;
+        }
+
+        function getRoleShortLabel(role) {
+          if (!role) return "";
+          const r = role.toString().toLowerCase();
+          if (r === 'admin') return 'ผู้ดูแลระบบ';
+          if (r === 'psychologist') return 'นักจิตวิทยา';
+          if (r === 'director') return 'ผอ.ศูนย์';
+          if (r === 'counselor' || r === 'teacher') return 'ผู้ให้คำปรึกษา';
+          if (r === 'user') return 'ผู้ใช้ทั่วไป';
           return role;
         }
 
@@ -3093,36 +3611,593 @@
           }
         }
 
-        function loadUsersList() {
-          if (typeof google !== 'undefined' && google.script && google.script.run) {
-            google.script.run
-              .withSuccessHandler((res) => {
-                if (res.success) {
-                  usersList.value = res.users;
-                  updateCacheField('users', res.users);
-                }
-              })
-              .adminGetUsers(session.value.token);
+        function parseTimestampSafe(val) {
+          if (!val) return null;
+          if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+          const str = String(val).trim();
+          if (!str) return null;
+          const d = new Date(str);
+          if (!isNaN(d.getTime())) return d;
+          const m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:[\sT]+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+          if (m) {
+            let y = parseInt(m[3], 10);
+            if (y > 2400) y -= 543;
+            const parsed = new Date(y, parseInt(m[2], 10) - 1, parseInt(m[1], 10), m[4] ? parseInt(m[4], 10) : 0, m[5] ? parseInt(m[5], 10) : 0, m[6] ? parseInt(m[6], 10) : 0);
+            return isNaN(parsed.getTime()) ? null : parsed;
+          }
+          return null;
+        }
+
+        function getBangkokDateParts(dateObj) {
+          if (!dateObj || isNaN(dateObj.getTime())) return null;
+          try {
+            const parts = new Intl.DateTimeFormat('en-GB', {
+              timeZone: 'Asia/Bangkok',
+              year: 'numeric',
+              month: 'numeric',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false
+            }).formatToParts(dateObj);
+            const map = {};
+            parts.forEach((p) => { map[p.type] = p.value; });
+            return {
+              year: parseInt(map.year, 10),
+              month: parseInt(map.month, 10),
+              day: parseInt(map.day, 10),
+              hour: map.hour === '24' ? '00' : map.hour,
+              minute: map.minute
+            };
+          } catch (e) {
+            return {
+              year: dateObj.getFullYear(),
+              month: dateObj.getMonth() + 1,
+              day: dateObj.getDate(),
+              hour: ('0' + dateObj.getHours()).slice(-2),
+              minute: ('0' + dateObj.getMinutes()).slice(-2)
+            };
           }
         }
 
-        function handleUpdateUserByAdmin(u) {
+        function formatFullThaiDateTime(val) {
+          const d = parseTimestampSafe(val);
+          if (!d) return val ? String(val) : '-';
+          const p = getBangkokDateParts(d);
+          if (!p) return '-';
+          const mName = thaiMonthsShort[p.month - 1] || '';
+          const beYear = p.year < 2400 ? p.year + 543 : p.year;
+          return `${p.day} ${mName} ${beYear} • ${p.hour}:${p.minute} น.`;
+        }
+
+        function formatShortThaiDate(val) {
+          const d = parseTimestampSafe(val);
+          if (!d) return val ? String(val) : '-';
+          const p = getBangkokDateParts(d);
+          if (!p) return '-';
+          const mName = thaiMonthsShort[p.month - 1] || '';
+          const beYear = p.year < 2400 ? p.year + 543 : p.year;
+          return `${p.day} ${mName} ${beYear}`;
+        }
+
+        function formatCompactThaiDateTime(val) {
+          const d = parseTimestampSafe(val);
+          if (!d) return '';
+          const p = getBangkokDateParts(d);
+          if (!p) return '';
+          const mName = thaiMonthsShort[p.month - 1] || '';
+          return `${p.day} ${mName} ${p.hour}:${p.minute}`;
+        }
+
+        function isSameBangkokDay(val, refDate) {
+          const d = parseTimestampSafe(val);
+          if (!d) return false;
+          const p1 = getBangkokDateParts(d);
+          const p2 = getBangkokDateParts(refDate || new Date());
+          return !!(p1 && p2 && p1.year === p2.year && p1.month === p2.month && p1.day === p2.day);
+        }
+
+        function formatRelativeThaiTime(val) {
+          const d = parseTimestampSafe(val);
+          if (!d) return 'ยังไม่เคยเข้าสู่ระบบ';
+          const now = new Date();
+          const diffMs = now.getTime() - d.getTime();
+          if (diffMs < 60000) return 'เพิ่งเข้าใช้งาน (<1 นาที)';
+          if (diffMs < 3600000) return `${Math.floor(diffMs / 60000)} นาทีที่แล้ว`;
+          if (isSameBangkokDay(d, now)) {
+            return `วันนี้ • ${Math.floor(diffMs / 3600000)} ชม. ที่แล้ว`;
+          }
+          const yesterday = new Date(now.getTime() - 86400000);
+          if (isSameBangkokDay(d, yesterday)) {
+            return 'เมื่อวานนี้';
+          }
+          const diffDays = Math.floor(diffMs / 86400000);
+          if (diffDays <= 30) return `${diffDays} วันที่แล้ว`;
+          const diffMonths = Math.floor(diffDays / 30);
+          return `${diffMonths} เดือนที่แล้ว`;
+        }
+
+        function getLoginRecencyPillClass(val) {
+          const d = parseTimestampSafe(val);
+          if (!d) return 'pill-never';
+          const now = new Date();
+          if (isSameBangkokDay(d, now)) return 'pill-today';
+          const diffDays = (now.getTime() - d.getTime()) / 86400000;
+          if (diffDays <= 7) return 'pill-recent';
+          return 'pill-old';
+        }
+
+        function formatOfflineDuration(val) {
+          const d = parseTimestampSafe(val);
+          if (!d) return 'ไม่ระบุเวลา';
+          const diffMs = Math.max(0, nowTickMs.value - d.getTime());
+          const diffMin = Math.floor(diffMs / 60000);
+          if (diffMin < 1) return 'เมื่อสักครู่';
+          if (diffMin < 60) return `${diffMin} นาทีที่แล้ว`;
+          const diffHr = Math.floor(diffMin / 60);
+          if (diffHr < 24) return `${diffHr} ชั่วโมงที่แล้ว`;
+          const diffDays = Math.floor(diffHr / 24);
+          return `${diffDays} วันที่แล้ว`;
+        }
+
+        function getUserPresenceClass(u) {
+          if (!u || String(u.isActive).toLowerCase() !== 'yes') return 'presence-blocked';
+          if (u.isOnline) return 'presence-online';
+          if (!u.loginAt) return 'presence-never';
+          return 'presence-offline';
+        }
+
+        function getUserPresenceTooltip(u) {
+          if (!u || String(u.isActive).toLowerCase() !== 'yes') return 'สถานะ: ถูกจำกัด/รออนุมัติสิทธิ์';
+          if (u.isOnline) return 'สถานะ: ออนไลน์อยู่ในระบบ';
+          if (!u.loginAt) return 'สถานะ: ยังไม่เคยเข้าสู่ระบบ';
+          return 'สถานะ: ออฟไลน์ (' + formatOfflineDuration(u.offlineAt || u.loginAt) + ')';
+        }
+
+        function getUserInitials(nameOrEmail) {
+          const raw = (nameOrEmail || '?').toString().trim();
+          const cleaned = raw.replace(/^(ว่าที่\s*ร\.ต\.|น\.ส\.|ด\.ช\.|ด\.ญ\.|นางสาว|นาย|นาง|คุณ)\s*/i, '').trim();
+          const words = cleaned.split(/\s+/).filter(Boolean);
+          const pickCluster = (w) => {
+            const m = w.match(/^[เแโใไ]?[\u0E01-\u0E2E]|[A-Za-z0-9]/);
+            return m ? m[0].toUpperCase() : w.charAt(0).toUpperCase();
+          };
+          if (words.length >= 2) {
+            return pickCluster(words[0]) + pickCluster(words[words.length - 1]);
+          }
+          if (cleaned.indexOf('@') !== -1) {
+            return cleaned.slice(0, 2).toUpperCase();
+          }
+          return pickCluster(cleaned);
+        }
+
+        const avatarPalette = [
+          'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
+          'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+          'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)',
+          'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+          'linear-gradient(135deg, #db2777 0%, #f43f5e 100%)',
+          'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)',
+          'linear-gradient(135deg, #0d9488 0%, #14b8a6 100%)',
+          'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)'
+        ];
+
+        function getUserAvatarColor(seedStr) {
+          const s = (seedStr || '').toString();
+          let hash = 0;
+          for (let i = 0; i < s.length; i++) {
+            hash = ((hash << 5) - hash) + s.charCodeAt(i);
+            hash |= 0;
+          }
+          return avatarPalette[Math.abs(hash) % avatarPalette.length];
+        }
+
+        function getRoleBadgeClass(role) {
+          const r = (role || '').toString().toLowerCase();
+          if (r === 'admin') return 'badge-danger';
+          if (r === 'psychologist' || r === 'director') return 'badge-accent';
+          if (r === 'counselor' || r === 'teacher') return 'badge-primary';
+          return 'badge-warning';
+        }
+
+
+
+        const usersStats = computed(() => {
+          const list = usersList.value || [];
+          const now = new Date(nowTickMs.value);
+          let admins = 0, active = 0, blocked = 0, onlineNow = 0, loggedInToday = 0, loggedIn7Days = 0, neverLoggedIn = 0;
+          list.forEach((u) => {
+            if ((u.role || '').toLowerCase() === 'admin') admins++;
+            if ((u.isActive || '').toLowerCase() === 'yes') active++;
+            else blocked++;
+            if (u.isOnline) onlineNow++;
+            const d = parseTimestampSafe(u.loginAt);
+            if (!d) {
+              neverLoggedIn++;
+            } else {
+              if (isSameBangkokDay(d, now)) loggedInToday++;
+              if ((now.getTime() - d.getTime()) / 86400000 <= 7) loggedIn7Days++;
+            }
+          });
+          return {
+            total: list.length,
+            admins,
+            active,
+            blocked,
+            onlineNow,
+            loggedInToday,
+            loggedIn7Days,
+            neverLoggedIn
+          };
+        });
+
+        const filteredUsersList = computed(() => {
+          const q = (userSearchQuery.value || '').trim().toLowerCase();
+          const roleF = userRoleFilter.value;
+          const quickF = userQuickFilter.value;
+          const now = new Date(nowTickMs.value);
+
+          const list = (usersList.value || []).filter((u) => {
+            if (q) {
+              const hay = [u.userId, u.fullName, u.email, u.position, u.username, u.phone]
+                .map((x) => String(x || '').toLowerCase())
+                .join(' ');
+              if (hay.indexOf(q) === -1) return false;
+            }
+            if (roleF !== 'all' && (u.role || '').toLowerCase() !== roleF) return false;
+
+            const isAct = (u.isActive || '').toLowerCase() === 'yes';
+            const d = parseTimestampSafe(u.loginAt);
+            if (quickF === 'online' && !u.isOnline) return false;
+            if (quickF === 'offline' && !!u.isOnline) return false;
+            if (quickF === 'active' && !isAct) return false;
+            if (quickF === 'blocked' && isAct) return false;
+            if (quickF === 'today' && !isSameBangkokDay(d, now)) return false;
+            if (quickF === 'recent7d' && (!d || (now.getTime() - d.getTime()) / 86400000 > 7)) return false;
+            if (quickF === 'never' && !!d) return false;
+            return true;
+          });
+
+          const sorted = list.slice();
+          if (userSortBy.value === 'login_desc') {
+            sorted.sort((a, b) => {
+              const aOn = a.isOnline ? 1 : 0;
+              const bOn = b.isOnline ? 1 : 0;
+              if (bOn !== aOn) return bOn - aOn;
+              const da = parseTimestampSafe(a.isOnline ? a.loginAt : (a.offlineAt || a.loginAt));
+              const db = parseTimestampSafe(b.isOnline ? b.loginAt : (b.offlineAt || b.loginAt));
+              const ma = da ? da.getTime() : 0;
+              const mb = db ? db.getTime() : 0;
+              if (mb !== ma) return mb - ma;
+              return (parseFloat(a.userId) || 999999) - (parseFloat(b.userId) || 999999);
+            });
+          } else if (userSortBy.value === 'id_asc') {
+            sorted.sort((a, b) => (parseFloat(a.userId) || 999999) - (parseFloat(b.userId) || 999999));
+          } else if (userSortBy.value === 'name_asc') {
+            sorted.sort((a, b) => String(a.fullName || '').localeCompare(String(b.fullName || ''), 'th'));
+          }
+          return sorted;
+        });
+
+        const filteredLoginLogs = computed(() => {
+          return (loginLogsList.value || []).filter((lg) => {
+            if (logUserFilter.value !== 'all' && String(lg.userId) !== String(logUserFilter.value)) return false;
+            if (logTypeFilter.value !== 'all' && (lg.loginType || '').toLowerCase() !== logTypeFilter.value) return false;
+            return true;
+          });
+        });
+
+        function setUserQuickFilter(val) {
+          userQuickFilter.value = (userQuickFilter.value === val && val !== 'all') ? 'all' : val;
+          usersTab.value = 'list';
+        }
+
+        function resetUserFilters() {
+          userSearchQuery.value = '';
+          userRoleFilter.value = 'all';
+          userQuickFilter.value = 'all';
+        }
+
+        function switchUsersTab(tabName) {
+          usersTab.value = tabName;
+          if (tabName === 'logs' && loginLogsList.value.length === 0) {
+            loadLoginLogs(false);
+          }
+        }
+
+        function refreshUsersModule() {
+          loadUsersList(false);
+          if (usersTab.value === 'logs') {
+            loadLoginLogs(true);
+          }
+        }
+
+        function simulateOfflineUsers() {
+          const nowIso = new Date().toISOString();
+          const twelveMinsAgo = new Date(Date.now() - 12 * 60000).toISOString();
+          const twoHoursAgo = new Date(Date.now() - 2 * 3600000).toISOString();
+          const threeDaysAgo = new Date(Date.now() - 3 * 86400000).toISOString();
+          const mock = [
+            { rowNum: 2, userId: 1, username: 'admin', email: 'a.coptzerom@gmail.com', fullName: 'นายกำพล กวีพิชชาพัชร', position: 'นักจิตวิทยาชำนาญการ', phone: '081-234-5678', role: 'admin', isActive: 'yes', isOnline: true, offlineAt: '', loginAt: nowIso, loginCount: 28, createdAt: '2026-06-01T08:30:00+07:00', profileImage: '' },
+            { rowNum: 3, userId: 2, username: 'ati', email: 'laaoorigfoon@hotmail.com', fullName: 'Ati', position: 'Psy', phone: '', role: 'psychologist', isActive: 'yes', isOnline: false, offlineAt: twelveMinsAgo, loginAt: twoHoursAgo, loginCount: 15, createdAt: '2026-06-05T09:00:00+07:00', profileImage: '' },
+            { rowNum: 4, userId: 7, username: 'ccpapong', email: 'ccpapong@gmail.com', fullName: 'ชัยปพงศ์ ไทยเพชร์กุล', position: 'ผู้พิพากษาสมทบ', phone: '', role: 'counselor', isActive: 'yes', isOnline: false, offlineAt: threeDaysAgo, loginAt: threeDaysAgo, loginCount: 6, createdAt: '2026-06-15T10:15:00+07:00', profileImage: '' },
+            { rowNum: 5, userId: 8, username: 'freebird', email: 'freebird665@gmail.com', fullName: 'นายทิวา นาเจริญกุล', position: 'ผู้พิพากษาสมทบ', phone: '', role: 'counselor', isActive: 'yes', isOnline: false, offlineAt: '', loginAt: '', loginCount: 0, createdAt: '2026-07-02T11:00:00+07:00', profileImage: '' }
+          ];
+          usersList.value = mock;
+        }
+
+        function loadUsersList(silent = false) {
+          if (!session.value || !session.value.token) {
+            if (!silent) loading.value = false;
+            return;
+          }
+          if (!silent) loading.value = true;
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                if (!silent) loading.value = false;
+                if (res && res.success) {
+                  const fresh = res.users || [];
+                  usersList.value = fresh;
+                  if (editUserModalActive.value) {
+                    const cur = fresh.find((item) => String(item.rowNum || item.userId) === String(editUserForm.rowNum || editUserForm.userId));
+                    if (cur) {
+                      editUserForm.isOnline = !!cur.isOnline;
+                      editUserForm.offlineAt = cur.offlineAt || '';
+                      editUserForm.loginAt = cur.loginAt || '';
+                      editUserForm.loginCount = cur.loginCount || 0;
+                    }
+                  }
+                  updateCacheField('users', fresh);
+                } else if (res && res.message && !silent) {
+                  Swal.fire({ icon: 'error', title: 'ไม่สามารถดึงรายชื่อสมาชิก', text: res.message, confirmButtonColor: '#ef4444' });
+                }
+              })
+              .withFailureHandler(() => {
+                if (!silent) loading.value = false;
+              })
+              .adminGetUsers(session.value.token);
+          } else {
+            if (!silent) loading.value = false;
+            simulateOfflineUsers();
+          }
+        }
+
+        function loadLoginLogs(forceCleanup = false) {
+          loginLogsLoading.value = true;
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loginLogsLoading.value = false;
+                if (res && res.success) {
+                  loginLogsList.value = res.logs || [];
+                } else if (res && res.message) {
+                  Swal.fire({ icon: 'error', title: 'ดึงประวัติการเข้าสู่ระบบไม่สำเร็จ', text: res.message, confirmButtonColor: '#ef4444' });
+                }
+              })
+              .withFailureHandler(() => {
+                loginLogsLoading.value = false;
+                Swal.fire({ icon: 'error', title: 'เชื่อมต่อไม่สำเร็จ', text: 'ไม่สามารถเชื่อมต่อเพื่อดึงประวัติการเข้าสู่ระบบได้', confirmButtonColor: '#ef4444' });
+              })
+              .adminGetLoginLogs(session.value.token, !!forceCleanup);
+          } else {
+            loginLogsLoading.value = false;
+            loginLogsList.value = [
+              { logId: 'LG-MOCK-1', userId: '1', fullName: 'นายกำพล กวีพิชชาพัชร', email: 'a.coptzerom@gmail.com', role: 'admin', loginType: 'password', loginAt: new Date().toISOString() },
+              { logId: 'LG-MOCK-2', userId: '2', fullName: 'Ati', email: 'laaoorigfoon@hotmail.com', role: 'psychologist', loginType: 'session', loginAt: new Date(Date.now() - 2 * 3600000).toISOString() }
+            ];
+          }
+        }
+
+        function viewUserLoginHistory(u) {
+          logUserFilter.value = String(u.userId);
+          logTypeFilter.value = 'all';
+          usersTab.value = 'logs';
+          loadLoginLogs(false);
+        }
+
+        function openEditUserModal(u) {
+          editUserForm.rowNum = u.rowNum || '';
+          editUserForm.userId = u.userId ?? '';
+          editUserForm.username = u.username || '';
+          editUserForm.email = u.email || '';
+          editUserForm.fullName = u.fullName || '';
+          editUserForm.position = u.position || '';
+          editUserForm.phone = u.phone || '';
+          editUserForm.role = u.role || 'user';
+          editUserForm.isActive = u.isActive || 'yes';
+          editUserForm.isOnline = !!u.isOnline;
+          editUserForm.offlineAt = u.offlineAt || '';
+          editUserForm.profileImage = u.profileImage || '';
+          editUserForm.loginAt = u.loginAt || '';
+          editUserForm.loginCount = u.loginCount || 0;
+          editUserForm.createdAt = u.createdAt || '';
+          editUserModalActive.value = true;
+        }
+
+        function closeEditUserModal() {
+          editUserModalActive.value = false;
+        }
+
+        function saveEditUserModal() {
           loading.value = true;
+          const payload = {
+            rowNum: editUserForm.rowNum,
+            userId: editUserForm.userId,
+            username: editUserForm.username,
+            fullName: editUserForm.fullName,
+            position: editUserForm.position,
+            phone: editUserForm.phone,
+            role: editUserForm.role,
+            isActive: editUserForm.isActive
+          };
           if (typeof google !== 'undefined' && google.script && google.script.run) {
             google.script.run
               .withSuccessHandler((res) => {
                 loading.value = false;
-                alert(res.message);
-                loadUsersList();
+                if (res && res.success) {
+                  editUserModalActive.value = false;
+                  Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'success',
+                    title: res.message || 'แก้ไขข้อมูลสมาชิกเรียบร้อยแล้ว',
+                    showConfirmButton: false,
+                    timer: 2400,
+                    timerProgressBar: true
+                  });
+                  loadUsersList(true);
+                } else {
+                  Swal.fire({ icon: 'error', title: 'บันทึกไม่สำเร็จ', text: (res && res.message) || 'เกิดข้อผิดพลาด', confirmButtonColor: '#ef4444' });
+                }
               })
-              .withFailureHandler((err) => {
+              .withFailureHandler(() => {
                 loading.value = false;
-                errorMsg.value = "ขณะนี้แหล่งข้อมูลขัดข้อง โปรดตรวจสอบใหม่อีกครั้งในภายหลัง";
+                Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถบันทึกข้อมูลสมาชิกได้ โปรดลองใหม่อีกครั้ง', confirmButtonColor: '#ef4444' });
               })
-              .adminUpdateUser(u, session.value.token);
+              .adminUpdateUser(payload, session.value.token);
           } else {
             loading.value = false;
-            alert("แก้ไขข้อมูลสมาชิกสำเร็จ (โหมดออฟไลน์จำลอง)");
+            const idx = usersList.value.findIndex((item) => String(item.rowNum || item.userId) === String(editUserForm.rowNum || editUserForm.userId));
+            if (idx !== -1) {
+              Object.assign(usersList.value[idx], payload);
+            }
+            editUserModalActive.value = false;
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'แก้ไขข้อมูลสมาชิกสำเร็จ (โหมดจำลอง)', showConfirmButton: false, timer: 2000 });
+          }
+        }
+
+        async function toggleUserActiveStatus(u) {
+          if (!u || u._toggleLoading) return;
+
+          // ป้องกันแอดมินปิดสิทธิ์บัญชีของตนเอง
+          const currentUserId = session.value ? (session.value.userId || session.value.user_id) : null;
+          const currentUsername = session.value ? (session.value.username || '') : '';
+          const isSelf = (currentUserId && String(u.userId) === String(currentUserId)) ||
+                         (currentUsername && u.username && String(u.username).trim().toLowerCase() === String(currentUsername).trim().toLowerCase());
+
+          const currentIsActive = String(u.isActive || '').toLowerCase() === 'yes';
+
+          if (isSelf && currentIsActive) {
+            if (typeof Swal !== 'undefined') {
+              Swal.fire({
+                icon: 'warning',
+                title: 'ไม่สามารถระงับสิทธิ์บัญชีตนเองได้',
+                text: 'คุณกำลังเข้าใช้งานระบบด้วยบัญชีนี้ เพื่อความปลอดภัยและป้องกันระบบถูกล็อก จึงไม่อนุญาตให้ระงับสิทธิ์บัญชีของตนเอง',
+                confirmButtonColor: '#3b82f6',
+                confirmButtonText: 'รับทราบ'
+              });
+            }
+            return;
+          }
+
+          const newStatus = currentIsActive ? 'no' : 'yes';
+          const targetName = u.fullName || u.username || ('รหัส #' + u.userId);
+
+          // กล่องยืนยันการทำรายการเพื่อป้องกันการกดพลาด
+          if (typeof Swal !== 'undefined') {
+            if (currentIsActive) {
+              const confirmRes = await Swal.fire({
+                title: 'ยืนยันปิดสิทธิ์การใช้งาน?',
+                html: `คุณต้องการระงับสิทธิ์การเข้าใช้งานของ <strong>${targetName}</strong> ใช่หรือไม่?<br><div style="margin-top: 10px; font-size: 0.85rem; color: #ef4444; background: rgba(239, 68, 68, 0.08); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.2); text-align: left;"><i class="fa-solid fa-triangle-exclamation"></i> บัญชีนี้จะไม่สามารถเข้าสู่ระบบได้ และเซสชันที่ใช้งานอยู่จะถูกยกเลิกทันที</div>`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: '<i class="fa-solid fa-user-slash"></i> ยืนยันปิดสิทธิ์',
+                cancelButtonText: 'ยกเลิก',
+                reverseButtons: true
+              });
+              if (!confirmRes.isConfirmed) return;
+            } else {
+              const confirmRes = await Swal.fire({
+                title: 'ยืนยันเปิดสิทธิ์การใช้งาน?',
+                html: `คุณต้องการอนุมัติและเปิดสิทธิ์การเข้าใช้งานให้ <strong>${targetName}</strong> ใช่หรือไม่?<br><div style="margin-top: 10px; font-size: 0.85rem; color: #10b981; background: rgba(16, 185, 129, 0.08); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.2); text-align: left;"><i class="fa-solid fa-circle-check"></i> ผู้ใช้งานจะสามารถเข้าสู่ระบบและเริ่มปฏิบัติงานได้ทันที</div>`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#10b981',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: '<i class="fa-solid fa-check"></i> ยืนยันเปิดสิทธิ์',
+                cancelButtonText: 'ยกเลิก',
+                reverseButtons: true
+              });
+              if (!confirmRes.isConfirmed) return;
+            }
+          }
+
+          // อัปเดตแบบ Optimistic UI ทันที
+          const prevStatus = u.isActive;
+          u._toggleLoading = true;
+          u.isActive = newStatus;
+
+          const payload = {
+            rowNum: u.rowNum,
+            userId: u.userId,
+            username: u.username,
+            fullName: u.fullName,
+            position: u.position,
+            phone: u.phone,
+            role: u.role,
+            isActive: newStatus
+          };
+
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                u._toggleLoading = false;
+                if (res && res.success) {
+                  if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                      toast: true,
+                      position: 'top-end',
+                      icon: newStatus === 'yes' ? 'success' : 'info',
+                      title: newStatus === 'yes'
+                        ? `เปิดสิทธิ์ให้ "${targetName}" เรียบร้อยแล้ว`
+                        : `ระงับสิทธิ์ "${targetName}" เรียบร้อยแล้ว`,
+                      showConfirmButton: false,
+                      timer: 2200,
+                      timerProgressBar: true
+                    });
+                  }
+                  loadUsersList(true);
+                } else {
+                  u.isActive = prevStatus;
+                  if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                      icon: 'error',
+                      title: 'เปลี่ยนสถานะสิทธิ์ไม่สำเร็จ',
+                      text: (res && res.message) || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล',
+                      confirmButtonColor: '#ef4444'
+                    });
+                  }
+                }
+              })
+              .withFailureHandler(() => {
+                u._toggleLoading = false;
+                u.isActive = prevStatus;
+                if (typeof Swal !== 'undefined') {
+                  Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาด',
+                    text: 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ โปรดลองใหม่อีกครั้ง',
+                    confirmButtonColor: '#ef4444'
+                  });
+                }
+              })
+              .adminUpdateUser(payload, session.value.token);
+          } else {
+            // โหมดจำลองใน Local / Browser Preview
+            u._toggleLoading = false;
+            if (typeof Swal !== 'undefined') {
+              Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: `(โหมดจำลอง) เปลี่ยนสถานะสิทธิ์ให้ "${targetName}" แล้ว`,
+                showConfirmButton: false,
+                timer: 1800
+              });
+            }
           }
         }
 
@@ -3447,6 +4522,9 @@
 
         function updateTime() {
           const now = new Date();
+          if (now.getSeconds() % 15 === 0) {
+            nowTickMs.value = now.getTime();
+          }
           const hh = String(now.getHours()).padStart(2, '0');
           const mm = String(now.getMinutes()).padStart(2, '0');
           const ss = String(now.getSeconds()).padStart(2, '0');
@@ -5249,6 +6327,8 @@
                   lineOaUpcomingList.value = res.upcomingList || [];
                   lineOaLogs.value = res.logs || [];
                   lineOaContacts.value = res.contacts || [];
+                  lineOaModuleLoaded.value = true;
+                  saveLineLocalCache();
                 } else if (!isSilent) {
                   alert(res ? res.message : 'ไม่สามารถโหลดข้อมูลระบบแจ้งเตือน LINE OA ได้');
                 }
@@ -5264,6 +6344,141 @@
             lineOaLoading.value = false;
           }
         }
+
+        function onSelectLineNotifyTab(tabName) {
+          lineNotifyTab.value = tabName;
+          if (tabName === 'inbox') {
+            loadLineUnreadInbox(true, false);
+          } else if (!lineOaModuleLoaded.value || (lineOaUpcomingList.value.length === 0 && lineOaContacts.value.length === 0)) {
+            loadLineOaModule();
+          } else {
+            loadLineOaModule(true);
+          }
+        }
+
+        function loadLineUnreadInbox(silent = false, forceRefresh = false) {
+          if (!session.value || !session.value.token || !canViewLineOaInbox()) return;
+          const isSilent = silent === true;
+          if (!isSilent && lineUnreadList.value.length === 0) {
+            lineUnreadLoading.value = true;
+          }
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                lineUnreadLoading.value = false;
+                if (res && res.success) {
+                  if (res.publicConfig) {
+                    lineOaPublicConfig.oa_basic_id = res.publicConfig.oa_basic_id || lineOaPublicConfig.oa_basic_id || '@012cryec';
+                    lineOaPublicConfig.oa_bot_id = res.publicConfig.oa_bot_id || lineOaPublicConfig.oa_bot_id || '';
+                  }
+                  if (res.unread) {
+                    syncLineUnreadSummary(res.unread, { suppressSound: !forceRefresh });
+                  }
+                }
+              })
+              .withFailureHandler((err) => {
+                lineUnreadLoading.value = false;
+                console.error('Failed to load LINE unread inbox:', err);
+              })
+              .getLineUnreadInbox(session.value.token, forceRefresh === true);
+          } else {
+            lineUnreadLoading.value = false;
+          }
+        }
+
+        function buildOptimisticClearedInfo(count, actionType) {
+          return {
+            byName: (session.value && (session.value.fullName || session.value.email)) || 'คุณ',
+            byRole: (session.value && session.value.role) || '',
+            atIso: new Date().toISOString(),
+            clearedCount: Number(count || 0),
+            actionType: actionType || 'mark_all'
+          };
+        }
+
+        function markLineChatAsRead(ct) {
+          if (!ct || !ct.line_user_id || !session.value || !session.value.token) return;
+          const uid = String(ct.line_user_id).trim();
+          const filtered = lineUnreadList.value.filter(item => String(item.line_user_id || '').trim() !== uid);
+          syncLineUnreadSummary({
+            count: filtered.length,
+            latestMs: lineKnownLatestMs.value,
+            items: filtered,
+            lastCleared: buildOptimisticClearedInfo(1, 'single')
+          }, { suppressSound: true });
+
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                if (res && res.success && res.unread) {
+                  syncLineUnreadSummary(res.unread, { suppressSound: true });
+                }
+              })
+              .markLineContactRead(uid, session.value.token);
+          }
+        }
+
+        function markAllLineChatsRead(actionType = 'mark_all') {
+          if (!session.value || !session.value.token) return;
+          const act = typeof actionType === 'string' ? actionType : 'mark_all';
+          if (lineUnreadList.value.length === 0 && act !== 'open_oa_all') return;
+          const prevLen = lineUnreadList.value.length;
+          syncLineUnreadSummary({
+            count: 0,
+            latestMs: lineKnownLatestMs.value,
+            items: [],
+            lastCleared: buildOptimisticClearedInfo(prevLen, act)
+          }, { suppressSound: true });
+
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                if (res && res.success && res.unread) {
+                  syncLineUnreadSummary(res.unread, { suppressSound: true });
+                }
+              })
+              .markAllLineContactsRead(session.value.token, act);
+          }
+        }
+
+        function openAllChatsInLineOaAndClear() {
+          openLineChat('', '', { openInbox: true });
+          markAllLineChatsRead('open_oa_all');
+        }
+
+        function openLineChatAndMarkRead(ct) {
+          if (!ct) return;
+          openLineChat(ct.display_name || '', ct.line_user_id || '', {
+            citizen_id: ct.linked_citizen_id || '',
+            target_role: ct.linked_role || '',
+            chat_url: ct.chat_url || '',
+            skipLinkPrompt: true,
+            openInboxFallback: true
+          });
+          markLineChatAsRead(ct);
+        }
+
+        function getLineMessageTypeMeta(msgType) {
+          const t = String(msgType || 'text').toLowerCase();
+          const map = {
+            text: { label: 'ข้อความ', icon: 'fa-solid fa-comment-dots', color: '#0284c7', bg: 'rgba(2, 132, 199, 0.12)' },
+            image: { label: 'รูปภาพ', icon: 'fa-solid fa-image', color: '#10b981', bg: 'rgba(16, 185, 129, 0.12)' },
+            sticker: { label: 'สติกเกอร์', icon: 'fa-solid fa-face-smile', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.14)' },
+            video: { label: 'วิดีโอ', icon: 'fa-solid fa-video', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.12)' },
+            audio: { label: 'เสียง', icon: 'fa-solid fa-microphone', color: '#ec4899', bg: 'rgba(236, 72, 153, 0.12)' },
+            file: { label: 'ไฟล์แนบ', icon: 'fa-solid fa-paperclip', color: '#6366f1', bg: 'rgba(99, 102, 241, 0.12)' },
+            location: { label: 'ตำแหน่งที่ตั้ง', icon: 'fa-solid fa-location-dot', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.12)' },
+            follow: { label: 'เพิ่มเพื่อนใหม่', icon: 'fa-solid fa-user-plus', color: '#06C755', bg: 'rgba(6, 199, 85, 0.14)' },
+            postback: { label: 'กดปุ่มตอบกลับ', icon: 'fa-solid fa-hand-pointer', color: '#0ea5e9', bg: 'rgba(14, 165, 233, 0.12)' }
+          };
+          return map[t] || { label: 'ข้อความใหม่', icon: 'fa-solid fa-bell', color: '#64748b', bg: 'rgba(100, 116, 139, 0.12)' };
+        }
+
+        watch(() => (session.value && session.value.token) ? session.value.role : '', (newRole) => {
+          if (newRole !== 'admin' && newRole !== 'psychologist') {
+            resetLineOaClientState();
+          }
+        });
 
         function saveLineOaConfigSettings() {
           if (!session.value || (session.value.role !== 'admin' && session.value.role !== 'psychologist')) {
@@ -5437,6 +6652,42 @@
               .runDailyLineNotifications(session.value.token);
           } else {
             loading.value = false;
+          }
+        }
+
+        function installAutoTrigger() {
+          if (!session.value || (session.value.role !== 'admin' && session.value.role !== 'psychologist')) {
+            alert("เฉพาะผู้ดูแลระบบ (Admin) และนักจิตวิทยา (Psychologist) เท่านั้นที่สามารถติดตั้ง Trigger ได้");
+            return;
+          }
+          loading.value = true;
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res && res.success) {
+                  if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                      icon: 'success',
+                      title: 'ติดตั้ง Trigger อัตโนมัติสำเร็จ!',
+                      text: res.message,
+                      confirmButtonColor: '#06C755'
+                    });
+                  } else {
+                    alert(res.message);
+                  }
+                } else {
+                  alert(res ? res.message : 'ไม่สามารถติดตั้ง Trigger ได้');
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                alert("เกิดข้อผิดพลาดในการติดตั้ง Trigger: " + err);
+              })
+              .installDailyLineTrigger(session.value.token);
+          } else {
+            loading.value = false;
+            alert("ติดตั้ง Trigger สำเร็จ (โหมดจำลอง)");
           }
         }
 
@@ -5623,15 +6874,32 @@
         }
 
 
+        function getLineOaInboxUrl() {
+          const botId = (lineOaPublicConfig.oa_bot_id || lineOaConfigForm.oa_bot_id || '').trim();
+          return (/^U[0-9a-fA-F]{32}$/.test(botId) && botId !== 'Uc26f8cd9efde3d463307945a2077ff3f')
+            ? ('https://chat.line.biz/' + botId)
+            : 'https://chat.line.biz/';
+        }
+
         function openLineChat(rawVal, rawUserId, contextObj) {
           const val = rawVal ? String(rawVal).trim() : '';
           const uidParam = rawUserId ? String(rawUserId).trim() : '';
           const ctx = contextObj || {};
 
-          if ((!val || val === '-') && !uidParam && !ctx.citizen_id) return;
+          if (ctx.openInbox === true) {
+            window.open(getLineOaInboxUrl(), '_blank', 'noopener,noreferrer');
+            return;
+          }
+
+          if ((!val || val === '-') && !uidParam && !ctx.citizen_id) {
+            if (ctx.openInboxFallback === true) {
+              window.open(getLineOaInboxUrl(), '_blank', 'noopener,noreferrer');
+            }
+            return;
+          }
 
           const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-          if (isMobile) {
+          if (isMobile && val) {
             let targetUrl = '';
             if (val.startsWith('http://') || val.startsWith('https://') || val.startsWith('line://')) {
               targetUrl = val;
@@ -5657,24 +6925,21 @@
             return;
           }
 
-          // 2. ยังไม่มีลิงก์ห้องแชท: เปิดหน้ารายการแชทของ LINE OA แล้วคัดลอกชื่อไว้ให้ค้นหา พร้อมช่องวางลิงก์ห้องแชทได้ทันที
-          const botId = (lineOaPublicConfig.oa_bot_id || lineOaConfigForm.oa_bot_id || '').trim();
-          const inboxUrl = (/^U[0-9a-fA-F]{32}$/.test(botId) && botId !== 'Uc26f8cd9efde3d463307945a2077ff3f')
-            ? ('https://chat.line.biz/' + botId)
-            : 'https://chat.line.biz/';
+          // 2. ยังไม่มีลิงก์ห้องแชท: เปิดหน้ารายการแชทของ LINE OA แล้วคัดลอกชื่อไว้ให้ค้นหา
+          const inboxUrl = getLineOaInboxUrl();
           const cleanId = val.replace(/^[@~]/, '');
           if (cleanId && cleanId !== '-' && navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(cleanId).catch(() => {});
           }
           window.open(inboxUrl, '_blank', 'noopener,noreferrer');
 
-          if (typeof Swal !== 'undefined' && resolvedCitizenId) {
+          if (!ctx.skipLinkPrompt && typeof Swal !== 'undefined' && resolvedCitizenId) {
             Swal.fire({
               icon: 'info',
               title: 'ผูกทางลัดห้องแชท LINE OA (ทำครั้งเดียว)',
               html: '<div style="text-align:left;font-size:0.86rem;line-height:1.6;">' +
                     'เนื่องจากรหัสของระบบแจ้งเตือน (Messaging API) เป็นคนละรหัสกับลิงก์หน้าเว็บ <b>chat.line.biz</b> จึงต้องคัดลอกลิงก์ห้องแชทจริงมาวาง 1 ครั้ง:<br><br>' +
-                    '1. ในหน้า <b>LINE OA Chat</b> ที่เพิ่งเปิดขึ้น ให้คลิกเข้าห้องแชทของ <b>' + (cleanId || 'บุคคลนี้') + '</b>' + (cleanId ? ' <span style="color:#06C755;">(คัดลอกชื่อไว้แล้ว กด Ctrl+V ค้นหาได้เลย)</span>' : '') + '<br>' +
+                    '1. ในหน้า <b>LINE OA Chat</b> ที่เพิ่งเปิดขึ้น ให้คลิกเข้าห้องแชทของ <b>' + escapeHtml(cleanId || 'บุคคลนี้') + '</b>' + (cleanId ? ' <span style="color:#06C755;">(คัดลอกชื่อไว้แล้ว กด Ctrl+V ค้นหาได้เลย)</span>' : '') + '<br>' +
                     '2. คัดลอกลิงก์จาก <b>แถบที่อยู่เว็บ (Address bar) ด้านบนสุด</b><br>' +
                     '3. นำมาวางในช่องด้านล่างนี้แล้วกดบันทึก (ครั้งต่อไปคลิกปุ๊บจะเปิดห้องแชทของคนนี้ทันที)</div>',
               input: 'text',
@@ -5727,10 +6992,12 @@
         return {
           openLineChat,
           lineNotifyTab, lineUpcomingDaysRange, lineUpcomingTypeFilter, lineOaUpcomingList, lineOaLogs, lineOaContacts, lineOaLoading,
+          lineUnreadList, lineUnreadCount, lineUnreadLoading, lineLastClearedInfo, lineSoundEnabled, lineOaModuleLoaded,
+          toggleLineSound, onSelectLineNotifyTab, loadLineUnreadInbox, markLineChatAsRead, markAllLineChatsRead, openAllChatsInLineOaAndClear, openLineChatAndMarkRead, getLineMessageTypeMeta,
           lineOaPublicConfig, lineOaConfigForm, filteredLineUpcomingList,
           linePreviewModalActive, linePreviewItem, lineLinkModalActive, lineLinkForm,
           loadLineOaModule, saveLineOaConfigSettings, openLinePreviewSendModal, confirmSendLineReminder,
-          copyMessageAndOpenLineOa, triggerAutoLineCheckNow, promptManualLinkContact, promptManualLinkForDefendant, onSelectLineContactInModal, submitManualLinkContact,
+          copyMessageAndOpenLineOa, triggerAutoLineCheckNow, installAutoTrigger, promptManualLinkContact, promptManualLinkForDefendant, onSelectLineContactInModal, submitManualLinkContact,
           confirmUnlinkDefendantLine, clearDefFormLine, confirmUnlinkContact, loadUsersList,
           showBackToTop, scrollToTop,
           session, currentView, authView, loading, errorMsg, cacheTime, isOffline, authAlert, adminProfileImage, isEditingProfile, cancelEditingProfile,
@@ -5739,12 +7006,12 @@
           addCounselorModalActive, counselorForm, openAddCounselorModal, closeAddCounselorModal, saveNewCounselor,
           caseModalActive, caseFormMode, editDefModalActive, settingsModalActive, settingsTab,
           settingsForm, pwdForm, dashboardFilter, selectLists, stats, loginForm, registerForm, forgotForm,
-          showPasswordLogin, showPasswordRegister, showPasswordForgot,
-          defForm, caseForm, handleLogin, handleRegister, handleForgotPassword, handleLogout, toggleTheme, formatThaiDate, formatThaiDateForInput,
+          showPasswordLogin, showPasswordRegister, showPasswordForgot, showPasswordForgotConfirm,
+          defForm, caseForm, handleLogin, handleRegister, openForgotPasswordView, handleRequestResetOtp, handleForgotPassword, handleLogout, toggleTheme, formatThaiDate, formatThaiDateForInput,
           searchDefendant, saveNewDefendant, openEditDefModal, saveEditDefendant,
           confirmDeleteDefModalActive, deleteConfirmPassword, confirmDeleteDef, cancelDeleteDef, submitDeleteDef,
           openAddCaseModal, openEditCaseModal, saveCase, handleDeleteCase, closeCaseModal,
-          handleUpdateUserByAdmin, handleUpdateCounselor, loadCounselorsList, confirmDeleteCounselor, cancelDeleteCounselor, submitDeleteCounselor, cancelEditCounselor, getPercent, loadDashboardData, loadInitialAppState, updateCaseTypeAbb, formatAppointmentTime,
+          handleUpdateCounselor, loadCounselorsList, confirmDeleteCounselor, cancelDeleteCounselor, submitDeleteCounselor, cancelEditCounselor, getPercent, loadDashboardData, loadInitialAppState, updateCaseTypeAbb, formatAppointmentTime,
           openSettingsModal, closeSettingsModal, onProfileImageChange, saveProfile, saveNewPassword,
           printModalActive, openPrintPreview, closePrintModal, triggerPrint, dashboardRawData,
           manualZoom, adjustZoom,
@@ -5804,7 +7071,16 @@
              
              // Mobile Menu States & Methods
              isMobileMenuOpen, currentTranslateX, isDraggingMobileMenu, windowWidth, mobileSidebarStyle, backdropStyle,
-             openMobileMenu, closeMobileMenu, toggleMobileMenu, getMobileHeaderTitle
+             openMobileMenu, closeMobileMenu, toggleMobileMenu, getMobileHeaderTitle,
+
+             // User Management & 30-Day Login Audit States & Methods
+             usersTab, userSearchQuery, userRoleFilter, userQuickFilter, userSortBy,
+             loginLogsList, loginLogsLoading, logUserFilter, logTypeFilter,
+             editUserModalActive, editUserForm, usersStats, filteredUsersList, filteredLoginLogs,
+             setUserQuickFilter, resetUserFilters, switchUsersTab, refreshUsersModule,
+             loadLoginLogs, viewUserLoginHistory, openEditUserModal, closeEditUserModal, saveEditUserModal, toggleUserActiveStatus,
+             formatFullThaiDateTime, formatShortThaiDate, formatCompactThaiDateTime, formatRelativeThaiTime, formatOfflineDuration, getLoginRecencyPillClass, getRoleShortLabel,
+             getUserPresenceClass, getUserPresenceTooltip, getUserInitials, getUserAvatarColor, getRoleBadgeClass
           };
       }
     }).mount('#app');
