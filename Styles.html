@@ -3778,6 +3778,124 @@
       color: var(--text-muted);
     }
 
+    .user-def-email-line {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 4px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* กล่องรหัสยืนยันตัวตน 6 หลักสำหรับแอดมินบนการ์ดผู้ใช้งาน */
+    .user-def-vcode-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px dashed rgba(245, 158, 11, 0.45);
+      transition: all 0.25s ease;
+    }
+
+    .user-def-vcode-info {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.76rem;
+      color: #b45309;
+      font-weight: 600;
+    }
+
+    .user-def-vcode-digits {
+      font-family: monospace;
+      font-size: 0.95rem;
+      letter-spacing: 2px;
+      color: #d97706;
+      background: #ffffff;
+      padding: 1px 7px;
+      border-radius: 6px;
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .user-def-vcode-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .btn-vcode-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .btn-vcode-copy {
+      background: #f59e0b;
+      color: #ffffff;
+      border-color: #d97706;
+    }
+
+    .btn-vcode-copy:hover {
+      background: #d97706;
+      box-shadow: 0 2px 6px rgba(217, 119, 6, 0.25);
+    }
+
+    .btn-vcode-regen {
+      background: rgba(245, 158, 11, 0.15);
+      color: #b45309;
+      border-color: rgba(245, 158, 11, 0.35);
+      padding: 3px 6px;
+    }
+
+    .btn-vcode-regen:hover {
+      background: rgba(245, 158, 11, 0.25);
+    }
+
+    .dark-mode .user-def-vcode-box {
+      background: rgba(245, 158, 11, 0.12);
+      border-color: rgba(245, 158, 11, 0.4);
+    }
+
+    .dark-mode .user-def-vcode-info {
+      color: #fbbf24;
+    }
+
+    .dark-mode .user-def-vcode-digits {
+      background: rgba(15, 23, 42, 0.9);
+      color: #fbbf24;
+      border-color: rgba(245, 158, 11, 0.45);
+    }
+
+    .dark-mode .btn-vcode-regen {
+      color: #fbbf24;
+      border-color: rgba(245, 158, 11, 0.45);
+    }
+
+    .user-verify-info-card {
+      background: rgba(var(--accent-rgb), 0.05);
+      border: 1px solid rgba(var(--accent-rgb), 0.15);
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
     /* กล่องสถานะสิทธิ์การใช้งาน พร้อมสวิตช์เปิด/ปิดด่วนแบบพรีเมียม (Dedicated Status & Control Box) */
     .user-def-status-box {
       display: flex;

@@ -999,11 +999,14 @@
 
         // Local Form States
         const loginForm = reactive({ usernameOrEmail: '', password: '' });
-        const registerForm = reactive({ full_name: '', email: '', username: '', position: '', password: '' });
+        const registerForm = reactive({ full_name: '', email: '', username: '', position: '', password: '', confirm_password: '' });
         const forgotForm = reactive({ usernameOrEmail: '', otpCode: '', newPassword: '', confirmPassword: '', step: 1, maskedEmail: '' });
+        const verifyCodeUser = reactive({ userId: '', username: '', fullName: '', email: '', isActive: false });
+        const verifyCodeInput = ref('');
         
         const showPasswordLogin = ref(false);
         const showPasswordRegister = ref(false);
+        const showPasswordRegisterConfirm = ref(false);
         const showPasswordForgot = ref(false);
         const showPasswordForgotConfirm = ref(false);
         
@@ -1814,6 +1817,17 @@
                   loginForm.usernameOrEmail = '';
                   loginForm.password = '';
                 } else {
+                  if (res && res.needsVerification) {
+                    verifyCodeUser.userId = res.userId || '';
+                    verifyCodeUser.username = res.username || '';
+                    verifyCodeUser.fullName = res.fullName || '';
+                    verifyCodeUser.email = res.email || '';
+                    verifyCodeUser.isActive = !!res.isActive;
+                    verifyCodeInput.value = '';
+                    authAlert.value = res.message || 'กรุณากรอกรหัสยืนยันตัวตน 6 หลักที่ได้รับจากแอดมิน';
+                    authView.value = 'verify_code';
+                    return;
+                  }
                   authAlert.value = res.message;
                 }
               })
@@ -1971,6 +1985,14 @@
         }
 
         function handleRegister() {
+          if (registerForm.password !== registerForm.confirm_password) {
+            authAlert.value = 'รหัสผ่านและรหัสยืนยันไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง';
+            return;
+          }
+          if ((registerForm.password || '').length < 8) {
+            authAlert.value = 'รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร';
+            return;
+          }
           loading.value = true;
           authAlert.value = '';
           
@@ -1983,8 +2005,8 @@
                   if (typeof Swal !== 'undefined') {
                     Swal.fire({
                       icon: 'success',
-                      title: 'ลงทะเบียนสำเร็จ (รออนุมัติ)',
-                      text: res.message,
+                      title: 'ลงทะเบียนสำเร็จ (รอรับรหัสยืนยัน)',
+                      html: `${res.message}<br><div style="margin-top: 10px; font-size: 0.85rem; color: #b45309; background: rgba(245, 158, 11, 0.08); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.25); text-align: left;"><i class="fa-solid fa-shield-halved"></i> <strong>ขั้นตอนถัดไป:</strong> ติดต่อผู้ดูแลระบบ (Admin) เพื่อขอรหัสยืนยันตัวตน 6 หลัก จากนั้นล็อกอินเข้ามากรอกรหัสยืนยันตัวตนเพื่อเข้าใช้งาน</div>`,
                       confirmButtonColor: '#7c3aed'
                     });
                   } else {
@@ -1995,6 +2017,7 @@
                   registerForm.username = '';
                   registerForm.position = '';
                   registerForm.password = '';
+                  registerForm.confirm_password = '';
                 } else {
                   authAlert.value = res.message;
                 }
@@ -2003,10 +2026,82 @@
                 loading.value = false;
                 authAlert.value = "ขณะนี้แหล่งข้อมูลขัดข้อง โปรดตรวจสอบใหม่อีกครั้งในภายหลัง";
               })
-              .registerUser(registerForm);
+              .registerUser({
+                full_name: registerForm.full_name,
+                email: registerForm.email,
+                username: registerForm.username,
+                position: registerForm.position,
+                password: registerForm.password,
+                confirmPassword: registerForm.confirm_password
+              });
           } else {
             loading.value = false;
             authAlert.value = "ไม่สามารถเชื่อมต่อไปยังฐานข้อมูล Apps Script บนเซิร์ฟเวอร์ของกูเกิลคลาวด์ได้ในขณะนี้";
+          }
+        }
+
+        function handleVerifyRegistrationCode() {
+          const code = (verifyCodeInput.value || '').trim();
+          if (code.length !== 6) {
+            authAlert.value = 'กรุณากรอกรหัสยืนยันตัวตนให้ครบ 6 หลัก';
+            return;
+          }
+          loading.value = true;
+          authAlert.value = '';
+
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                loading.value = false;
+                if (res && res.success) {
+                  if (res.loggedIn && res.token && res.user) {
+                    session.value = res.user;
+                    session.value.token = res.token;
+                    if (res.webAppUrl) {
+                      webAppUrl.value = res.webAppUrl;
+                      localStorage.setItem('ccms_webapp_url', res.webAppUrl);
+                    }
+                    startPresenceTracking();
+                    localStorage.setItem('ccms_session_token', JSON.stringify(res.token));
+                    localStorage.setItem('ccms_user_profile', JSON.stringify(res.user));
+                    loadInitialAppState(true);
+                    authView.value = 'login';
+                    if (typeof Swal !== 'undefined') {
+                      Swal.fire({
+                        icon: 'success',
+                        title: 'ยืนยันตัวตนสำเร็จ',
+                        text: res.message,
+                        timer: 2000,
+                        showConfirmButton: false
+                      });
+                    }
+                  } else {
+                    // ยืนยันรหัสถูกต้องแล้ว แต่แอดมินยังไม่ได้เปิดสิทธิ์
+                    authView.value = 'login';
+                    if (typeof Swal !== 'undefined') {
+                      Swal.fire({
+                        icon: 'info',
+                        title: 'ยืนยันรหัสถูกต้องแล้ว',
+                        text: res.message,
+                        confirmButtonColor: '#7c3aed'
+                      });
+                    } else {
+                      alert(res.message);
+                    }
+                  }
+                  verifyCodeInput.value = '';
+                } else {
+                  authAlert.value = (res && res.message) || 'รหัสยืนยันไม่ถูกต้อง';
+                }
+              })
+              .withFailureHandler((err) => {
+                loading.value = false;
+                authAlert.value = 'เกิดข้อผิดพลาดในการตรวจสอบรหัส: ' + (err && err.message ? err.message : err);
+              })
+              .verifyUserRegistrationCode(verifyCodeUser.userId, code, clientTabId);
+          } else {
+            loading.value = false;
+            authAlert.value = 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ในขณะนี้';
           }
         }
 
@@ -4196,6 +4291,132 @@
                 title: `(โหมดจำลอง) เปลี่ยนสถานะสิทธิ์ให้ "${targetName}" แล้ว`,
                 showConfirmButton: false,
                 timer: 1800
+              });
+            }
+          }
+        }
+
+        async function copyUserVerificationCode(u) {
+          if (!u || !u.verificationCode) {
+            if (typeof Swal !== 'undefined') {
+              Swal.fire({
+                icon: 'warning',
+                title: 'ไม่พบรหัสยืนยัน',
+                text: 'ผู้ใช้งานนี้ได้รับการยืนยันตัวตนแล้ว หรือยังไม่มีรหัสยืนยันในระบบ',
+                confirmButtonColor: '#f59e0b'
+              });
+            }
+            return;
+          }
+          const targetName = u.fullName || u.username || 'ผู้ใช้งาน';
+          const shareText = `รหัสยืนยันตัวตนสำหรับคุณ ${targetName} ในระบบ CCMS Rayong คือ: ${u.verificationCode} (เมื่อได้รับรหัสแล้ว สามารถเข้าสู่ระบบเพื่อกรอกยืนยันตัวตนได้ทันที)`;
+
+          try {
+            if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(shareText);
+            } else {
+              const ta = document.createElement('textarea');
+              ta.value = shareText;
+              ta.style.position = 'fixed';
+              ta.style.opacity = '0';
+              document.body.appendChild(ta);
+              ta.select();
+              document.execCommand('copy');
+              document.body.removeChild(ta);
+            }
+            if (typeof Swal !== 'undefined') {
+              Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: `คัดลอกรหัสยืนยัน (${u.verificationCode}) เรียบร้อยแล้ว`,
+                text: 'สามารถวาง (Paste) ส่งให้ผู้ใช้งานใน LINE ได้ทันที',
+                showConfirmButton: false,
+                timer: 2800,
+                timerProgressBar: true
+              });
+            }
+          } catch (clipErr) {
+            if (typeof Swal !== 'undefined') {
+              Swal.fire({
+                title: `รหัสยืนยันตัวตน: ${u.verificationCode}`,
+                text: shareText,
+                icon: 'info',
+                confirmButtonColor: '#7c3aed'
+              });
+            }
+          }
+        }
+
+        async function regenerateUserVerificationCode(u) {
+          if (!u || u._regenLoading) return;
+          const targetName = u.fullName || u.username || 'ผู้ใช้งาน';
+
+          if (typeof Swal !== 'undefined') {
+            const confirmRes = await Swal.fire({
+              title: 'สุ่มสร้างรหัสยืนยันใหม่?',
+              html: `ต้องการสร้างรหัสยืนยัน 6 หลักชุดใหม่สำหรับ <strong>${targetName}</strong> ใช่หรือไม่?<br><div style="margin-top: 10px; font-size: 0.85rem; color: #b45309; background: rgba(245, 158, 11, 0.08); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.25); text-align: left;"><i class="fa-solid fa-triangle-exclamation"></i> รหัสเดิมจะไม่สามารถใช้ยืนยันได้อีก และระบบจะรีเซ็ตจำนวนครั้งที่กรอกผิดให้เป็น 0</div>`,
+              icon: 'question',
+              showCancelButton: true,
+              confirmButtonColor: '#f59e0b',
+              cancelButtonColor: '#64748b',
+              confirmButtonText: '<i class="fa-solid fa-arrows-rotate"></i> สุ่มรหัสใหม่',
+              cancelButtonText: 'ยกเลิก',
+              reverseButtons: true
+            });
+            if (!confirmRes.isConfirmed) return;
+          }
+
+          u._regenLoading = true;
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler((res) => {
+                u._regenLoading = false;
+                if (res && res.success) {
+                  u.verificationCode = res.newCode;
+                  u.verificationAttempts = 0;
+                  if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                      icon: 'success',
+                      title: 'สร้างรหัสยืนยันใหม่สำเร็จ',
+                      html: `รหัสยืนยันใหม่สำหรับ <strong>${targetName}</strong> คือ: <div style="font-size: 1.8rem; font-family: monospace; letter-spacing: 5px; font-weight: bold; color: #d97706; margin: 12px 0;">${res.newCode}</div>`,
+                      confirmButtonColor: '#7c3aed',
+                      confirmButtonText: 'รับทราบ'
+                    });
+                  }
+                  loadUsersList(true);
+                } else {
+                  if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                      icon: 'error',
+                      title: 'ไม่สามารถสร้างรหัสใหม่ได้',
+                      text: (res && res.message) || 'เกิดข้อผิดพลาดในการสร้างรหัส',
+                      confirmButtonColor: '#ef4444'
+                    });
+                  }
+                }
+              })
+              .withFailureHandler((err) => {
+                u._regenLoading = false;
+                if (typeof Swal !== 'undefined') {
+                  Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาด',
+                    text: 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้: ' + (err && err.message ? err.message : err),
+                    confirmButtonColor: '#ef4444'
+                  });
+                }
+              })
+              .adminRegenerateVerificationCode(u.userId, session.value.token);
+          } else {
+            u._regenLoading = false;
+            u.verificationCode = String(Math.floor(100000 + Math.random() * 900000));
+            if (typeof Swal !== 'undefined') {
+              Swal.fire({
+                icon: 'success',
+                title: '(โหมดจำลอง) สร้างรหัสใหม่สำเร็จ',
+                html: `รหัสยืนยันใหม่คือ: <strong style="font-size: 1.5rem; color: #d97706;">${u.verificationCode}</strong>`,
+                confirmButtonColor: '#7c3aed'
               });
             }
           }
@@ -7006,7 +7227,8 @@
           addCounselorModalActive, counselorForm, openAddCounselorModal, closeAddCounselorModal, saveNewCounselor,
           caseModalActive, caseFormMode, editDefModalActive, settingsModalActive, settingsTab,
           settingsForm, pwdForm, dashboardFilter, selectLists, stats, loginForm, registerForm, forgotForm,
-          showPasswordLogin, showPasswordRegister, showPasswordForgot, showPasswordForgotConfirm,
+          showPasswordLogin, showPasswordRegister, showPasswordRegisterConfirm, showPasswordForgot, showPasswordForgotConfirm,
+          verifyCodeUser, verifyCodeInput, handleVerifyRegistrationCode,
           defForm, caseForm, handleLogin, handleRegister, openForgotPasswordView, handleRequestResetOtp, handleForgotPassword, handleLogout, toggleTheme, formatThaiDate, formatThaiDateForInput,
           searchDefendant, saveNewDefendant, openEditDefModal, saveEditDefendant,
           confirmDeleteDefModalActive, deleteConfirmPassword, confirmDeleteDef, cancelDeleteDef, submitDeleteDef,
@@ -7078,7 +7300,7 @@
              loginLogsList, loginLogsLoading, logUserFilter, logTypeFilter,
              editUserModalActive, editUserForm, usersStats, filteredUsersList, filteredLoginLogs,
              setUserQuickFilter, resetUserFilters, switchUsersTab, refreshUsersModule,
-             loadLoginLogs, viewUserLoginHistory, openEditUserModal, closeEditUserModal, saveEditUserModal, toggleUserActiveStatus,
+             loadLoginLogs, viewUserLoginHistory, openEditUserModal, closeEditUserModal, saveEditUserModal, toggleUserActiveStatus, copyUserVerificationCode, regenerateUserVerificationCode,
              formatFullThaiDateTime, formatShortThaiDate, formatCompactThaiDateTime, formatRelativeThaiTime, formatOfflineDuration, getLoginRecencyPillClass, getRoleShortLabel,
              getUserPresenceClass, getUserPresenceTooltip, getUserInitials, getUserAvatarColor, getRoleBadgeClass
           };

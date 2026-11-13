@@ -1039,7 +1039,8 @@ function registerUser(userData) {
     if (rawPwd.length < 8) {
       return { success: false, message: "รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร" };
     }
-    if (userData.confirmPassword && rawPwd !== userData.confirmPassword.toString()) {
+    var confirmPwd = userData.confirmPassword !== undefined ? userData.confirmPassword : userData.confirm_password;
+    if (confirmPwd !== undefined && rawPwd !== confirmPwd.toString()) {
       return { success: false, message: "รหัสผ่านและรหัสผ่านยืนยันไม่ตรงกัน โปรดตรวจสอบอีกครั้ง" };
     }
 
